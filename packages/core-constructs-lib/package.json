@@ -1,5 +1,5 @@
 {
-  "name": "@ferment/constructs",
+  "name": "@ferment/core-constructs-lib",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -23,13 +23,13 @@
           "{options.outputPath}"
         ],
         "options": {
-          "outputPath": "packages/constructs/dist",
-          "main": "packages/constructs/src/index.ts",
-          "tsConfig": "packages/constructs/tsconfig.lib.json",
+          "outputPath": "packages/core-constructs-lib/dist",
+          "main": "packages/core-constructs-lib/src/index.ts",
+          "tsConfig": "packages/core-constructs-lib/tsconfig.lib.json",
           "format": [
             "esm"
           ],
-          "declarationRootDir": "packages/constructs/src"
+          "declarationRootDir": "packages/core-constructs-lib/src"
         }
       }
     }

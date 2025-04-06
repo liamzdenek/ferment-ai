@@ -4,7 +4,10 @@
   "files": [],
   "references": [
     {
-      "path": "./libs/constructs"
+      "path": "./packages/core-constructs-lib"
+    },
+    {
+      "path": "./packages/core-constructs-runtime"
     },
     {
       "path": "./packages/runtime"
@@ -23,6 +26,9 @@
     },
     {
       "path": "./packages/testing"
+    },
+    {
+      "path": "./packages/demo"
     }
   ]
 }

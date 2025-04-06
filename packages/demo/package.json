@@ -1,0 +1,66 @@
+{
+  "name": "@ferment/demo",
+  "version": "0.0.1",
+  "private": true,
+  "type":"module",
+  "nx": {
+    "targets": {
+      "build": {
+        "executor": "@nx/esbuild:esbuild",
+        "outputs": [
+          "{options.outputPath}"
+        ],
+        "defaultConfiguration": "production",
+        "options": {
+          "platform": "node",
+          "outputPath": "packages/demo/dist",
+          "format": [
+            "esm"
+          ],
+          "bundle": false,
+          "main": "packages/demo/src/main.ts",
+          "tsConfig": "packages/demo/tsconfig.app.json",
+          "assets": [
+            "packages/demo/src/assets"
+          ],
+          "esbuildOptions": {
+            "sourcemap": true,
+            "outExtension": {
+              ".js": ".js"
+            }
+          }
+        },
+        "configurations": {
+          "development": {},
+          "production": {
+            "esbuildOptions": {
+              "sourcemap": false,
+              "outExtension": {
+                ".js": ".js"
+              }
+            }
+          }
+        }
+      },
+      "serve": {
+        "executor": "@nx/js:node",
+        "defaultConfiguration": "development",
+        "dependsOn": [
+          "build"
+        ],
+        "options": {
+          "buildTarget": "@ferment/demo:build",
+          "runBuildTargetDependencies": false
+        },
+        "configurations": {
+          "development": {
+            "buildTarget": "@ferment/demo:build:development"
+          },
+          "production": {
+            "buildTarget": "@ferment/demo:build:production"
+          }
+        }
+      }
+    }
+  }
+}
