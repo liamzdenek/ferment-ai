@@ -33,7 +33,7 @@ class TwoAgentModel extends VirtualModel {
         juniorEngineer.addTool(seniorEngineer.sendEmailTool());
         seniorEngineer.addTool(juniorEngineer.sendEmailTool());
 
-        this.entrypoint = new Entrypoint(this, 'Entrypoint', {
+        new Entrypoint(this, 'Entrypoint', {
             promptAgent: seniorEngineer
         });
 

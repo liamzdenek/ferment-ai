@@ -1,1 +1,1 @@
-export { createCoreConstructsModule } from './lib/core-constructs-module.js';
+export * from './lib/core-constructs-module.js';

@@ -74,5 +74,11 @@
         }
       }
     }
+  },
+  "dependencies": {
+    "@ferment-ai/core-constructs-lib": "*",
+    "@ferment-ai/core-constructs-runtime": "*",
+    "@ferment-ai/runtime-http": "*",
+    "constructs": "^10.4.2"
   }
 }
