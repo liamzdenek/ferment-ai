@@ -7,13 +7,15 @@ The project is in the **implementation phase**. We have set up the project struc
 ## What Works
 
 1. **Project Structure**: We have set up an Nx monorepo with the following packages:
-   - `@ferment/constructs`: Core construct library
-   - `@ferment/runtime`: Runtime implementation
-   - `@ferment/journal`: Journal system
-   - `@ferment/api`: API layer
-   - `@ferment/tools`: Tool implementations
-   - `@ferment/models`: Model integrations
-   - `@ferment/testing`: Testing utilities
+   - `@ferment-ai/core-constructs-lib`: Core construct library (renamed from constructs)
+   - `@ferment-ai/core-constructs-runtime`: Runtime implementation for constructs (new)
+   - `@ferment-ai/runtime`: Runtime implementation
+   - `@ferment-ai/journal`: Journal system
+   - `@ferment-ai/api`: API layer
+   - `@ferment-ai/tools`: Tool implementations
+   - `@ferment-ai/models`: Model integrations
+   - `@ferment-ai/testing`: Testing utilities
+   - `@ferment-ai/demo`: Demo application
 
 2. **Core Constructs**: We have implemented the core constructs for the system:
    - `FermentConstruct`: Base class for all Ferment constructs
@@ -38,7 +40,7 @@ The project is in the **implementation phase**. We have set up the project struc
   - [x] Initialize repository
   - [x] Set up build system
   - [x] Configure TypeScript
-  - [ ] Configure testing framework (Jest issues to resolve)
+  - [x] Configure testing framework (Jest issues resolved)
 
 - [x] **Core Construct System**
   - [x] Implement base Construct class
@@ -126,23 +128,24 @@ The project is in the **implementation phase**. We have set up the project struc
 
 ## Known Issues
 
-1. **Jest Configuration**: We're experiencing issues with the Jest plugin in the Nx configuration, which prevents us from running tests and creating new applications.
+1. **Module Resolution**: There are some issues with TypeScript module resolution that need to be addressed.
 
-2. **Demo Application**: We haven't been able to create a demo application due to the Jest configuration issues.
+2. **Core Constructs Runtime**: The core-constructs-runtime package needs to be implemented, including the HttpApplication class.
 
-3. **Module Resolution**: There are some issues with TypeScript module resolution that need to be addressed.
+3. **Processor/Runtime Module Interface**: We need to design and implement a processor/runtime module interface to validate that all necessary modules are available to execute the constructs.
 
 ## Next Milestones
 
-1. **Fix Jest Configuration** (Target: Week 1)
-   - Resolve the issues with the Jest plugin
-   - Enable proper testing
-   - Allow creation of new applications
+1. **Implement HttpApplication in core-constructs-runtime** (Target: Week 1)
+   - Create the HttpApplication class that extends RootConstruct
+   - Implement the 'serve' operation to initialize the HTTP API
+   - Ensure proper integration with the rest of the system
 
-2. **Create Demo Application** (Target: Week 1)
-   - Create a demo application that showcases the usage of our constructs
-   - Implement a simple two-agent model
-   - Demonstrate the core functionality
+2. **Design Processor/Runtime Module Interface** (Target: Week 1)
+   - Plan the interface design
+   - Determine validation requirements
+   - Implement the interface
+   - Create tests for the interface
 
 3. **Implement Journal System** (Target: Week 2)
    - Define journal event structure
@@ -162,3 +165,14 @@ The project is in the **implementation phase**. We have set up the project struc
    - Implement endpoints
    - Develop streaming support
    - Create journal-based state management
+
+## Demo Application
+
+A barebones demo application has been created in 'packages/demo/src/main.ts' that shows how the app will be initialized and navigated. It demonstrates a two-agent model with a junior engineer and senior engineer that can communicate with each other.
+
+To build and run the demo application:
+
+```bash
+npx nx build demo
+npx nx serve demo
+```

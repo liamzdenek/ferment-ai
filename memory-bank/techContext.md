@@ -71,21 +71,29 @@
 2. **Build**
    ```bash
    npm run build
+   # Or for specific packages:
+   npx nx build <package-name>
    ```
 
 3. **Test**
    ```bash
    npm test
+   # Or for specific packages:
+   npx nx test <package-name>
    ```
 
 4. **Run**
    ```bash
    npm start
+   # Or for the demo application:
+   npx nx serve demo
    ```
 
 5. **Development Mode**
    ```bash
    npm run dev
+   # Or for the demo application:
+   npx nx serve demo
    ```
 
 ## Dependencies
@@ -115,6 +123,14 @@
 6. **body-parser** (^1.0.0)
    - Request body parsing middleware
    - Used for API request handling
+
+7. **@ferment-ai/core-constructs-lib**
+   - Core construct library
+   - Renamed from @ferment/constructs
+
+8. **@ferment-ai/core-constructs-runtime**
+   - Runtime implementation for constructs
+   - New package for runtime-specific functionality
 
 ### Development Dependencies
 
@@ -213,6 +229,7 @@
 1. **Development Server**
    - Express server for API
    - Hot reloading for rapid development
+   - Run with `npx nx serve demo`
 
 2. **Testing Environment**
    - Mock LLMs for deterministic testing
@@ -231,3 +248,23 @@
 3. **Monitoring**
    - Logging for debugging
    - Metrics for performance monitoring
+
+## Demo Application
+
+A barebones demo application has been created in 'packages/demo/src/main.ts' that shows how the app will be initialized and navigated. It demonstrates a two-agent model with a junior engineer and senior engineer that can communicate with each other.
+
+To build and run the demo application:
+
+```bash
+# Build the demo application
+npx nx build demo
+
+# Run the demo application
+npx nx serve demo
+```
+
+The demo application showcases:
+1. Creating a VirtualModel
+2. Setting up agent contexts with different models
+3. Configuring communication between agents
+4. Defining an entrypoint for the system

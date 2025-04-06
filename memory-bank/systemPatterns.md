@@ -250,10 +250,59 @@ This pattern provides:
 
 3. **Stateless API Design**: The system has no persistence and relies on a stateless API, where the end user stores the entire journal and passes it to the API to resume a paused/canceled prompt.
 
-4. **Package Structure**: We've organized the codebase into multiple packages to maintain separation of concerns and enable modular development.
+4. **Package Structure**: We've organized the codebase into multiple packages to maintain separation of concerns and enable modular development. We've renamed the package scope from `@ferment` to `@ferment-ai` and renamed the constructs package to `core-constructs-lib`, with a new `core-constructs-runtime` package for runtime implementation.
 
 5. **Tool Implementation with Zod**: We're using Zod for schema validation in our tools, which provides runtime type safety and clear error messages.
 
 6. **TypeScript Configuration**: We've configured TypeScript to use the appropriate module resolution strategy and other compiler options.
 
-7. **Testing with Jest**: We're using Jest for testing, although we're currently experiencing issues with the Jest plugin in the Nx configuration.
+7. **Testing with Jest**: We're using Jest for testing, with the configuration issues now resolved.
+
+## Planned Patterns
+
+### 1. HttpApplication Pattern
+
+The `HttpApplication` class will be implemented in the core-constructs-runtime package:
+
+```typescript
+export class HttpApplication extends RootConstruct {
+  constructor(scope: Construct, id: string, props: HttpApplicationProps = {}) {
+    super(scope, id);
+    // Initialize HTTP application properties
+  }
+
+  public serve(options: ServeOptions = {}): void {
+    // Initialize the HTTP API
+    // Set up routes
+    // Start the server
+  }
+}
+```
+
+This pattern will provide:
+- A way to serve the constructs over HTTP
+- Configuration for the HTTP server
+- Integration with the journal system
+- Real-time streaming of events
+
+### 2. Processor/Runtime Module Interface
+
+We plan to design and implement a processor/runtime module interface to validate that all necessary modules are available to execute the constructs:
+
+```typescript
+export interface RuntimeModule {
+  readonly id: string;
+  readonly version: string;
+  readonly dependencies: string[];
+  
+  initialize(): Promise<void>;
+  validate(): Promise<ValidationResult>;
+  execute(context: ExecutionContext): Promise<ExecutionResult>;
+}
+```
+
+This pattern will provide:
+- Validation of module dependencies
+- Runtime checking of module availability
+- Clear error messages for missing modules
+- Extensibility for custom modules
