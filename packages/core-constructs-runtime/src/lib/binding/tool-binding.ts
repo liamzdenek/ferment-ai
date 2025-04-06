@@ -1,4 +1,4 @@
-import { Node } from 'constructs';
+import { Construct } from 'constructs';
 import { Journal, BindingResult } from '@ferment-ai/runtime-common';
 import { BaseBinding } from './base-binding.js';
 
@@ -26,25 +26,25 @@ export class ToolBinding extends BaseBinding {
   }
 
   /**
-   * Checks if this binding class can bind the given node
+   * Checks if this binding class can bind the given construct
    * 
-   * @param node The node to check
-   * @returns Whether this binding class can bind the given node
+   * @param construct The construct to check
+   * @returns Whether this binding class can bind the given construct
    */
-  public canBind(node: Node): boolean {
-    // Check if the node's constructor name is 'Tool'
-    return node.constructor.name === 'Tool';
+  public canBind(construct: Construct): boolean {
+    // Check if the construct's constructor name is 'Tool'
+    return construct.constructor.name === 'Tool';
   }
 
   /**
    * Performs the actual binding
    * 
-   * @param node The node to bind
+   * @param construct The construct to bind
    * @returns The result of the binding
    */
-  protected async doBind(node: Node): Promise<BindingResult> {
+  protected async doBind(construct: Construct): Promise<BindingResult> {
     // In a real implementation, we would extract information from the tool
     // and store it in the journal. For now, we'll just return success.
-    return this.createSuccessResult(node);
+    return this.createSuccessResult(construct);
   }
 }

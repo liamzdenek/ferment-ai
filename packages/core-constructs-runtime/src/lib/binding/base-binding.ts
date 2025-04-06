@@ -1,4 +1,4 @@
-import { Node } from 'constructs';
+import { Construct } from 'constructs';
 import {
   BindingClass,
   BindingResult,
@@ -37,29 +37,29 @@ export abstract class BaseBinding implements BindingClass {
   /**
    * Checks if this binding class can bind the given node
    * 
-   * @param node The node to check
+   * @param construct The construct to check
    * @returns Whether this binding class can bind the given node
    */
-  public abstract canBind(node: Node): boolean;
+  public abstract canBind(construct: Construct): boolean;
 
   /**
    * Binds the given node to the journal system
    * 
-   * @param node The node to bind
+   * @param construct The construct to bind
    * @returns The result of the binding
    */
-  public async bind(node: Node): Promise<BindingResult> {
+  public async bind(construct: Construct): Promise<BindingResult> {
     try {
       // Check if this binding class can bind the node
-      if (!this.canBind(node)) {
+      if (!this.canBind(construct)) {
         return {
           success: false,
-          constructId: node.id,
+          constructId: construct.node.id,
           constructType: this.constructType,
           errors: [
             {
-              constructId: node.id,
-              message: `Cannot bind node ${node.id} with binding class ${this.id}`,
+              constructId: construct.node.id,
+              message: `Cannot bind construct ${construct.node.id} with binding class ${this.id}`,
             },
           ],
           warnings: [],
@@ -67,12 +67,12 @@ export abstract class BaseBinding implements BindingClass {
       }
 
       // Perform the binding
-      const bindingResult = await this.doBind(node);
+      const bindingResult = await this.doBind(construct);
 
       // Publish an event to the journal
       this.journal.publish(EventType.SYSTEM, this.id, {
         action: 'construct_bound',
-        constructId: node.id,
+        constructId: construct.node.id,
         constructType: this.constructType,
         success: bindingResult.success,
         errors: bindingResult.errors,
@@ -84,19 +84,19 @@ export abstract class BaseBinding implements BindingClass {
       // Publish an error event to the journal
       this.journal.publish(EventType.SYSTEM, this.id, {
         action: 'construct_binding_error',
-        constructId: node.id,
+        constructId: construct.node.id,
         constructType: this.constructType,
         error: error.message,
       });
 
       return {
         success: false,
-        constructId: node.id,
+        constructId: construct.node.id,
         constructType: this.constructType,
         errors: [
           {
-            constructId: node.id,
-            message: `Error binding node ${node.id}: ${error.message}`,
+            constructId: construct.node.id,
+            message: `Error binding construct ${construct.node.id}: ${error.message}`,
           },
         ],
         warnings: [],
@@ -107,21 +107,21 @@ export abstract class BaseBinding implements BindingClass {
   /**
    * Performs the actual binding
    * 
-   * @param node The node to bind
+   * @param construct The construct to bind
    * @returns The result of the binding
    */
-  protected abstract doBind(node: Node): Promise<BindingResult>;
+  protected abstract doBind(construct: Construct): Promise<BindingResult>;
 
   /**
    * Creates a successful binding result
    * 
-   * @param node The node that was bound
+   * @param construct The construct that was bound
    * @returns A successful binding result
    */
-  protected createSuccessResult(node: Node): BindingResult {
+  protected createSuccessResult(construct: Construct): BindingResult {
     return {
       success: true,
-      constructId: node.id,
+      constructId: construct.node.id,
       constructType: this.constructType,
       errors: [],
       warnings: [],
@@ -131,18 +131,18 @@ export abstract class BaseBinding implements BindingClass {
   /**
    * Creates a failed binding result
    * 
-   * @param node The node that failed to bind
+   * @param construct The construct that failed to bind
    * @param message The error message
    * @returns A failed binding result
    */
-  protected createFailureResult(node: Node, message: string): BindingResult {
+  protected createFailureResult(construct: Construct, message: string): BindingResult {
     return {
       success: false,
-      constructId: node.id,
+      constructId: construct.node.id,
       constructType: this.constructType,
       errors: [
         {
-          constructId: node.id,
+          constructId: construct.node.id,
           message,
         },
       ],
@@ -153,18 +153,18 @@ export abstract class BaseBinding implements BindingClass {
   /**
    * Creates a binding result with warnings
    * 
-   * @param node The node that was bound
+   * @param construct The construct that was bound
    * @param warnings The warning messages
    * @returns A binding result with warnings
    */
-  protected createWarningResult(node: Node, warnings: string[]): BindingResult {
+  protected createWarningResult(construct: Construct, warnings: string[]): BindingResult {
     return {
       success: true,
-      constructId: node.id,
+      constructId: construct.node.id,
       constructType: this.constructType,
       errors: [],
       warnings: warnings.map(message => ({
-        constructId: node.id,
+        constructId: construct.node.id,
         message,
       })),
     };

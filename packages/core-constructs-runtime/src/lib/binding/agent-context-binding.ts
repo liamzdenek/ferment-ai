@@ -1,4 +1,4 @@
-import { Node } from 'constructs';
+import { Construct } from 'constructs';
 import { Journal, BindingResult } from '@ferment-ai/runtime-common';
 import { BaseBinding } from './base-binding.js';
 
@@ -28,10 +28,10 @@ export class AgentContextBinding extends BaseBinding {
   /**
    * Checks if this binding class can bind the given node
    * 
-   * @param node The node to check
+   * @param node The construct to check
    * @returns Whether this binding class can bind the given node
    */
-  public canBind(node: Node): boolean {
+  public canBind(node: Construct): boolean {
     // Check if the node's constructor name is 'AgentContext'
     return node.constructor.name === 'AgentContext';
   }
@@ -39,12 +39,12 @@ export class AgentContextBinding extends BaseBinding {
   /**
    * Performs the actual binding
    * 
-   * @param node The node to bind
+   * @param construct The construct to bind
    * @returns The result of the binding
    */
-  protected async doBind(node: Node): Promise<BindingResult> {
+  protected async doBind(construct: Construct): Promise<BindingResult> {
     // In a real implementation, we would extract information from the agent context
     // and store it in the journal. For now, we'll just return success.
-    return this.createSuccessResult(node);
+    return this.createSuccessResult(construct);
   }
 }

@@ -1,4 +1,4 @@
-import { Node } from 'constructs';
+import { Construct, Node, RootConstruct } from 'constructs';
 import { Journal } from './journal.js';
 
 /**
@@ -173,7 +173,7 @@ export interface RuntimeModule {
    * @param rootNode The root node of the construct tree
    * @param journal The journal to use
    */
-  initialize(rootNode: Node, journal: Journal): Promise<void>;
+  initialize(rootConstruct: RootConstruct, journal: Journal): Promise<void>;
 }
 
 /**
@@ -183,7 +183,7 @@ export interface RuntimeModule {
  * @param journal The journal to use
  * @returns A promise that resolves when the setup is complete
  */
-export type ConstructSetupFunction = (node: Node, journal: Journal) => Promise<void>;
+export type ConstructSetupFunction = (construct: Construct, journal: Journal) => Promise<void>;
 
 /**
  * A mapping from constructor names to setup functions
@@ -212,7 +212,7 @@ export interface StandardRuntimeModuleOptions {
   /**
    * A mapping from constructor names to setup functions
    */
-  readonly setupMap: ConstructSetupMap;
+  readonly getSetupMap: (journal: Journal) => ConstructSetupMap;
 }
 
 /**
@@ -227,26 +227,34 @@ export function createStandardRuntimeModule(options: StandardRuntimeModuleOption
     version: options.version,
     dependencies: options.dependencies || [],
     
-    async initialize(rootNode: Node, journal: Journal): Promise<void> {
+    async initialize(rootConstruct: RootConstruct, journal: Journal): Promise<void> {
+      const setupMap = options.getSetupMap(journal);
       // Traverse the construct tree and bind nodes
-      const traverse = async (node: Node): Promise<void> => {
+      const traverse = async (construct: Construct): Promise<void> => {
         // Check if this node's constructor name is in the setup map
-        const constructorName = node.constructor.name;
-        const setupFunction = options.setupMap.get(constructorName);
+        const constructorName = construct.constructor.name;
+        const setupFunction = setupMap.get(constructorName);
+
+        console.log("constructorName", constructorName, "setupFunction", setupFunction)
         
         if (setupFunction) {
           // Call the setup function with the node and journal
-          await setupFunction(node, journal);
+          await setupFunction(construct, journal);
+          console.log('setting up node', constructorName, construct.node.id);
         }
+
+        //console.log('node children', construct.node.children);
         
         // Recursively traverse child nodes
-        for (const child of node.children) {
-          await traverse(child as unknown as Node);
+        if (construct.node.children && typeof construct.node.children[Symbol.iterator] === 'function') {
+          for (const child of construct.node.children) {
+            await traverse(child);
+          }
         }
       };
       
       // Start traversal from the root node
-      await traverse(rootNode);
+      await traverse(rootConstruct);
     }
   };
 }

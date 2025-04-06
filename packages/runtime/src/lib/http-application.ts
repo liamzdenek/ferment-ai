@@ -1,11 +1,11 @@
 import { RootConstruct } from 'constructs';
 import { Journal } from '@ferment-ai/journal';
 import { RuntimeModule } from '@ferment-ai/runtime-common';
-import { ModuleProcessor } from './module-processor.js';
 import * as http from 'http';
-import express from 'express';
+import express from 'express'; 
 import cors from 'cors';
-import * as bodyParser from 'body-parser';
+import bodyParser from 'body-parser';
+import { virtualModelFactory } from './virtual-model-factory.js';
 
 /**
  * Options for the HttpApplication serve method
@@ -63,25 +63,16 @@ export interface HttpPlugin {
  * via HTTP requests.
  */
 export class HttpApplication extends RootConstruct {
-  /**
-   * The journal for this application
-   */
-  private readonly journal: Journal;
 
   /**
    * The module processor for this application
    */
-  private readonly moduleProcessor: ModuleProcessor;
+  private readonly modules: RuntimeModule[] = [];
 
   /**
    * The plugins for this application
    */
   private readonly plugins: HttpPlugin[] = [];
-
-  /**
-   * The runtime modules for this application
-   */
-  private readonly modules: RuntimeModule[] = [];
 
   /**
    * The HTTP server
@@ -97,14 +88,7 @@ export class HttpApplication extends RootConstruct {
   constructor(id: string, props: HttpApplicationProps = {}) {
     super(id);
     
-    // Create the journal
-    this.journal = new Journal({
-      enableCompression: props.journalProps?.enableCompression,
-      initialEvents: props.journalProps?.initialEvents,
-    });
-    
-    // Create the module processor
-    this.moduleProcessor = new ModuleProcessor(this.journal);
+    this.modules = [];
     
     // Add plugins
     if (props.plugins) {
@@ -146,14 +130,6 @@ export class HttpApplication extends RootConstruct {
    * @returns A promise that resolves when the server is started
    */
   public async serve(options: ServeOptions = {}): Promise<void> {
-    // Process the construct tree
-    this.moduleProcessor.processRootConstruct(this);
-    
-    // Initialize the modules
-    for (const module of this.modules) {
-      await module.initialize(this.node, this.journal);
-    }
-    
     // Create the Express app
     const app = express();
     
@@ -213,7 +189,7 @@ export class HttpApplication extends RootConstruct {
    */
   private configureRoutes(app: express.Express): void {
     // Execute route
-    app.post('/execute', async (req: express.Request, res: express.Response) => {
+    app.post('/execute', async (req: any, res: any) => {
       try {
         // Validate request
         if (!req.body.journal) {
@@ -222,19 +198,16 @@ export class HttpApplication extends RootConstruct {
             error: 'Journal is required',
           });
         }
+
+        const journal = await virtualModelFactory(this, this.modules, {});
         
         // Deserialize journal
-        this.journal.deserialize(req.body.journal);
+        journal.deserialize(req.body.journal);
         
-        // Execute runtime
-        const result = await this.moduleProcessor.execute();
-        
-        // Return result
-        return res.json({
-          success: result.success,
-          errors: result.errors,
-          data: result.data,
-          journal: this.journal.serialize(),
+        // TODO: Execute runtime
+        return res.status(500).json({
+          success: false,
+          error: "UNIMPLEMENTED: TODO: Execute runtime",
         });
       } catch (error: any) {
         return res.status(500).json({
@@ -245,7 +218,7 @@ export class HttpApplication extends RootConstruct {
     });
     
     // Status route
-    app.get('/status', (req: express.Request, res: express.Response) => {
+    app.get('/status', (req: any, res: any) => {
       return res.json({
         status: 'ok',
         version: '0.0.1',

@@ -1,4 +1,4 @@
-import { Node } from 'constructs';
+import { Construct, Node } from 'constructs';
 
 /**
  * Result of binding a construct to the journal system
@@ -83,7 +83,7 @@ export interface BindingClass {
    * @param node The node to check
    * @returns Whether this binding class can bind the given node
    */
-  canBind(node: Node): boolean;
+  canBind(node: Construct): boolean;
 
   /**
    * Binds the given node to the journal system
@@ -91,7 +91,7 @@ export interface BindingClass {
    * @param node The node to bind
    * @returns The result of the binding
    */
-  bind(node: Node): Promise<BindingResult>;
+  bind(node: Construct): Promise<BindingResult>;
 }
 
 /**

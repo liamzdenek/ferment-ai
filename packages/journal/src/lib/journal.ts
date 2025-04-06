@@ -230,7 +230,7 @@ export class Journal {
    * @param data The serialized journal
    */
   public deserialize(data: string): void {
-    const parsed = JSON.parse(data);
+    const parsed = typeof data === 'string' ? JSON.parse(data) : data;
 
     if (this.enableCompression) {
       // In a real implementation, we would decompress the data here

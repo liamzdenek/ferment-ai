@@ -50,7 +50,9 @@ new TwoAgentModel(app, 'TwoAgentModel');
 
 app.addModule(createCoreConstructsRuntimeModule());
 
+app.serve();
+
+/*
 console.log('node', app.node);
-
 console.log('children', app.node.findAll());
-
+*/
