@@ -242,6 +242,65 @@ This pattern provides:
 - Conversion to JSON Schema for documentation
 - Specific implementations for different tool types (File, Command)
 
+## Package Structure and Responsibilities
+
+The Ferment AI system is organized into several packages, each with a specific responsibility:
+
+### 1. Core Constructs Library (`@ferment-ai/core-constructs-lib`)
+
+This package defines the constructs using the AWS CDK Constructs library. It defines the relationship between agents and what they have access to, but does NOT define how to actually run the agent.
+
+Key components:
+- `FermentConstruct`: Base class for all Ferment constructs
+- `VirtualModel`: Top-level container for agent systems
+- `AgentContext`: Environment for a single agent
+- `Model`: Interface for LLM providers
+- `Tool`: Interface for tools that can be used by agents
+- `Entrypoint` and `ExitPoint`: Starting and ending points for a virtual model
+
+### 2. Runtime Types (`@ferment-ai/runtime-types`) (to be created)
+
+This package will define interfaces that both core-constructs-runtime and runtime will implement. It serves as a contract between the definition and runtime layers.
+
+Key components (planned):
+- `RuntimeModule`: Interface for runtime modules
+- `BindingClass`: Interface for classes that bind constructs to the journal
+- Other interfaces needed for the runtime system
+
+### 3. Core Constructs Runtime (`@ferment-ai/core-constructs-runtime`)
+
+This package defines how to run the constructs at runtime by binding to the Journal. It has a 1-to-1 relationship with core-constructs-lib. For example, if an agent is defined in core-constructs-lib, core-constructs-runtime figures out how to send the request to make that agent work.
+
+Key components:
+- `CoreConstructsRuntimeModule`: Module that mounts everything in core-constructs-lib to the journal
+- Separate binding classes for each construct type
+- `ModuleProcessor`: Processes constructs and creates runtime modules
+
+### 4. Journal (`@ferment-ai/journal`)
+
+This package defines the journal and the pubsub patterns around it, providing functionality to search, store, append, and compact the journal. It contains no actual logic about running the application.
+
+Key components:
+- `Journal`: Central source of truth for the system
+- `EventType`: Types of events that can be published to the journal
+- `EventFilter`: Filtering mechanism for journal events
+
+### 5. Runtime (`@ferment-ai/runtime`)
+
+This package contains logic related to running the application as a whole. It sets up the journal, strings everything together, and allows the user to define what they want out of the agents (e.g., HTTP API, chatbot, etc.).
+
+Key components:
+- `HttpApplication`: HTTP API for the system
+- Concrete implementations of runtime modules
+
+### 5. Specialized Packages
+
+These packages contain specific implementations for different providers or functionalities:
+- `@ferment-ai/models`: Implementations of the Model interface for different LLM providers
+- `@ferment-ai/tools`: Implementations of the Tool interface for different tool types
+- `@ferment-ai/api`: API layer for the system
+- `@ferment-ai/testing`: Testing utilities
+
 ## Key Technical Decisions
 
 1. **Using AWS CDK Constructs**: We're using the actual "constructs" npm package from AWS CDK as the foundation for our configuration system.

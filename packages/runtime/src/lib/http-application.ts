@@ -1,5 +1,6 @@
 import { RootConstruct } from 'constructs';
 import { ModuleProcessor } from '@ferment-ai/core-constructs-runtime';
+import { Journal } from '@ferment-ai/journal';
 import * as http from 'http';
 import express from 'express';
 import cors from 'cors';
@@ -59,7 +60,7 @@ export class HttpApplication extends RootConstruct {
   /**
    * The journal for this application
    */
-  private readonly journal: any; // This would be the Journal type from the journal package
+  private readonly journal: Journal;
 
   /**
    * The module processor for this application
@@ -86,11 +87,10 @@ export class HttpApplication extends RootConstruct {
     super(id);
     
     // Create the journal
-    // In a real implementation, this would be imported from the journal package
-    this.journal = { 
-      serialize: () => ({}),
-      deserialize: (data: any) => {},
-    };
+    this.journal = new Journal({
+      enableCompression: props.journalProps?.enableCompression,
+      initialEvents: props.journalProps?.initialEvents,
+    });
     
     // Create the module processor
     this.moduleProcessor = new ModuleProcessor(this.journal);

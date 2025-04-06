@@ -1,13 +1,14 @@
 import { Node, RootConstruct } from 'constructs';
-import { 
-  RuntimeModule, 
-  ValidationResult, 
-  ValidationError, 
+import {
+  RuntimeModule,
+  ValidationResult,
+  ValidationError,
   ValidationWarning,
   ExecutionContext,
   ExecutionResult,
   ExecutionError
 } from './runtime-module.js';
+import { Journal } from '@ferment-ai/journal';
 
 /**
  * The ModuleProcessor is responsible for processing the construct tree
@@ -32,7 +33,7 @@ export class ModuleProcessor {
    * 
    * @param journal The journal to use for execution
    */
-  constructor(private readonly journal: any) {}
+  constructor(private readonly journal: Journal) {}
 
   /**
    * Processes a root construct and creates runtime modules

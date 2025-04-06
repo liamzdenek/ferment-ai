@@ -2,7 +2,7 @@
 
 ## Current Status
 
-The project is in the **implementation phase**. We have set up the project structure and implemented the core constructs, but we still need to implement the runtime, journal, and API layers.
+The project is in the **implementation phase**. We have set up the project structure, implemented the core constructs, and created the foundation for the runtime system with the Journal, RuntimeModule, ModuleProcessor, and HttpApplication components. We have also clarified the boundaries between the different packages and their responsibilities. We need to create a new runtime-types package to define interfaces that both core-constructs-runtime and runtime will implement, and then implement the CoreConstructsRuntimeModule and binding classes in the core-constructs-runtime package.
 
 ## What Works
 
@@ -25,7 +25,13 @@ The project is in the **implementation phase**. We have set up the project struc
    - `Tool` (with `FileTool` and `CommandTool`): Tool interfaces
    - `Entrypoint` and `ExitPoint`: Starting and ending points for a virtual model
 
-3. **TypeScript Configuration**: We have configured TypeScript for the project, including module resolution and other compiler options.
+3. **Runtime Components**: We have implemented the core runtime components:
+   - `Journal`: Central source of truth for the system (as a pure runtime component, not a Construct)
+   - `RuntimeModule`: Interface for runtime modules that bind to the journal
+   - `ModuleProcessor`: Processes constructs and creates runtime modules
+   - `HttpApplication`: HTTP API for the system
+
+4. **TypeScript Configuration**: We have configured TypeScript for the project, including module resolution and other compiler options.
 
 4. **Dependencies**: We have installed the necessary dependencies, including:
    - `constructs`: AWS CDK constructs library
@@ -50,20 +56,20 @@ The project is in the **implementation phase**. We have set up the project struc
   - [x] Create Tool interface
   - [x] Develop Entrypoint and ExitPoint constructs
 
-- [ ] **Journal System**
-  - [ ] Define journal event structure
-  - [ ] Implement event publishing
-  - [ ] Create subscription mechanism
-  - [ ] Develop serialization/deserialization
-  - [ ] Implement event filtering
+- [x] **Journal System**
+  - [x] Define journal event structure
+  - [x] Implement event publishing
+  - [x] Create subscription mechanism
+  - [x] Develop serialization/deserialization
+  - [x] Implement event filtering
 
 ### Phase 2: Core Functionality (Not Started)
 
-- [ ] **Runtime System**
-  - [ ] Implement agent context reconstruction
-  - [ ] Develop prompt construction
-  - [ ] Create LLM invocation mechanism
-  - [ ] Implement tool registration and invocation
+- [x] **Runtime System**
+  - [x] Implement RuntimeModule interface
+  - [x] Develop ModuleProcessor for construct binding
+  - [x] Create HttpApplication for API access
+  - [ ] Implement specific runtime modules for Models, Tools, and AgentContexts
   - [ ] Develop message handling
 
 - [ ] **Tool System**
@@ -130,41 +136,46 @@ The project is in the **implementation phase**. We have set up the project struc
 
 1. **Module Resolution**: There are some issues with TypeScript module resolution that need to be addressed.
 
-2. **Core Constructs Runtime**: The core-constructs-runtime package needs to be implemented, including the HttpApplication class.
+2. **TypeScript Errors**: There are TypeScript errors related to missing type declarations for Express, CORS, and body-parser.
 
-3. **Processor/Runtime Module Interface**: We need to design and implement a processor/runtime module interface to validate that all necessary modules are available to execute the constructs.
+3. **Specific Runtime Modules**: We need to implement specific runtime modules for Models, Tools, and AgentContexts.
 
 ## Next Milestones
 
-1. **Implement HttpApplication in core-constructs-runtime** (Target: Week 1)
-   - Create the HttpApplication class that extends RootConstruct
-   - Implement the 'serve' operation to initialize the HTTP API
-   - Ensure proper integration with the rest of the system
+1. **Create Runtime-Types Package** (Target: Week 1)
+   - Define interfaces that both core-constructs-runtime and runtime will implement
+   - Create the RuntimeModule interface
+   - Create interfaces for binding classes
+   - Ensure clear separation of concerns between packages
 
-2. **Design Processor/Runtime Module Interface** (Target: Week 1)
-   - Plan the interface design
-   - Determine validation requirements
-   - Implement the interface
-   - Create tests for the interface
+2. **Implement CoreConstructsRuntimeModule** (Target: Week 1)
+   - Create a module that mounts everything in core-constructs-lib to the journal
+   - Implement separate binding classes for each construct type
+   - Ensure the module satisfies the interfaces defined in runtime-types
+   - Maintain the 1-to-1 relationship between core-constructs-lib and core-constructs-runtime
 
-3. **Implement Journal System** (Target: Week 2)
-   - Define journal event structure
-   - Implement event publishing and subscription
-   - Develop serialization/deserialization
-   - Create event filtering
+3. **Fix TypeScript Errors** (Target: Week 2)
+   - Add type declarations for Express, CORS, and body-parser
+   - Address other TypeScript errors in the implementation
+   - Ensure type safety throughout the codebase
 
-4. **Implement Runtime System** (Target: Week 3)
-   - Implement agent context reconstruction
-   - Develop prompt construction
-   - Create LLM invocation mechanism
-   - Implement tool registration and invocation
-   - Develop message handling
+3. **Enhance Demo Application** (Target: Week 2)
+   - Expand the demo application to showcase more features
+   - Demonstrate the full lifecycle from construct definition to execution
+   - Create examples of different agent configurations
+   - Show how to use the journal system for state management
 
-5. **Implement API Layer** (Target: Week 4)
-   - Create API server
-   - Implement endpoints
-   - Develop streaming support
-   - Create journal-based state management
+4. **Implement Testing** (Target: Week 3)
+   - Create unit tests for all components
+   - Develop integration tests for the complete system
+   - Implement test fixtures and mocks
+   - Ensure high test coverage
+
+5. **Create Documentation** (Target: Week 4)
+   - Create API references
+   - Write usage examples
+   - Develop architectural overviews
+   - Create tutorials for common use cases
 
 ## Demo Application
 
@@ -176,3 +187,8 @@ To build and run the demo application:
 npx nx build demo
 npx nx serve demo
 ```
+
+We have also created examples for the Journal and HttpApplication components to demonstrate their usage:
+
+- `packages/journal/src/examples/journal-example.ts`: Shows how to use the Journal class for event publishing and subscription
+- `packages/runtime/src/examples/http-server.ts`: Shows how to use the HttpApplication class to create an HTTP API

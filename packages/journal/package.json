@@ -34,5 +34,9 @@
       }
     }
   },
-  "dependencies": {}
+  "dependencies": {
+    "@ferment-ai/core-constructs-lib": "*",
+    "constructs": "^10.4.2",
+    "uuid": "^9.0.1"
+  }
 }

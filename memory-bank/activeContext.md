@@ -39,31 +39,42 @@ We have made significant progress in implementing the core constructs for the Fe
 
 ## Active Considerations
 
-1. **Demo Application**: We have created a barebones demo application in 'packages/demo/src/main.ts' that shows how the app will be initialized and navigated. It demonstrates a two-agent model with a junior engineer and senior engineer that can communicate with each other.
+1. **Package Boundaries**: We have clarified the boundaries between the different packages:
+   - **core-constructs-lib**: Defines the constructs using the Constructs library. It defines the relationship between agents and what they have access to, but does NOT define how to actually run the agent.
+   - **core-constructs-runtime**: Defines how to run the constructs at runtime by binding to the Journal. It has a 1-to-1 relationship with core-constructs-lib.
+   - **runtime**: Contains logic related to running the application as a whole. It sets up the journal, strings everything together, and allows the user to define what they want out of the agents.
+   - **journal**: Defines the journal and the pubsub patterns around it, providing functionality to search, store, append, and compact the journal.
+   - **runtime-types** (to be created): Will define interfaces that both core-constructs-runtime and runtime will implement.
 
-2. **Core Constructs Runtime**: We need to implement the `HttpApplication` class in the core-constructs-runtime package. This class should extend `RootConstruct` and have a 'serve' operation to initialize the HTTP API.
+2. **Runtime Module Architecture**: We need to implement a `CoreConstructsRuntimeModule` in the core-constructs-runtime package that:
+   - Mounts everything in core-constructs-lib to the journal
+   - Navigates the construct tree and marks each class as bound when a match is found
+   - Contains separate classes for each thing that needs to be bound
+   - Satisfies an interface defined in the runtime-types package
 
-3. **Processor/Runtime Module Interface**: We need to design and implement a processor/runtime module interface. This will be used to validate that all necessary modules are available to execute the constructs.
+3. **Multiple Runtime Modules**: The CoreConstructsRuntimeModule itself should satisfy an interface found in the runtime-types package, and multiple runtime modules will be needed for different aspects of the system.
 
-4. **Journal Implementation**: We need to implement the journal system, which is the core of our architecture.
+4. **Demo Application**: We have created a barebones demo application in 'packages/demo/src/main.ts' that shows how the app will be initialized and navigated. It demonstrates a two-agent model with a junior engineer and senior engineer that can communicate with each other.
 
-5. **Runtime Implementation**: We need to implement the runtime system that will execute the constructs.
+5. **Journal Implementation**: We have implemented the Journal class as a pure runtime component (not a Construct) in the journal package. It provides a pub-sub model for event handling and serialization/deserialization for state persistence.
 
-6. **API Implementation**: We need to implement the API layer that will expose the system to external clients.
+6. **Runtime Implementation**: We have implemented the `HttpApplication` class in the runtime package. This class extends `RootConstruct` and provides an HTTP API for the system.
+
+7. **API Implementation**: We need to continue implementing the API layer that will expose the system to external clients.
 
 ## Next Steps
 
-1. **Implement HttpApplication in core-constructs-runtime**: Create the HttpApplication class that extends RootConstruct and has a 'serve' operation to initialize the HTTP API.
+1. **Create Runtime-Types Package**: Create a new package that defines interfaces that both core-constructs-runtime and runtime will implement.
 
-2. **Design Processor/Runtime Module Interface**: Plan and implement the processor/runtime module interface to validate that all necessary modules are available to execute the constructs.
+2. **Implement CoreConstructsRuntimeModule**: Create a single module in core-constructs-runtime that mounts everything in core-constructs-lib to the journal.
 
-3. **Enhance Demo Application**: Further develop the demo application to showcase more features of the framework.
+3. **Create Binding Classes**: Implement separate classes for each construct type that needs to be bound to the journal.
 
-4. **Implement Journal System**: Implement the core journal system with event publishing and subscription.
+4. **Enhance Demo Application**: Further develop the demo application to showcase more features of the framework and demonstrate the full lifecycle from construct definition to execution.
 
-5. **Implement Runtime System**: Implement the runtime system that will execute the constructs.
+5. **Fix TypeScript Errors**: Add type declarations for Express, CORS, and body-parser, and address other TypeScript errors in the implementation.
 
-6. **Implement API Layer**: Implement the API layer that will expose the system to external clients.
+6. **Implement Testing**: Create unit tests for all components and develop integration tests for the complete system.
 
 ## Open Questions and Architectural Recommendations
 
