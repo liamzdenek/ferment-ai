@@ -148,9 +148,8 @@ export interface RuntimeModuleDependency {
 
 /**
  * A runtime module is a component that can be executed by the runtime system.
- * 
- * Runtime modules are created by the ModuleProcessor based on the constructs
- * in the construct tree.
+ *
+ * Runtime modules are responsible for binding constructs to the journal system.
  */
 export interface RuntimeModule {
   /**
@@ -169,21 +168,85 @@ export interface RuntimeModule {
   readonly dependencies: RuntimeModuleDependency[];
 
   /**
-   * Initializes this module
-   * 
+   * Initializes this module by binding all nodes in the tree
+   *
    * @param rootNode The root node of the construct tree
+   * @param journal The journal to use
    */
-  initialize(rootNode: Node): Promise<void>;
+  initialize(rootNode: Node, journal: Journal): Promise<void>;
+}
+
+/**
+ * A setup function for a specific construct type
+ *
+ * @param node The node to set up
+ * @param journal The journal to use
+ * @returns A promise that resolves when the setup is complete
+ */
+export type ConstructSetupFunction = (node: Node, journal: Journal) => Promise<void>;
+
+/**
+ * A mapping from constructor names to setup functions
+ */
+export type ConstructSetupMap = Map<string, ConstructSetupFunction>;
+
+/**
+ * Options for creating a standard runtime module
+ */
+export interface StandardRuntimeModuleOptions {
+  /**
+   * The ID of this module
+   */
+  readonly id: string;
 
   /**
-   * Validates this module
+   * The version of this module
    */
-  validate(): Promise<ValidationResult>;
+  readonly version: string;
 
   /**
-   * Executes this module
-   * 
-   * @param context The execution context
+   * The dependencies of this module
    */
-  execute(context: ExecutionContext): Promise<ExecutionResult>;
+  readonly dependencies?: RuntimeModuleDependency[];
+
+  /**
+   * A mapping from constructor names to setup functions
+   */
+  readonly setupMap: ConstructSetupMap;
+}
+
+/**
+ * Creates a standard runtime module that uses a setup map to bind constructs
+ *
+ * @param options The options for the runtime module
+ * @returns A runtime module
+ */
+export function createStandardRuntimeModule(options: StandardRuntimeModuleOptions): RuntimeModule {
+  return {
+    id: options.id,
+    version: options.version,
+    dependencies: options.dependencies || [],
+    
+    async initialize(rootNode: Node, journal: Journal): Promise<void> {
+      // Traverse the construct tree and bind nodes
+      const traverse = async (node: Node): Promise<void> => {
+        // Check if this node's constructor name is in the setup map
+        const constructorName = node.constructor.name;
+        const setupFunction = options.setupMap.get(constructorName);
+        
+        if (setupFunction) {
+          // Call the setup function with the node and journal
+          await setupFunction(node, journal);
+        }
+        
+        // Recursively traverse child nodes
+        for (const child of node.children) {
+          await traverse(child as unknown as Node);
+        }
+      };
+      
+      // Start traversal from the root node
+      await traverse(rootNode);
+    }
+  };
 }

@@ -2,13 +2,14 @@
 
 ## Current Status
 
-The project is in the **implementation phase**. We have set up the project structure, implemented the core constructs, and created the foundation for the runtime system with the Journal, RuntimeModule, ModuleProcessor, and HttpApplication components. We have also clarified the boundaries between the different packages and their responsibilities. We need to create a new runtime-types package to define interfaces that both core-constructs-runtime and runtime will implement, and then implement the CoreConstructsRuntimeModule and binding classes in the core-constructs-runtime package.
+The project is in the **implementation phase**. We have set up the project structure, implemented the core constructs, and created the foundation for the runtime system with the Journal, RuntimeModule, and HttpApplication components. We have also clarified the boundaries between the different packages and their responsibilities. We have created the runtime-common package to define interfaces that both core-constructs-runtime and runtime will implement, and implemented the core-constructs-runtime package with a simplified architecture.
 
 ## What Works
 
 1. **Project Structure**: We have set up an Nx monorepo with the following packages:
    - `@ferment-ai/core-constructs-lib`: Core construct library (renamed from constructs)
-   - `@ferment-ai/core-constructs-runtime`: Runtime implementation for constructs (new)
+   - `@ferment-ai/runtime-common`: Common interfaces and utilities for runtime packages
+   - `@ferment-ai/core-constructs-runtime`: Runtime implementation for constructs
    - `@ferment-ai/runtime`: Runtime implementation
    - `@ferment-ai/journal`: Journal system
    - `@ferment-ai/api`: API layer
@@ -27,8 +28,9 @@ The project is in the **implementation phase**. We have set up the project struc
 
 3. **Runtime Components**: We have implemented the core runtime components:
    - `Journal`: Central source of truth for the system (as a pure runtime component, not a Construct)
-   - `RuntimeModule`: Interface for runtime modules that bind to the journal
-   - `ModuleProcessor`: Processes constructs and creates runtime modules
+   - `RuntimeModule`: Interface for runtime modules with a single initialize function
+   - `createStandardRuntimeModule`: Helper function to create a standard runtime module
+   - `createCoreConstructsRuntimeModule`: Function that creates a runtime module for core constructs
    - `HttpApplication`: HTTP API for the system
 
 4. **TypeScript Configuration**: We have configured TypeScript for the project, including module resolution and other compiler options.
@@ -67,9 +69,9 @@ The project is in the **implementation phase**. We have set up the project struc
 
 - [x] **Runtime System**
   - [x] Implement RuntimeModule interface
-  - [x] Develop ModuleProcessor for construct binding
+  - [x] Create standard runtime module implementation
+  - [x] Implement core constructs runtime module
   - [x] Create HttpApplication for API access
-  - [ ] Implement specific runtime modules for Models, Tools, and AgentContexts
   - [ ] Develop message handling
 
 - [ ] **Tool System**
@@ -138,21 +140,23 @@ The project is in the **implementation phase**. We have set up the project struc
 
 2. **TypeScript Errors**: There are TypeScript errors related to missing type declarations for Express, CORS, and body-parser.
 
-3. **Specific Runtime Modules**: We need to implement specific runtime modules for Models, Tools, and AgentContexts.
+3. **HttpApplication Implementation**: We need to implement the HttpApplication class in the core-constructs-runtime package.
+
+4. **Processor/Runtime Module Interface**: We need to create a processor/runtime module interface to validate that all necessary modules are available to execute the constructs.
 
 ## Next Milestones
 
-1. **Create Runtime-Types Package** (Target: Week 1)
-   - Define interfaces that both core-constructs-runtime and runtime will implement
-   - Create the RuntimeModule interface
-   - Create interfaces for binding classes
-   - Ensure clear separation of concerns between packages
+1. **Implement HttpApplication** (Target: Week 1)
+   - Create the HttpApplication class in the core-constructs-runtime package
+   - Implement the serve operation to initialize the HTTP API
+   - Integrate with the journal system
+   - Support real-time streaming of events
 
-2. **Implement CoreConstructsRuntimeModule** (Target: Week 1)
-   - Create a module that mounts everything in core-constructs-lib to the journal
-   - Implement separate binding classes for each construct type
-   - Ensure the module satisfies the interfaces defined in runtime-types
-   - Maintain the 1-to-1 relationship between core-constructs-lib and core-constructs-runtime
+2. **Create Processor/Runtime Module Interface** (Target: Week 1)
+   - Design and implement a processor/runtime module interface
+   - Validate that all necessary modules are available to execute the constructs
+   - Create clear error messages for missing modules
+   - Support extensibility for custom modules
 
 3. **Fix TypeScript Errors** (Target: Week 2)
    - Add type declarations for Express, CORS, and body-parser

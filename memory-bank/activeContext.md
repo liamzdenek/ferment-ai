@@ -14,7 +14,8 @@ We have made significant progress in implementing the core constructs for the Fe
 
 2. **Set Up Project Structure**: We have set up an Nx monorepo with the following packages:
    - `@ferment-ai/core-constructs-lib`: Core construct library (renamed from constructs)
-   - `@ferment-ai/core-constructs-runtime`: Runtime implementation for constructs (new)
+   - `@ferment-ai/runtime-common`: Common interfaces and utilities for runtime packages
+   - `@ferment-ai/core-constructs-runtime`: Runtime implementation for constructs
    - `@ferment-ai/runtime`: Runtime implementation
    - `@ferment-ai/journal`: Journal system
    - `@ferment-ai/api`: API layer
@@ -41,18 +42,20 @@ We have made significant progress in implementing the core constructs for the Fe
 
 1. **Package Boundaries**: We have clarified the boundaries between the different packages:
    - **core-constructs-lib**: Defines the constructs using the Constructs library. It defines the relationship between agents and what they have access to, but does NOT define how to actually run the agent.
+   - **runtime-common**: Defines interfaces and utilities that both core-constructs-runtime and runtime will implement. It serves as a contract between the definition and runtime layers.
    - **core-constructs-runtime**: Defines how to run the constructs at runtime by binding to the Journal. It has a 1-to-1 relationship with core-constructs-lib.
    - **runtime**: Contains logic related to running the application as a whole. It sets up the journal, strings everything together, and allows the user to define what they want out of the agents.
    - **journal**: Defines the journal and the pubsub patterns around it, providing functionality to search, store, append, and compact the journal.
-   - **runtime-types** (to be created): Will define interfaces that both core-constructs-runtime and runtime will implement.
 
-2. **Runtime Module Architecture**: We need to implement a `CoreConstructsRuntimeModule` in the core-constructs-runtime package that:
-   - Mounts everything in core-constructs-lib to the journal
-   - Navigates the construct tree and marks each class as bound when a match is found
-   - Contains separate classes for each thing that needs to be bound
-   - Satisfies an interface defined in the runtime-types package
+2. **Runtime Module Architecture**: We have implemented a simplified RuntimeModule interface in the runtime-common package:
+   - Has a single initialize function that takes a root node and a journal
+   - Provides a standard implementation that uses a setup map to bind constructs
+   - Allows for a more functional approach to runtime module implementation
 
-3. **Multiple Runtime Modules**: The CoreConstructsRuntimeModule itself should satisfy an interface found in the runtime-types package, and multiple runtime modules will be needed for different aspects of the system.
+3. **Core Constructs Runtime Module**: We have implemented the createCoreConstructsRuntimeModule function in the core-constructs-runtime package:
+   - Creates a runtime module for core constructs
+   - Uses the standard runtime module implementation
+   - Binds constructs to the journal using binding classes
 
 4. **Demo Application**: We have created a barebones demo application in 'packages/demo/src/main.ts' that shows how the app will be initialized and navigated. It demonstrates a two-agent model with a junior engineer and senior engineer that can communicate with each other.
 
@@ -64,17 +67,19 @@ We have made significant progress in implementing the core constructs for the Fe
 
 ## Next Steps
 
-1. **Create Runtime-Types Package**: Create a new package that defines interfaces that both core-constructs-runtime and runtime will implement.
+1. **Implement HttpApplication**: Create the HttpApplication class in the core-constructs-runtime package that extends RootConstruct and has a 'serve' operation to initialize the HTTP API.
 
-2. **Implement CoreConstructsRuntimeModule**: Create a single module in core-constructs-runtime that mounts everything in core-constructs-lib to the journal.
+2. **Create Processor/Runtime Module Interface**: Design and implement a processor/runtime module interface to validate that all necessary modules are available to execute the constructs.
 
-3. **Create Binding Classes**: Implement separate classes for each construct type that needs to be bound to the journal.
+3. **Update Journal Package**: Update the journal package to implement the Journal interface from runtime-common.
 
-4. **Enhance Demo Application**: Further develop the demo application to showcase more features of the framework and demonstrate the full lifecycle from construct definition to execution.
+4. **Update Runtime Package**: Update the runtime package to use the interfaces from runtime-common.
 
-5. **Fix TypeScript Errors**: Add type declarations for Express, CORS, and body-parser, and address other TypeScript errors in the implementation.
+5. **Enhance Demo Application**: Further develop the demo application to showcase more features of the framework and demonstrate the full lifecycle from construct definition to execution.
 
-6. **Implement Testing**: Create unit tests for all components and develop integration tests for the complete system.
+6. **Fix TypeScript Errors**: Add type declarations for Express, CORS, and body-parser, and address other TypeScript errors in the implementation.
+
+7. **Implement Testing**: Create unit tests for all components and develop integration tests for the complete system.
 
 ## Open Questions and Architectural Recommendations
 
@@ -100,13 +105,32 @@ We have made significant progress in implementing the core constructs for the Fe
    
    ```typescript
    export interface RuntimeModule {
+     /**
+      * The ID of this module
+      */
      readonly id: string;
+
+     /**
+      * The version of this module
+      */
      readonly version: string;
+
+     /**
+      * The dependencies of this module
+      */
      readonly dependencies: RuntimeModuleDependency[];
-     
-     initialize(rootNode: Node): Promise<void>;
-     validate(): Promise<ValidationResult>;
-     execute(context: ExecutionContext): Promise<ExecutionResult>;
+
+     /**
+      * Initializes this module by binding all nodes in the tree
+      * 
+      * @param rootNode The root node of the construct tree
+      * @param journal The journal to use
+      */
+     initialize(rootNode: Node, journal: Journal): Promise<void>;
+   }
+
+   export function createStandardRuntimeModule(options: StandardRuntimeModuleOptions): RuntimeModule {
+     // Implementation that uses a setup map to bind constructs
    }
    
    export class ModuleProcessor {
@@ -280,4 +304,3 @@ To build and run the demo application:
 ```bash
 npx nx build demo
 npx nx serve demo
-```

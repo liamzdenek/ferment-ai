@@ -258,23 +258,24 @@ Key components:
 - `Tool`: Interface for tools that can be used by agents
 - `Entrypoint` and `ExitPoint`: Starting and ending points for a virtual model
 
-### 2. Runtime Types (`@ferment-ai/runtime-types`) (to be created)
+### 2. Runtime Common (`@ferment-ai/runtime-common`)
 
-This package will define interfaces that both core-constructs-runtime and runtime will implement. It serves as a contract between the definition and runtime layers.
+This package defines interfaces and utilities that both core-constructs-runtime and runtime will implement. It serves as a contract between the definition and runtime layers.
 
-Key components (planned):
-- `RuntimeModule`: Interface for runtime modules
+Key components:
+- `RuntimeModule`: Interface for runtime modules with a single initialize function
+- `Journal`: Interface for the journal system
 - `BindingClass`: Interface for classes that bind constructs to the journal
-- Other interfaces needed for the runtime system
+- `createStandardRuntimeModule`: Helper function to create a standard runtime module
 
 ### 3. Core Constructs Runtime (`@ferment-ai/core-constructs-runtime`)
 
 This package defines how to run the constructs at runtime by binding to the Journal. It has a 1-to-1 relationship with core-constructs-lib. For example, if an agent is defined in core-constructs-lib, core-constructs-runtime figures out how to send the request to make that agent work.
 
 Key components:
-- `CoreConstructsRuntimeModule`: Module that mounts everything in core-constructs-lib to the journal
-- Separate binding classes for each construct type
-- `ModuleProcessor`: Processes constructs and creates runtime modules
+- `createCoreConstructsRuntimeModule`: Function that creates a runtime module for core constructs
+- Binding classes for each construct type (Model, AgentContext, Tool)
+- `DefaultBindingClassFactory`: Factory for creating binding classes
 
 ### 4. Journal (`@ferment-ai/journal`)
 
@@ -350,13 +351,32 @@ We plan to design and implement a processor/runtime module interface to validate
 
 ```typescript
 export interface RuntimeModule {
+  /**
+   * The ID of this module
+   */
   readonly id: string;
+
+  /**
+   * The version of this module
+   */
   readonly version: string;
-  readonly dependencies: string[];
-  
-  initialize(): Promise<void>;
-  validate(): Promise<ValidationResult>;
-  execute(context: ExecutionContext): Promise<ExecutionResult>;
+
+  /**
+   * The dependencies of this module
+   */
+  readonly dependencies: RuntimeModuleDependency[];
+
+  /**
+   * Initializes this module by binding all nodes in the tree
+   *
+   * @param rootNode The root node of the construct tree
+   * @param journal The journal to use
+   */
+  initialize(rootNode: Node, journal: Journal): Promise<void>;
+}
+
+export function createStandardRuntimeModule(options: StandardRuntimeModuleOptions): RuntimeModule {
+  // Implementation that uses a setup map to bind constructs
 }
 ```
 
