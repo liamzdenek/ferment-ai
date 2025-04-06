@@ -45,9 +45,10 @@ async function processConstruct(
   processedConstructs.add(constructId);
   
   // Process based on construct type
-  console.log('Processing construct:', constructId, construct.constructor.name);
+  const constructType = (construct as any).constructType;
+  console.log('Processing construct:', constructId, constructType);
   
-  if (construct.constructor.name === 'HttpApplication') {
+  if (constructType === 'CoreConstructs::HttpApplication') {
     console.log('Found HttpApplication:', constructId);
     // Mark the HttpApplication as bound
     journal.markConstructAsBound(constructId);

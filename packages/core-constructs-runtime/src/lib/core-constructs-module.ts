@@ -250,7 +250,7 @@ async function processEntrypoint(entrypoint: any, journal: Journal): Promise<voi
   journal.addComponent(entityId, 'EntrypointComponent', {
     type: 'EntrypointComponent',
     id: entrypoint.node.id,
-    initialPayload: {}
+    initialPayload: {} // This will be overridden by the execute method's initialPayload parameter
   });
 }
 
@@ -293,6 +293,7 @@ function registerSystems(journal: Journal): void {
       if (event.type === 'agent_invoke' && isAgentInvokePayload(event.payload)) {
         // Create a process to invoke the agent
         const { agentId, input } = event.payload;
+        console.log('Agent system received input for agent:', agentId, input);
         const agentComponent = journal.getComponent<any>(agentId, 'AgentComponent');
         if (agentComponent) {
           // Update state to track this agent
@@ -421,6 +422,7 @@ function registerSystems(journal: Journal): void {
       if (event.type === 'entrypoint_invoked' && isEntrypointInvokedPayload(event.payload)) {
         // Find the entrypoint entity
         const { entrypointId, initialPayload } = event.payload;
+        console.log('Entrypoint system received initialPayload:', initialPayload);
         const entrypointEntities = journal.getEntitiesWithComponent('EntrypointComponent');
         const entrypointEntity = entrypointEntities.find((entityId: string) => {
           const component = journal.getComponent<any>(entityId, 'EntrypointComponent');

@@ -60,6 +60,23 @@ We are rearchitecting the Journal, Modules, and Runtime library using an event-o
 
 6. **HttpApplication Integration**: The HttpApplication class will still extend RootConstruct but will use the new Journal implementation. It will provide an initialize method that creates a journal and initializes it with the modules, and a serve method that creates an Express app and configures routes for executing the journal and getting its state.
 
+## Recent Changes
+
+1. **Fixed HTTP Application Initialization**:
+   - Added proper conversion of initialState from plain objects to Maps and Sets in the HTTP application
+   - Enhanced error logging in the HTTP application to better diagnose issues
+   - Fixed the "Cannot read properties of undefined (reading 'set')" error
+
+2. **Improved Entrypoint Payload Handling**:
+   - Updated the Journal interface to accept an initialPayload parameter in the execute method
+   - Modified the JournalImpl to use the provided initialPayload when executing an entrypoint
+   - Added logging throughout the execution flow to track payload propagation
+
+3. **Enhanced System Logging**:
+   - Added detailed logging in the entrypoint system to show the received initialPayload
+   - Added logging in the agent system to show the input received for each agent
+   - Improved error handling and reporting throughout the system
+
 ## Next Steps
 
 1. **Implement Real Agent Execution**:

@@ -437,7 +437,9 @@ export class JournalImpl implements Journal {
    * @param entrypointId The ID of the entrypoint
    * @returns An async iterable of journal events
    */
-  public async *execute(entrypointId: string): AsyncIterable<JournalEvent> {
+  public async *execute(entrypointId: string, initialPayload?: any): AsyncIterable<JournalEvent> {
+    console.log(`Executing journal with entrypointId: ${entrypointId}, initialPayload:`, initialPayload);
+    
     // Find the entrypoint entity
     const entrypointEntities = this.getEntitiesWithComponent('EntrypointComponent');
     const entrypointEntity = entrypointEntities.find(entityId => {
@@ -451,10 +453,15 @@ export class JournalImpl implements Journal {
 
     // Create an initial event to trigger the entrypoint
     const entrypointComponent = this.getComponent<any>(entrypointEntity, 'EntrypointComponent');
+    
+    // Use the provided initialPayload if available, otherwise use the component's initialPayload
+    const payload = initialPayload || entrypointComponent.initialPayload || {};
+    console.log('Using payload for entrypoint:', payload);
+    
     const initialEvent = this.publish(EventType.SYSTEM, 'journal', {
       action: 'entrypoint_invoked',
       entrypointId,
-      initialPayload: entrypointComponent.initialPayload || {},
+      initialPayload: payload,
     });
 
     // Yield the initial event

@@ -284,14 +284,17 @@ Key components:
 - Binding classes for each construct type (Model, AgentContext, Tool)
 - `DefaultBindingClassFactory`: Factory for creating binding classes
 
-### 4. Journal (`@ferment-ai/journal`)
+### 4. Journal (`@ferment-ai/runtime-interfaces` and `@ferment-ai/runtime-in-memory`)
 
-This package defines the journal as the central "World" in the ECS architecture, providing functionality to manage entities, components, systems, and processes. It implements the event-driven architecture and provides serialization/deserialization of the full state.
+These packages define the journal as the central "World" in the ECS architecture, providing functionality to manage entities, components, systems, and processes. They implement the event-driven architecture and provide serialization/deserialization of the full state.
 
 Key components:
-- `Journal`: Central source of truth for the system
+- `Journal`: Interface defining the central source of truth for the system
+- `JournalImpl`: Implementation of the Journal interface
 - `EventType`: Types of events that can be published to the journal
 - `EventFilter`: Filtering mechanism for journal events
+- `JournalState`: Interface defining the state of the journal
+- `Entity`, `Component`, `System`, `Process`: Core ECS elements
 
 ### 5. Runtime (`@ferment-ai/runtime`)
 
@@ -330,6 +333,12 @@ These packages contain specific implementations for different providers or funct
 9. **TypeScript Configuration**: We've configured TypeScript to use the appropriate module resolution strategy and other compiler options.
 
 10. **Testing with Jest**: We're using Jest for testing, with comprehensive tests for the ECS architecture components.
+
+11. **Payload Propagation**: We've implemented a mechanism to propagate payloads from HTTP requests to entrypoints and then to agents, allowing for dynamic input to the system.
+
+12. **Error Handling and Logging**: We've added comprehensive error handling and logging throughout the system to aid in debugging and troubleshooting.
+
+13. **State Conversion**: We've implemented proper conversion of plain objects to Maps and Sets when deserializing journal state from HTTP requests.
 
 ## Implemented Patterns
 
@@ -372,7 +381,7 @@ This pattern provides:
 
 ### 2. HttpApplication Pattern
 
-The `HttpApplication` class is implemented in the runtime package with ECS support:
+The `HttpApplication` class is implemented in the runtime-http package with ECS support:
 
 ```typescript
 export class HttpApplication extends RootConstruct {
@@ -452,6 +461,9 @@ This pattern provides:
 - Real-time streaming of events via SSE
 - Stateless API design with full state serialization
 - Support for multiple modules
+- Proper handling of initialState with Maps and Sets conversion
+- Enhanced error logging and debugging capabilities
+- Dynamic payload propagation from HTTP requests to entrypoints
 
 ### 3. Entity-Component Pattern
 

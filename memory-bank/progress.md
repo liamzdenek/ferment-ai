@@ -99,7 +99,6 @@ The project is entering a **rearchitecting phase**. We have decided to adopt an 
   - [x] Update demo to use new ECS architecture
   - [x] Create examples of different entity/component configurations
   - [x] Demonstrate process creation and execution
-  - [ ] Demonstrate process creation and execution
 ### Phase 4: Refinement and Enhancement (In Progress)
 
 - [x] **Basic Implementation**
@@ -152,6 +151,25 @@ The project is entering a **rearchitecting phase**. We have decided to adopt an 
   - [ ] Add metrics collection for performance analysis
   - [ ] Create debugging interface for inspecting entities and components
   - [ ] Implement performance tests
+
+## Recent Improvements
+
+1. **HTTP Application Initialization**:
+   - Fixed issue with initialState conversion in the HTTP application
+   - Added proper conversion of plain objects to Maps and Sets
+   - Enhanced error logging for better diagnostics
+   - Resolved "Cannot read properties of undefined (reading 'set')" error
+
+2. **Entrypoint Payload Handling**:
+   - Updated Journal interface to accept initialPayload parameter
+   - Modified JournalImpl to use provided initialPayload
+   - Added logging throughout execution flow
+   - Improved payload propagation from HTTP request to agent
+
+3. **System Logging and Debugging**:
+   - Added detailed logging in entrypoint and agent systems
+   - Improved error handling and reporting
+   - Enhanced debugging capabilities throughout the system
 
 ## Known Issues
 

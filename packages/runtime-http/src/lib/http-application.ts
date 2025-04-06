@@ -3,7 +3,18 @@ import express from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
 import http from 'http';
-import type { Module, Journal, JournalOptions } from '@ferment-ai/runtime-interfaces';
+import type {
+  Module,
+  Journal,
+  JournalOptions,
+  JournalState,
+  Entity,
+  EntityId,
+  Component,
+  ComponentType,
+  Process,
+  ProcessId
+} from '@ferment-ai/runtime-interfaces';
 import { initializeJournal } from '@ferment-ai/runtime-in-memory';
 import { createHttpApplicationModule } from './http-application-module.js';
 
@@ -46,6 +57,11 @@ export interface ServeOptions {
  * HTTP application
  */
 export class HttpApplication extends RootConstruct {
+  /**
+   * Construct type identifier
+   */
+  public readonly constructType: string = 'CoreConstructs::HttpApplication';
+
   /**
    * The modules to use
    */
@@ -138,36 +154,103 @@ export class HttpApplication extends RootConstruct {
     // Route to execute a journal
     app.post('/execute', async (req, res) => {
       try {
+        console.log('Received execute request:', JSON.stringify(req.body, null, 2));
         const { entrypointId, initialState } = req.body;
+        const message = initialState?.message || {};
+        
+        console.log('Message for entrypoint:', message);
 
         // Use the current journal's state if no initial state is provided
         let newJournal;
         if (initialState) {
-          // Initialize a new journal with the provided initial state
-          newJournal = await this.initializeJournal({
-            ...this.journalOptions,
-            initialState
-          });
+          console.log('Converting initialState to proper JournalState');
+          
+          try {
+            // Create a properly typed JournalState
+            const convertedState: JournalState = {
+              events: initialState.events || [],
+              entities: new Map<EntityId, Entity>(),
+              components: new Map<ComponentType, Map<EntityId, Component>>(),
+              systems: initialState.systems || [],
+              processes: new Map<ProcessId, Process>(),
+              boundConstructs: new Set<string>(initialState.boundConstructs || [])
+            };
+            
+            // Convert entities map with proper typing
+            if (initialState.entities) {
+              for (const [id, entity] of Object.entries(initialState.entities)) {
+                convertedState.entities.set(id, entity as Entity);
+              }
+            }
+            
+            // Convert processes map with proper typing
+            if (initialState.processes) {
+              for (const [id, process] of Object.entries(initialState.processes)) {
+                convertedState.processes.set(id, process as Process);
+              }
+            }
+            
+            // Convert components map with proper typing
+            if (initialState.components) {
+              for (const [type, entities] of Object.entries(initialState.components)) {
+                const entityMap = new Map<EntityId, Component>();
+                for (const [entityId, component] of Object.entries(entities as Record<string, any>)) {
+                  entityMap.set(entityId, component as Component);
+                }
+                convertedState.components.set(type, entityMap);
+              }
+            }
+            
+            console.log('Successfully converted initialState');
+            
+            // Initialize a new journal with the converted state
+            newJournal = await this.initializeJournal({
+              ...this.journalOptions,
+              initialState: convertedState
+            });
+          } catch (error: any) {
+            console.error('Error converting initialState:', error);
+            throw new Error(`Failed to convert initialState: ${error.message || 'Unknown error'}`);
+          }
         } else {
+          console.log('No initialState provided, creating new empty journal');
           // Create a new empty journal, and bootstrap it.
           newJournal = await this.initializeJournal();
         }
 
+        console.log('Journal initialized, setting up SSE response');
         // Set up SSE
         res.setHeader('Content-Type', 'text/event-stream');
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
 
+        console.log(`Executing journal with entrypointId: ${entrypointId} and message:`, message);
         // Execute the journal and stream events
-        for await (const event of newJournal.execute(entrypointId)) {
+        for await (const event of newJournal.execute(entrypointId, message)) {
+          console.log('Journal event:', JSON.stringify(event));
           res.write(`data: ${JSON.stringify(event)}\n\n`);
         }
 
+        console.log('Journal execution completed');
         // End the response
         res.write('data: {"type":"end"}\n\n');
         res.end();
       } catch (error: any) {
-        res.status(500).json({ error: error.message });
+        console.error('Error executing journal:', error);
+        console.error('Error stack:', error.stack);
+        
+        // Log more details about the error
+        if (error.cause) {
+          console.error('Error cause:', error.cause);
+        }
+        
+        // Send a detailed error response
+        res.status(500).json({
+          error: error.message,
+          stack: error.stack,
+          name: error.name,
+          code: error.code
+        });
       }
     });
   }
