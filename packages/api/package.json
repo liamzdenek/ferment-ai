@@ -1,5 +1,5 @@
 {
-  "name": "@ferment/api",
+  "name": "@ferment-ai/api",
   "version": "0.0.1",
   "private": true,
   "type": "module",

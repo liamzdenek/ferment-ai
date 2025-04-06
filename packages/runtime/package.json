@@ -1,5 +1,5 @@
 {
-  "name": "@ferment/runtime",
+  "name": "@ferment-ai/runtime",
   "version": "0.0.1",
   "private": true,
   "type": "module",

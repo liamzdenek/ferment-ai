@@ -1,4 +1,4 @@
-import { AgentContext, Entrypoint, OpenAIModel, VirtualModel } from '@ferment/core-constructs-lib';
+import { AgentContext, Entrypoint, OpenAIModel, VirtualModel } from '@ferment-ai/core-constructs-lib';
 import { Construct, RootConstruct } from 'constructs';
 
 class TwoAgentModel extends VirtualModel {

@@ -1,5 +1,5 @@
 {
-  "name": "@ferment/core-constructs-lib",
+  "name": "@ferment-ai/core-constructs-lib",
   "version": "0.0.1",
   "private": true,
   "type": "module",
