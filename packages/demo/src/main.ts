@@ -1,7 +1,7 @@
 import { AgentContext, Entrypoint, OpenAIModel, VirtualModel } from '@ferment-ai/core-constructs-lib';
 import { HttpApplication } from '@ferment-ai/runtime';
 import { Construct, RootConstruct } from 'constructs';
-import { createCoreConstructsRuntimeModule } from '@ferment-ai/core-constructs-runtime';
+import { createCoreConstructsModule } from '@ferment-ai/core-constructs-runtime';
 
 class TwoAgentModel extends VirtualModel {
     constructor(scope: Construct, id: string) {
@@ -40,17 +40,32 @@ class TwoAgentModel extends VirtualModel {
         //seniorEngineer.addTool(this.exitPoint!.finishWorkingTool());
     }
 }
-const app = new HttpApplication('HttpApp', {
-    journalProps: {
-        enableCompression: false
-    }
+
+// Create the HTTP application
+const app = new HttpApplication('EcsHttpApp', {
+  journalOptions: {
+    enableCompression: false
+  }
 });
 
+// Create the virtual model
 new TwoAgentModel(app, 'TwoAgentModel');
 
-app.addModule(createCoreConstructsRuntimeModule());
+// Add the core constructs module
+app.addModule(createCoreConstructsModule());
 
-app.serve();
+// Serve the application
+app.serve().then(() => {
+  console.log('ECS demo application is running on http://localhost:3000');
+  console.log('To execute the virtual model, send a POST request to /execute with:');
+  console.log(JSON.stringify({
+    entrypointId: 'Entrypoint',
+    initialState: null,
+  }, null, 2));
+}).catch((error: Error) => {
+  console.error('Error running demo:', error);
+  process.exit(1);
+});
 
 /*
 console.log('node', app.node);

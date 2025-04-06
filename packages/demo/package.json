@@ -39,6 +39,15 @@
                 ".js": ".js"
               }
             }
+          },
+          "ecs": {
+            "main": "packages/demo/src/ecs-demo.ts",
+            "esbuildOptions": {
+              "sourcemap": true,
+              "outExtension": {
+                ".js": ".js"
+              }
+            }
           }
         }
       },
@@ -58,6 +67,9 @@
           },
           "production": {
             "buildTarget": "@ferment-ai/demo:build:production"
+          },
+          "ecs": {
+            "buildTarget": "@ferment-ai/demo:build:ecs"
           }
         }
       }

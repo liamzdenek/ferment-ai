@@ -1,4 +1,120 @@
-import { Entity, EntityId, Component, ComponentType, System, Process, ProcessId, ProcessResult } from './ecs.js';
+/**
+ * Entity ID type
+ */
+export type EntityId = string;
+
+/**
+ * Entity interface
+ */
+export interface Entity {
+  /**
+   * The unique identifier for this entity
+   */
+  id: EntityId;
+}
+
+/**
+ * Component type
+ */
+export type ComponentType = string;
+
+/**
+ * Component interface
+ */
+export interface Component {
+  /**
+   * The type of this component
+   */
+  type: ComponentType;
+}
+
+/**
+ * Process ID type
+ */
+export type ProcessId = string;
+
+/**
+ * Process status
+ */
+export type ProcessStatus = 'created' | 'running' | 'completed' | 'failed';
+
+/**
+ * Process result
+ */
+export interface ProcessResult {
+  /**
+   * Whether the process was successful
+   */
+  success: boolean;
+
+  /**
+   * The data returned by the process (if successful)
+   */
+  data?: any;
+
+  /**
+   * The error that occurred (if unsuccessful)
+   */
+  error?: Error;
+}
+
+/**
+ * Process interface
+ */
+export interface Process {
+  /**
+   * The unique identifier for this process
+   */
+  id: ProcessId;
+
+  /**
+   * The type of this process
+   */
+  type: string;
+
+  /**
+   * The status of this process
+   */
+  status: ProcessStatus;
+
+  /**
+   * The time this process was started
+   */
+  startTime: number;
+
+  /**
+   * The time this process ended (if completed or failed)
+   */
+  endTime?: number;
+
+  /**
+   * The result of this process (if completed or failed)
+   */
+  result?: ProcessResult;
+}
+
+/**
+ * System interface
+ */
+export interface System {
+  /**
+   * The unique identifier for this system
+   */
+  id: string;
+
+  /**
+   * The event types this system handles
+   */
+  eventTypes: string[];
+
+  /**
+   * Executes this system in response to an event
+   * 
+   * @param journal The journal
+   * @param event The event
+   */
+  execute(journal: any, event: any): Promise<void>;
+}
 
 /**
  * Journal event type
@@ -141,8 +257,7 @@ export interface JournalOptions {
 }
 
 /**
- * Journal is the central "World" that stores all entities, components, systems, processes, etc.
- * It operates append-only and is the source of truth.
+ * Journal interface
  */
 export interface Journal {
   /**

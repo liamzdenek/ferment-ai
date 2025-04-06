@@ -1,6 +1,7 @@
 import { Construct } from 'constructs';
 import { HttpApplication } from '@ferment-ai/runtime';
 import { AgentContext, Entrypoint, OpenAIModel, VirtualModel } from '@ferment-ai/core-constructs-lib';
+import { createCoreConstructsModule } from '@ferment-ai/core-constructs-runtime';
 
 // Create a root construct
 class RootConstruct extends Construct {
@@ -41,20 +42,16 @@ async function main() {
   try {
     // Create the HTTP application/Root construct
     const httpApp = new HttpApplication('HttpApp', {
-      journalProps: {
+      journalOptions: {
         enableCompression: false
       }
     });
 
+    // Add the core constructs module
+    httpApp.addModule(createCoreConstructsModule());
+
     // Create the virtual model
     new TwoAgentModel(httpApp, 'TwoAgentModel');
-
-    // Add a custom plugin
-    httpApp.addPlugin({
-      apply(app) {
-        console.log('Applying custom plugin');
-      }
-    });
 
     // Serve the application
     console.log('Starting HTTP server...');

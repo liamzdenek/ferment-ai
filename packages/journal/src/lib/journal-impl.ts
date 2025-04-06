@@ -1,19 +1,36 @@
-import { EventFilter, EventListener, EventType, Journal, JournalEvent, JournalOptions } from '@ferment-ai/runtime-common';
 import { v4 as uuidv4 } from 'uuid';
+import { RootConstruct } from 'constructs';
+import {
+  Journal,
+  JournalEvent,
+  EventListener,
+  EventFilter,
+  JournalOptions,
+  JournalState,
+  Entity,
+  EntityId,
+  Component,
+  ComponentType,
+  System,
+  Process,
+  ProcessId,
+  ProcessResult,
+  EventType
+} from './types.js';
 
 /**
  * Implementation of the Journal interface
  */
 export class JournalImpl implements Journal {
   /**
-   * The events in the journal
+   * The state of the journal
    */
-  private events: JournalEvent[] = [];
+  private state: JournalState;
 
   /**
-   * The event listeners
+   * Event listeners
    */
-  private listeners: Map<string, { listener: EventListener; filter?: EventFilter }> = new Map();
+  private eventListeners: Map<string, { filter?: EventFilter; listener: EventListener }> = new Map();
 
   /**
    * Whether compression is enabled
@@ -21,12 +38,24 @@ export class JournalImpl implements Journal {
   private readonly enableCompression: boolean;
 
   /**
+   * The index of the last processed event
+   */
+  private lastProcessedEventIndex: number = 0;
+
+  /**
    * Creates a new Journal
    * 
    * @param options The journal options
    */
   constructor(options: JournalOptions = {}) {
-    this.events = options.initialEvents ?? [];
+    this.state = options.initialState || {
+      events: [],
+      entities: new Map(),
+      components: new Map(),
+      systems: [],
+      processes: new Map(),
+      boundConstructs: new Set()
+    };
     this.enableCompression = options.enableCompression ?? false;
   }
 
@@ -40,7 +69,7 @@ export class JournalImpl implements Journal {
    * @returns The published event
    */
   public publish(
-    type: EventType,
+    type: EventType | string,
     source: string,
     payload: Record<string, any>,
     target?: string
@@ -54,7 +83,7 @@ export class JournalImpl implements Journal {
       payload,
     };
 
-    this.events.push(event);
+    this.state.events.push(event);
     this.notifyListeners(event);
 
     return event;
@@ -69,7 +98,7 @@ export class JournalImpl implements Journal {
    */
   public subscribe(listener: EventListener, filter?: EventFilter): string {
     const id = uuidv4();
-    this.listeners.set(id, { listener, filter });
+    this.eventListeners.set(id, { listener, filter });
     return id;
   }
 
@@ -79,7 +108,7 @@ export class JournalImpl implements Journal {
    * @param id The subscription ID
    */
   public unsubscribe(id: string): void {
-    this.listeners.delete(id);
+    this.eventListeners.delete(id);
   }
 
   /**
@@ -88,7 +117,7 @@ export class JournalImpl implements Journal {
    * @returns All events in the journal
    */
   public getEvents(): JournalEvent[] {
-    return [...this.events];
+    return [...this.state.events];
   }
 
   /**
@@ -102,21 +131,348 @@ export class JournalImpl implements Journal {
       return this.getEvents();
     }
 
-    return this.events.filter((event) => {
-      if (filter.type && event.type !== filter.type) {
-        return false;
-      }
+    return this.state.events.filter(event => this.eventMatchesFilter(event, filter));
+  }
 
-      if (filter.source && event.source !== filter.source) {
-        return false;
-      }
+  /**
+   * Creates an entity
+   * 
+   * @returns The ID of the created entity
+   */
+  public createEntity(): EntityId {
+    const id = uuidv4();
+    const entity: Entity = { id };
+    this.state.entities.set(id, entity);
 
-      if (filter.target && event.target !== filter.target) {
-        return false;
-      }
-
-      return true;
+    this.publish(EventType.ENTITY, 'journal', {
+      action: 'entity_created',
+      entityId: id,
     });
+
+    return id;
+  }
+
+  /**
+   * Removes an entity
+   * 
+   * @param id The ID of the entity to remove
+   */
+  public removeEntity(id: EntityId): void {
+    // Remove the entity
+    this.state.entities.delete(id);
+
+    // Remove all components for this entity
+    for (const componentMap of this.state.components.values()) {
+      componentMap.delete(id);
+    }
+
+    this.publish(EventType.ENTITY, 'journal', {
+      action: 'entity_removed',
+      entityId: id,
+    });
+  }
+
+  /**
+   * Gets an entity
+   * 
+   * @param id The ID of the entity to get
+   * @returns The entity, or undefined if not found
+   */
+  public getEntity(id: EntityId): Entity | undefined {
+    return this.state.entities.get(id);
+  }
+
+  /**
+   * Adds a component to an entity
+   * 
+   * @param entityId The ID of the entity
+   * @param componentType The type of the component
+   * @param component The component
+   */
+  public addComponent<T extends Component>(entityId: EntityId, componentType: ComponentType, component: T): void {
+    // Ensure the entity exists
+    if (!this.state.entities.has(entityId)) {
+      throw new Error(`Entity ${entityId} does not exist`);
+    }
+
+    // Ensure the component map exists
+    if (!this.state.components.has(componentType)) {
+      this.state.components.set(componentType, new Map());
+    }
+
+    // Add the component
+    const componentMap = this.state.components.get(componentType)!;
+    componentMap.set(entityId, component);
+
+    this.publish(EventType.COMPONENT, 'journal', {
+      action: 'component_added',
+      entityId,
+      componentType,
+      component,
+    });
+  }
+
+  /**
+   * Removes a component from an entity
+   * 
+   * @param entityId The ID of the entity
+   * @param componentType The type of the component
+   */
+  public removeComponent(entityId: EntityId, componentType: ComponentType): void {
+    // Ensure the component map exists
+    if (!this.state.components.has(componentType)) {
+      return;
+    }
+
+    // Remove the component
+    const componentMap = this.state.components.get(componentType)!;
+    componentMap.delete(entityId);
+
+    this.publish(EventType.COMPONENT, 'journal', {
+      action: 'component_removed',
+      entityId,
+      componentType,
+    });
+  }
+
+  /**
+   * Gets a component from an entity
+   * 
+   * @param entityId The ID of the entity
+   * @param componentType The type of the component
+   * @returns The component, or undefined if not found
+   */
+  public getComponent<T extends Component>(entityId: EntityId, componentType: ComponentType): T | undefined {
+    // Ensure the component map exists
+    if (!this.state.components.has(componentType)) {
+      return undefined;
+    }
+
+    // Get the component
+    const componentMap = this.state.components.get(componentType)!;
+    return componentMap.get(entityId) as T | undefined;
+  }
+
+  /**
+   * Gets all entities that have a specific component
+   * 
+   * @param componentType The type of the component
+   * @returns The IDs of entities that have the component
+   */
+  public getEntitiesWithComponent(componentType: ComponentType): EntityId[] {
+    // Ensure the component map exists
+    if (!this.state.components.has(componentType)) {
+      return [];
+    }
+
+    // Get the entities with this component
+    const componentMap = this.state.components.get(componentType)!;
+    return Array.from(componentMap.keys());
+  }
+
+  /**
+   * Registers a system
+   * 
+   * @param system The system to register
+   */
+  public registerSystem(system: System): void {
+    this.state.systems.push(system);
+
+    this.publish(EventType.SYSTEM, 'journal', {
+      action: 'system_registered',
+      systemId: system.id,
+      eventTypes: system.eventTypes,
+    });
+  }
+
+  /**
+   * Unregisters a system
+   * 
+   * @param systemId The ID of the system to unregister
+   */
+  public unregisterSystem(systemId: string): void {
+    this.state.systems = this.state.systems.filter(system => system.id !== systemId);
+
+    this.publish(EventType.SYSTEM, 'journal', {
+      action: 'system_unregistered',
+      systemId,
+    });
+  }
+
+  /**
+   * Creates a process
+   * 
+   * @param process The process to create
+   * @returns The ID of the created process
+   */
+  public createProcess(process: Process): ProcessId {
+    this.state.processes.set(process.id, process);
+
+    this.publish(EventType.PROCESS, 'journal', {
+      action: 'process_created',
+      processId: process.id,
+      processType: process.type,
+    });
+
+    return process.id;
+  }
+
+  /**
+   * Completes a process
+   * 
+   * @param processId The ID of the process to complete
+   * @param result The result of the process
+   */
+  public completeProcess(processId: ProcessId, result: ProcessResult): void {
+    const process = this.state.processes.get(processId);
+    if (!process) {
+      throw new Error(`Process ${processId} does not exist`);
+    }
+
+    process.status = 'completed';
+    process.endTime = Date.now();
+    process.result = result;
+
+    this.publish(EventType.PROCESS, 'journal', {
+      action: 'process_completed',
+      processId,
+      result,
+    });
+  }
+
+  /**
+   * Fails a process
+   * 
+   * @param processId The ID of the process to fail
+   * @param error The error that caused the process to fail
+   */
+  public failProcess(processId: ProcessId, error: Error): void {
+    const process = this.state.processes.get(processId);
+    if (!process) {
+      throw new Error(`Process ${processId} does not exist`);
+    }
+
+    process.status = 'failed';
+    process.endTime = Date.now();
+    process.result = {
+      success: false,
+      error,
+    };
+
+    this.publish(EventType.PROCESS, 'journal', {
+      action: 'process_failed',
+      processId,
+      error: error.message,
+    });
+  }
+
+  /**
+   * Gets a process
+   * 
+   * @param processId The ID of the process to get
+   * @returns The process, or undefined if not found
+   */
+  public getProcess(processId: ProcessId): Process | undefined {
+    return this.state.processes.get(processId);
+  }
+
+  /**
+   * Marks a construct as bound
+   * 
+   * @param constructId The ID of the construct to mark as bound
+   */
+  public markConstructAsBound(constructId: string): void {
+    this.state.boundConstructs.add(constructId);
+
+    this.publish(EventType.SYSTEM, 'journal', {
+      action: 'construct_bound',
+      constructId,
+    });
+  }
+
+  /**
+   * Validates that all constructs are bound
+   * 
+   * @param rootConstruct The root construct
+   */
+  public validateAllConstructsBound(rootConstruct: RootConstruct): void {
+    console.log('Validating all constructs are bound...');
+    console.log('Bound constructs:', Array.from(this.state.boundConstructs));
+    
+    const unboundConstructs = this.findUnboundConstructs(rootConstruct);
+    console.log('Unbound constructs:', unboundConstructs);
+    
+    // Filter out undefined constructs
+    const validUnboundConstructs = unboundConstructs.filter(id => id !== undefined && id !== 'undefined');
+    
+    if (validUnboundConstructs.length > 0) {
+      throw new Error(`The following ${validUnboundConstructs.length} constructs are not bound: ${validUnboundConstructs}`);
+    }
+  }
+
+  /**
+   * Executes the journal starting from an entrypoint
+   * 
+   * @param entrypointId The ID of the entrypoint
+   * @returns An async iterable of journal events
+   */
+  public async *execute(entrypointId: string): AsyncIterable<JournalEvent> {
+    // Find the entrypoint entity
+    const entrypointEntities = this.getEntitiesWithComponent('EntrypointComponent');
+    const entrypointEntity = entrypointEntities.find(entityId => {
+      const component = this.getComponent<any>(entityId, 'EntrypointComponent');
+      return component && component.id === entrypointId;
+    });
+
+    if (!entrypointEntity) {
+      throw new Error(`Entrypoint with ID ${entrypointId} not found`);
+    }
+
+    // Create an initial event to trigger the entrypoint
+    const entrypointComponent = this.getComponent<any>(entrypointEntity, 'EntrypointComponent');
+    const initialEvent = this.publish(EventType.SYSTEM, 'journal', {
+      action: 'entrypoint_invoked',
+      entrypointId,
+      initialPayload: entrypointComponent.initialPayload || {},
+    });
+
+    // Yield the initial event
+    yield initialEvent;
+
+    // Process events until there are no more active processes
+    let activeProcesses = true;
+    while (activeProcesses) {
+      // Check if there are any active processes
+      activeProcesses = Array.from(this.state.processes.values())
+        .some(process => process.status === 'running');
+
+      // If there are no active processes, we're done
+      if (!activeProcesses) {
+        break;
+      }
+
+      // Wait for the next event (using a promise to simulate async behavior)
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      // Check if any new events have been published
+      const newEvents = this.state.events.slice(this.lastProcessedEventIndex);
+      this.lastProcessedEventIndex = this.state.events.length;
+
+      // Process each new event
+      for (const event of newEvents) {
+        // Find systems that handle this event type
+        const matchingSystems = this.state.systems
+          .filter(system => system.eventTypes.includes(event.type));
+
+        // Execute each matching system
+        for (const system of matchingSystems) {
+          await system.execute(this, event);
+        }
+
+        // Yield the event
+        yield event;
+      }
+    }
   }
 
   /**
@@ -125,7 +481,24 @@ export class JournalImpl implements Journal {
    * @returns The serialized journal
    */
   public serialize(): string {
-    return JSON.stringify(this.events);
+    const data = {
+      events: this.state.events,
+      entities: Array.from(this.state.entities.entries()),
+      components: Array.from(this.state.components.entries()).map(([type, map]) => [
+        type,
+        Array.from(map.entries()),
+      ]),
+      systems: this.state.systems,
+      processes: Array.from(this.state.processes.entries()),
+      boundConstructs: Array.from(this.state.boundConstructs),
+    };
+
+    if (this.enableCompression) {
+      // In a real implementation, we would compress the data here
+      return JSON.stringify(data);
+    }
+
+    return JSON.stringify(data);
   }
 
   /**
@@ -134,25 +507,50 @@ export class JournalImpl implements Journal {
    * @param data The serialized journal
    */
   public deserialize(data: string): void {
-    this.events = JSON.parse(data);
+    const parsed = JSON.parse(data);
+
+    if (this.enableCompression) {
+      // In a real implementation, we would decompress the data here
+    }
+
+    this.state.events = parsed.events || [];
+    this.state.entities = new Map(parsed.entities || []);
+    this.state.components = new Map(
+      (parsed.components || []).map(([type, entries]: [string, [string, any][]]) => [
+        type,
+        new Map(entries),
+      ])
+    );
+    this.state.systems = parsed.systems || [];
+    this.state.processes = new Map(parsed.processes || []);
+    this.state.boundConstructs = new Set(parsed.boundConstructs || []);
   }
 
   /**
    * Clears all events from the journal
    */
   public clear(): void {
-    this.events = [];
+    this.state.events = [];
+    this.state.entities = new Map();
+    this.state.components = new Map();
+    this.state.systems = [];
+    this.state.processes = new Map();
+    this.state.boundConstructs = new Set();
   }
 
   /**
    * Notifies listeners of an event
    * 
-   * @param event The event to notify listeners about
+   * @param event The event to notify about
    */
   private notifyListeners(event: JournalEvent): void {
-    for (const { listener, filter } of this.listeners.values()) {
+    for (const { filter, listener } of this.eventListeners.values()) {
       if (this.eventMatchesFilter(event, filter)) {
-        listener(event);
+        try {
+          listener(event);
+        } catch (error) {
+          console.error('Error in event listener:', error);
+        }
       }
     }
   }
@@ -182,5 +580,44 @@ export class JournalImpl implements Journal {
     }
 
     return true;
+  }
+
+  /**
+   * Finds constructs that are not bound
+   * 
+   * @param construct The construct to check
+   * @returns The IDs of constructs that are not bound
+   */
+  private findUnboundConstructs(construct: RootConstruct): string[] {
+    const unboundConstructs: string[] = [];
+
+    const traverse = (node: any): void => {
+      if (!node) {
+        console.log('Node is undefined');
+        return;
+      }
+      
+      const id = node.id;
+      if (!id) {
+        console.log('Node ID is undefined:', node);
+        return;
+      }
+      
+      console.log('Checking if construct is bound:', id, node.constructor?.name);
+      if (!this.state.boundConstructs.has(id)) {
+        unboundConstructs.push(id);
+        console.log('Construct is not bound:', id);
+      }
+
+      if (node.children) {
+        for (const child of node.children) {
+          traverse(child);
+        }
+      }
+    };
+
+    traverse(construct.node);
+
+    return unboundConstructs;
   }
 }

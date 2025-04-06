@@ -31,23 +31,30 @@ This pattern enables:
 - Type-safe configuration
 - Hierarchical organization of complex systems
 
-### 2. Journal-Centric Architecture
+### 2. Entity-Component-System (ECS) Architecture
 
-The journal is the central source of truth for the entire system:
+The journal now implements an event-oriented variant of the Entity-Component-System pattern:
 
 ```mermaid
 graph TD
-    Tools[Tools] -->|Publish events| Journal[Central Journal]
-    Agents[Agents] -->|Publish events| Journal
-    Journal -->|Subscribe to events| AgentContexts[Agent Contexts]
-    Journal -->|Serialize| ClientState[Client State]
-    ClientState -->|Deserialize| Journal
+    Journal[Journal/"World"] --> Entities[Entities]
+    Journal --> Components[Components]
+    Journal --> Systems[Systems]
+    Journal --> Processes[Processes]
+    Journal --> Events[Events]
+    
+    Systems -->|Create| Processes
+    Events -->|Trigger| Systems
+    Components -->|Attach to| Entities
 ```
 
 This pattern enables:
-- Stateless server operation
-- Complete state reconstruction
-- Pause/resume capabilities
+- Clear separation of data (components) from behavior (systems)
+- Efficient processing of only active entities
+- Event-driven architecture that avoids polling
+- Flexible composition of entity capabilities
+- Stateless server operation with complete state reconstruction
+- Pause/resume capabilities with full serialization
 - Clear audit trail of all operations
 
 ### 3. Pub-Sub Messaging
@@ -279,7 +286,7 @@ Key components:
 
 ### 4. Journal (`@ferment-ai/journal`)
 
-This package defines the journal and the pubsub patterns around it, providing functionality to search, store, append, and compact the journal. It contains no actual logic about running the application.
+This package defines the journal as the central "World" in the ECS architecture, providing functionality to manage entities, components, systems, and processes. It implements the event-driven architecture and provides serialization/deserialization of the full state.
 
 Key components:
 - `Journal`: Central source of truth for the system
@@ -304,82 +311,34 @@ These packages contain specific implementations for different providers or funct
 
 ## Key Technical Decisions
 
-1. **Using AWS CDK Constructs**: We're using the actual "constructs" npm package from AWS CDK as the foundation for our configuration system.
+1. **Entity-Component-System Architecture**: We've implemented an event-oriented variant of the ECS pattern, where entities are just identifiers, components are pure data, and systems contain the logic.
 
-2. **Journal as Source of Truth**: The journal is the central source of truth for the entire system, containing all data needed to reconstruct agent contexts and continue execution.
+2. **Using AWS CDK Constructs**: We're using the actual "constructs" npm package from AWS CDK as the foundation for our configuration system.
 
-3. **Stateless API Design**: The system has no persistence and relies on a stateless API, where the end user stores the entire journal and passes it to the API to resume a paused/canceled prompt.
+3. **Journal as ECS World**: The journal is the central "World" in the ECS architecture, containing all entities, components, systems, and processes needed to reconstruct the full state and continue execution.
 
-4. **Package Structure**: We've organized the codebase into multiple packages to maintain separation of concerns and enable modular development. We've renamed the package scope from `@ferment` to `@ferment-ai` and renamed the constructs package to `core-constructs-lib`, with a new `core-constructs-runtime` package for runtime implementation.
+4. **Module-Based Initialization**: We've implemented a module system that converts constructs to ECS elements during initialization, allowing for modular and extensible system configuration.
 
-5. **Tool Implementation with Zod**: We're using Zod for schema validation in our tools, which provides runtime type safety and clear error messages.
+5. **Stateless API Design**: The system has no persistence and relies on a stateless API, where each request creates a new journal instance that runs until completion and returns the results.
 
-6. **TypeScript Configuration**: We've configured TypeScript to use the appropriate module resolution strategy and other compiler options.
+6. **Process-Based Execution**: Agent calls, tool calls, etc. are represented as processes with a clear lifecycle (created, running, completed, failed), allowing for better tracking and management of long-running operations.
 
-7. **Testing with Jest**: We're using Jest for testing, with the configuration issues now resolved.
+7. **Package Structure**: We've organized the codebase into multiple packages to maintain separation of concerns and enable modular development, with clear interfaces between the definition and runtime layers.
 
-## Planned Patterns
+8. **Tool Implementation with Zod**: We're using Zod for schema validation in our tools, which provides runtime type safety and clear error messages.
 
-### 1. HttpApplication Pattern
+9. **TypeScript Configuration**: We've configured TypeScript to use the appropriate module resolution strategy and other compiler options.
 
-The `HttpApplication` class is implemented in the runtime package:
+10. **Testing with Jest**: We're using Jest for testing, with comprehensive tests for the ECS architecture components.
 
-```typescript
-export class HttpApplication extends RootConstruct {
-  constructor(id: string, props: HttpApplicationProps = {}) {
-    super(id);
-    // Create the journal
-    this.journal = new Journal({
-      enableCompression: props.journalProps?.enableCompression,
-      initialEvents: props.journalProps?.initialEvents,
-    });
-    
-    // Create the module processor
-    this.moduleProcessor = new ModuleProcessor(this.journal);
-  }
+## Implemented Patterns
 
-  public serve(options: ServeOptions = {}): Promise<void> {
-    // Process the construct tree
-    this.moduleProcessor.processRootConstruct(this);
-    
-    // Create the Express app
-    const app = express();
-    
-    // Configure middleware
-    app.use(cors());
-    app.use(bodyParser.json());
-    
-    // Apply plugins
-    for (const plugin of this.plugins) {
-      plugin.apply(app);
-    }
-    
-    // Configure routes
-    this.configureRoutes(app);
-    
-    // Start the server
-    return new Promise<void>((resolve, reject) => {
-      this.server = app.listen(port, host, () => {
-        console.log(`Server listening on http://${host}:${port}`);
-        resolve();
-      });
-    });
-  }
-}
-```
+### 1. Module Pattern
 
-This pattern will provide:
-- A way to serve the constructs over HTTP
-- Configuration for the HTTP server
-- Integration with the journal system
-- Real-time streaming of events
-
-### 2. Processor/Runtime Module Interface
-
-We plan to design and implement a processor/runtime module interface to validate that all necessary modules are available to execute the constructs:
+The `Module` interface defines how to convert constructs to ECS elements:
 
 ```typescript
-export interface RuntimeModule {
+export interface Module {
   /**
    * The ID of this module
    */
@@ -393,24 +352,168 @@ export interface RuntimeModule {
   /**
    * The dependencies of this module
    */
-  readonly dependencies: RuntimeModuleDependency[];
+  readonly dependencies: string[];
 
   /**
-   * Initializes this module by binding all nodes in the tree
+   * Initializes this module
    *
-   * @param rootNode The root node of the construct tree
-   * @param journal The journal to use
+   * @param rootConstruct The root construct
+   * @param journal The journal
    */
-  initialize(rootNode: Node, journal: Journal): Promise<void>;
-}
-
-export function createStandardRuntimeModule(options: StandardRuntimeModuleOptions): RuntimeModule {
-  // Implementation that uses a setup map to bind constructs
+  initialize(rootConstruct: RootConstruct, journal: Journal): Promise<void>;
 }
 ```
 
-This pattern will provide:
-- Validation of module dependencies
-- Runtime checking of module availability
-- Clear error messages for missing modules
-- Extensibility for custom modules
+This pattern provides:
+- A way to convert constructs to entities, components, and systems
+- Modular initialization of the journal
+- Support for third-party modules
+- Clear separation of concerns
+
+### 2. HttpApplication Pattern
+
+The `HttpApplication` class is implemented in the runtime package with ECS support:
+
+```typescript
+export class HttpApplication extends RootConstruct {
+  private modules: Module[] = [];
+  private server?: http.Server;
+
+  constructor(id: string, options: HttpApplicationOptions = {}) {
+    super(id);
+    
+    // Initialize modules if provided
+    if (options.modules) {
+      this.modules = [...options.modules];
+    }
+  }
+
+  /**
+   * Adds a module to the application
+   *
+   * @param module The module to add
+   */
+  public addModule(module: Module): void {
+    this.modules.push(module);
+  }
+
+  /**
+   * Initializes the application
+   *
+   * @param options The initialization options
+   * @returns The initialized journal
+   */
+  public async initialize(options: JournalOptions = {}): Promise<Journal> {
+    // Add the HTTP application module
+    const allModules = [...this.modules, createHttpApplicationModule()];
+    
+    // Initialize the journal with all modules
+    return await initializeJournal(this, allModules, options);
+  }
+
+  /**
+   * Serves the application over HTTP
+   *
+   * @param options The serve options
+   * @returns A promise that resolves when the server is started
+   */
+  public async serve(options: ServeOptions = {}): Promise<void> {
+    // Initialize the journal
+    const journal = await this.initialize(options.journalOptions);
+
+    // Create the Express app
+    const app = express();
+
+    // Configure middleware
+    app.use(cors());
+    app.use(bodyParser.json());
+
+    // Configure routes
+    this.configureRoutes(app, journal);
+
+    // Start the server
+    const port = options.port || 3000;
+    const host = options.host || 'localhost';
+
+    return new Promise<void>((resolve, reject) => {
+      this.server = app.listen(port, host, () => {
+        console.log(`Server listening on http://${host}:${port}`);
+        resolve();
+      });
+    });
+  }
+}
+```
+
+This pattern provides:
+- A way to serve the constructs over HTTP
+- Configuration for the HTTP server
+- Integration with the ECS-based journal system
+- Real-time streaming of events via SSE
+- Stateless API design with full state serialization
+- Support for multiple modules
+
+### 3. Entity-Component Pattern
+
+The ECS architecture uses entities and components to represent the system state:
+
+```typescript
+// Entity is just a unique identifier
+export type EntityId = string;
+
+export interface Entity {
+  id: EntityId;
+}
+
+// Component is a pure data object
+export interface Component {
+  type: string;
+  [key: string]: any;
+}
+```
+
+This pattern provides:
+- Clear separation of data from behavior
+- Flexible composition of entity capabilities
+- Type-safe component access
+- Efficient component lookups
+
+### 4. System Pattern
+
+Systems in the ECS architecture respond to events and create processes:
+
+```typescript
+export interface System {
+  id: string;
+  eventTypes: string[];
+  execute(journal: Journal, event: JournalEvent): Promise<void>;
+}
+```
+
+This pattern provides:
+- Event-driven behavior
+- Clear separation of concerns
+- Modular system implementation
+- Efficient event handling
+
+### 5. Process Pattern
+
+Processes represent operations with a start and end:
+
+```typescript
+export interface Process {
+  id: string;
+  type: string;
+  status: 'created' | 'running' | 'completed' | 'failed';
+  startTime: number;
+  endTime?: number;
+  result?: ProcessResult;
+  [key: string]: any;
+}
+```
+
+This pattern provides:
+- Clear lifecycle for operations
+- Status tracking for long-running operations
+- Result handling for completed operations
+- Error handling for failed operations

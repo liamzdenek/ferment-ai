@@ -1,6 +1,8 @@
-import { HttpApplication } from '../lib/http-application.js';
+import { HttpApplication } from '@ferment-ai/runtime';
 import { RootConstruct } from 'constructs';
 import { VirtualModel, AgentContext, OpenAIModel, Entrypoint } from '@ferment-ai/core-constructs-lib';
+import { createCoreConstructsModule } from '@ferment-ai/core-constructs-runtime';
+import express from 'express';
 
 /**
  * Example of how to use the HttpApplication class
@@ -14,17 +16,13 @@ async function main() {
   
   // Create an HTTP application
   const httpApp = new HttpApplication('http-app', {
-    plugins: [
-      {
-        apply(expressApp) {
-          // Add a custom route
-          expressApp.get('/hello', (req, res) => {
-            res.json({ message: 'Hello, world!' });
-          });
-        }
-      }
-    ]
+    journalOptions: {
+      enableCompression: false
+    }
   });
+  
+  // Add the core constructs module
+  httpApp.addModule(createCoreConstructsModule());
   
   // Start the server
   await httpApp.serve({

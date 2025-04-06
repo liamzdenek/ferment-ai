@@ -62,30 +62,45 @@ We are rearchitecting the Journal, Modules, and Runtime library using an event-o
 
 ## Next Steps
 
-1. **Create New Journal Implementation**:
-   - Implement the new Journal class with ECS support
-   - Create interfaces for Entity, Component, System, and Process
-   - Implement serialization and deserialization of the full state
+1. **Implement Real Agent Execution**:
+   - Connect the agent system to actual LLM API calls
+   - Implement proper handling of agent responses
+   - Add support for streaming responses from agents
 
-2. **Create Module System**:
-   - Implement the Module interface
-   - Create the initializeJournal function
-   - Implement the CoreConstructsModule
+2. **Enhance Tool System**:
+   - Implement actual tool execution logic
+   - Add support for tool parameters validation
+   - Create a mechanism for tools to return results to agents
 
-3. **Update HttpApplication**:
-   - Update the HttpApplication class to use the new Journal
-   - Implement the execute endpoint with async iterable streaming
-   - Update the state endpoint to return the full serialized state
+3. **Add Support for More Component Types**:
+   - Create MemoryComponent for agent memory
+   - Implement ContextComponent for managing context windows
+   - Develop CapabilityComponent for defining what an entity can do
 
-4. **Migrate Existing Functionality**:
-   - Create components for each construct type (AgentContext, Model, Tool, etc.)
-   - Create systems for each operation (agent invocation, tool execution, etc.)
-   - Update the demo application to use the new architecture
+4. **Implement System for Managing Entity Relationships**:
+   - Create a relationship registry in the Journal
+   - Add methods for querying related entities
+   - Implement visualization tools for entity relationships
 
-5. **Testing and Documentation**:
-   - Create unit tests for all components
-   - Develop integration tests for the complete system
-   - Update documentation to reflect the new architecture
+5. **Add Serialization Optimizations**:
+   - Implement actual compression for large journals
+   - Add support for partial serialization (only changed components)
+   - Create a more efficient binary format for serialization
+
+6. **Improve Error Handling and Recovery**:
+   - Add more robust error handling in systems and processes
+   - Implement recovery mechanisms for failed processes
+   - Create a transaction-like system for atomic operations
+
+7. **Add Monitoring and Debugging Tools**:
+   - Implement a visualization tool for the journal state
+   - Add metrics collection for performance analysis
+   - Create a debugging interface for inspecting entities and components
+
+8. **Extend Module System**:
+   - Add support for module dependencies and loading order
+   - Implement a plugin system for third-party modules
+   - Create a registry for discovering available modules
 
 ## Open Questions
 

@@ -1,126 +1,99 @@
 import { RootConstruct } from 'constructs';
-import { Journal } from '@ferment-ai/journal';
-import { RuntimeModule } from '@ferment-ai/runtime-common';
-import * as http from 'http';
-import express from 'express'; 
+import express from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
-import { virtualModelFactory } from './virtual-model-factory.js';
+import http from 'http';
+import type { Module } from '@ferment-ai/runtime-common';
+import type { Journal, JournalOptions } from '@ferment-ai/journal';
+import { initializeJournal } from '@ferment-ai/runtime-common';
+import { createHttpApplicationModule } from './http-application-module.js';
 
 /**
- * Options for the HttpApplication serve method
+ * HTTP application options
+ */
+export interface HttpApplicationOptions {
+  /**
+   * Journal options
+   */
+  journalOptions?: JournalOptions;
+
+  /**
+   * Modules to use
+   */
+  modules?: Module[];
+}
+
+/**
+ * Serve options
  */
 export interface ServeOptions {
   /**
-   * The port to listen on
-   * @default 3000
+   * Port to listen on
    */
   port?: number;
 
   /**
-   * The host to listen on
-   * @default 'localhost'
+   * Host to listen on
    */
   host?: string;
+
+  /**
+   * Journal options
+   */
+  journalOptions?: JournalOptions;
 }
 
 /**
- * Properties for the HttpApplication
- */
-export interface HttpApplicationProps {
-  /**
-   * Properties for the journal
-   */
-  journalProps?: any;
-
-  /**
-   * Plugins to add to the application
-   */
-  plugins?: HttpPlugin[];
-
-  /**
-   * Runtime modules to add to the application
-   */
-  modules?: RuntimeModule[];
-}
-
-/**
- * Interface for HTTP plugins
- */
-export interface HttpPlugin {
-  /**
-   * Apply the plugin to the Express app
-   * 
-   * @param app The Express app
-   */
-  apply(app: express.Express): void;
-}
-
-/**
- * HttpApplication is a RootConstruct that provides an HTTP API for the Ferment system.
- * 
- * It processes the construct tree and creates runtime modules that can be executed
- * via HTTP requests.
+ * HTTP application
  */
 export class HttpApplication extends RootConstruct {
-
   /**
-   * The module processor for this application
+   * The modules to use
    */
-  private readonly modules: RuntimeModule[] = [];
+  private modules: Module[] = [];
 
   /**
-   * The plugins for this application
-   */
-  private readonly plugins: HttpPlugin[] = [];
-
-  /**
-   * The HTTP server
+   * The server
    */
   private server?: http.Server;
 
+  private journalOptions?: JournalOptions;
+
   /**
-   * Creates a new HttpApplication
+   * Creates a new HTTP application
    * 
-   * @param id The construct ID
-   * @param props The construct properties
+   * @param id The application ID
+   * @param options The application options
    */
-  constructor(id: string, props: HttpApplicationProps = {}) {
+  constructor(id: string, options: HttpApplicationOptions = {}) {
     super(id);
-    
-    this.modules = [];
-    
-    // Add plugins
-    if (props.plugins) {
-      for (const plugin of props.plugins) {
-        this.addPlugin(plugin);
-      }
-    }
 
-    // Add modules
-    if (props.modules) {
-      for (const module of props.modules) {
-        this.addModule(module);
-      }
+    if (options.modules) {
+      this.modules = [...options.modules];
     }
   }
 
   /**
-   * Adds a plugin to the application
+   * Adds a module to the application
    * 
-   * @param plugin The plugin to add
+   * @param module The module to add
    */
-  public addPlugin(plugin: HttpPlugin): void {
-    this.plugins.push(plugin);
+  public addModule(module: Module): void {
+    this.modules.push(module);
   }
 
   /**
-   * Adds a runtime module to the application
-   *
-   * @param module The runtime module to add
+   * Initializes the application
+   * 
+   * @param options The initialization options
+   * @returns The initialized journal
    */
-  public addModule(module: RuntimeModule): void {
-    this.modules.push(module);
+  private async initializeJournal(overrideOptions?: JournalOptions): Promise<Journal> {
+    // Add the HTTP application module
+    const allModules = [...this.modules, createHttpApplicationModule()];
+    
+    // Initialize the journal with all modules
+    return await initializeJournal(this, allModules, overrideOptions ?? this.journalOptions);
   }
 
   /**
@@ -132,32 +105,71 @@ export class HttpApplication extends RootConstruct {
   public async serve(options: ServeOptions = {}): Promise<void> {
     // Create the Express app
     const app = express();
-    
+
     // Configure middleware
     app.use(cors());
     app.use(bodyParser.json());
-    
-    // Apply plugins
-    for (const plugin of this.plugins) {
-      plugin.apply(app);
-    }
-    
+
     // Configure routes
     this.configureRoutes(app);
-    
+
     // Start the server
-    const port = options.port ?? 3000;
-    const host = options.host ?? 'localhost';
-    
+    const port = options.port || 3000;
+    const host = options.host || 'localhost';
+
     return new Promise<void>((resolve, reject) => {
       this.server = app.listen(port, host, () => {
         console.log(`Server listening on http://${host}:${port}`);
         resolve();
       });
-      
+
       this.server?.on('error', (error) => {
         reject(error);
       });
+    });
+  }
+
+  /**
+   * Configures the routes for the application
+   * 
+   * @param app The Express app
+   * @param journal The journal
+   */
+  private configureRoutes(app: express.Express): void {
+    // Route to execute a journal
+    app.post('/execute', async (req, res) => {
+      try {
+        const { entrypointId, initialState } = req.body;
+
+        // Use the current journal's state if no initial state is provided
+        let newJournal;
+        if (initialState) {
+          // Initialize a new journal with the provided initial state
+          newJournal = await this.initializeJournal({
+            ...this.journalOptions,
+            initialState
+          });
+        } else {
+          // Create a new empty journal, and bootstrap it.
+          newJournal = await this.initializeJournal();
+        }
+
+        // Set up SSE
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+
+        // Execute the journal and stream events
+        for await (const event of newJournal.execute(entrypointId)) {
+          res.write(`data: ${JSON.stringify(event)}\n\n`);
+        }
+
+        // End the response
+        res.write('data: {"type":"end"}\n\n');
+        res.end();
+      } catch (error: any) {
+        res.status(500).json({ error: error.message });
+      }
     });
   }
 
@@ -166,10 +178,10 @@ export class HttpApplication extends RootConstruct {
    * 
    * @returns A promise that resolves when the server is stopped
    */
-  public stop(): Promise<void> {
+  public async stop(): Promise<void> {
     if (this.server) {
       return new Promise<void>((resolve, reject) => {
-        this.server!.close((error) => {
+        this.server?.close((error) => {
           if (error) {
             reject(error);
           } else {
@@ -178,51 +190,5 @@ export class HttpApplication extends RootConstruct {
         });
       });
     }
-    
-    return Promise.resolve();
-  }
-
-  /**
-   * Configures the routes for the application
-   * 
-   * @param app The Express app
-   */
-  private configureRoutes(app: express.Express): void {
-    // Execute route
-    app.post('/execute', async (req: any, res: any) => {
-      try {
-        // Validate request
-        if (!req.body.journal) {
-          return res.status(400).json({
-            success: false,
-            error: 'Journal is required',
-          });
-        }
-
-        const journal = await virtualModelFactory(this, this.modules, {});
-        
-        // Deserialize journal
-        journal.deserialize(req.body.journal);
-        
-        // TODO: Execute runtime
-        return res.status(500).json({
-          success: false,
-          error: "UNIMPLEMENTED: TODO: Execute runtime",
-        });
-      } catch (error: any) {
-        return res.status(500).json({
-          success: false,
-          error: error.message,
-        });
-      }
-    });
-    
-    // Status route
-    app.get('/status', (req: any, res: any) => {
-      return res.json({
-        status: 'ok',
-        version: '0.0.1',
-      });
-    });
   }
 }
