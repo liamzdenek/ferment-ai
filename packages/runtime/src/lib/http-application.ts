@@ -1,5 +1,6 @@
 import { RootConstruct } from 'constructs';
 import { Journal } from '@ferment-ai/journal';
+import { RuntimeModule } from '@ferment-ai/runtime-common';
 import { ModuleProcessor } from './module-processor.js';
 import * as http from 'http';
 import express from 'express';
@@ -36,6 +37,11 @@ export interface HttpApplicationProps {
    * Plugins to add to the application
    */
   plugins?: HttpPlugin[];
+
+  /**
+   * Runtime modules to add to the application
+   */
+  modules?: RuntimeModule[];
 }
 
 /**
@@ -73,6 +79,11 @@ export class HttpApplication extends RootConstruct {
   private readonly plugins: HttpPlugin[] = [];
 
   /**
+   * The runtime modules for this application
+   */
+  private readonly modules: RuntimeModule[] = [];
+
+  /**
    * The HTTP server
    */
   private server?: http.Server;
@@ -101,6 +112,13 @@ export class HttpApplication extends RootConstruct {
         this.addPlugin(plugin);
       }
     }
+
+    // Add modules
+    if (props.modules) {
+      for (const module of props.modules) {
+        this.addModule(module);
+      }
+    }
   }
 
   /**
@@ -113,14 +131,28 @@ export class HttpApplication extends RootConstruct {
   }
 
   /**
+   * Adds a runtime module to the application
+   *
+   * @param module The runtime module to add
+   */
+  public addModule(module: RuntimeModule): void {
+    this.modules.push(module);
+  }
+
+  /**
    * Serves the application over HTTP
    * 
    * @param options The serve options
    * @returns A promise that resolves when the server is started
    */
-  public serve(options: ServeOptions = {}): Promise<void> {
+  public async serve(options: ServeOptions = {}): Promise<void> {
     // Process the construct tree
     this.moduleProcessor.processRootConstruct(this);
+    
+    // Initialize the modules
+    for (const module of this.modules) {
+      await module.initialize(this.node, this.journal);
+    }
     
     // Create the Express app
     const app = express();

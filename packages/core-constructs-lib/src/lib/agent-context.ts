@@ -1,5 +1,6 @@
 import { Construct } from 'constructs';
 import { FermentConstruct, FermentConstructProps } from './base-construct.js';
+import { SendEmailTool } from './send-email-tool.js';
 
 /**
  * Properties for the AgentContext construct
@@ -9,6 +10,12 @@ export interface AgentContextProps extends FermentConstructProps {
    * The prompt template for the agent
    */
   readonly prompt: string;
+
+  /**
+   * The context window size for the agent
+   * @default 4000
+   */
+  readonly contextWindowSize?: number;
 
   /**
    * The model to use for the agent
@@ -39,6 +46,11 @@ export class AgentContext extends FermentConstruct {
   public readonly model: Construct;
 
   /**
+   * The context window size for the agent
+   */
+  private readonly _contextWindowSize: number;
+
+  /**
    * The tools available to the agent
    */
   private readonly _tools: Construct[] = [];
@@ -54,6 +66,7 @@ export class AgentContext extends FermentConstruct {
     super(scope, id, props);
     this.prompt = props.prompt;
     this.model = props.model;
+    this._contextWindowSize = props.contextWindowSize ?? 4000;
 
     // Add tools if provided
     if (props.tools) {
@@ -82,14 +95,22 @@ export class AgentContext extends FermentConstruct {
   }
 
   /**
+   * Gets the context window size for the agent
+   */
+  public get contextWindowSize(): number {
+    return this._contextWindowSize;
+  }
+
+  /**
    * Creates a tool that sends a message to this agent
-   * 
+   *
    * @returns A tool that can be used to send messages to this agent
    */
   public sendEmailTool(): Construct {
-    // This is a placeholder for now
-    // In a real implementation, this would create a tool that
-    // sends a message to this agent
-    return new Construct(this, `${this.node.id}SendEmailTool`);
+    return new SendEmailTool(this, `${this.node.id}SendEmailTool`, {
+      name: `Send Email to ${this.node.id}`,
+      description: `Send a message to the ${this.node.id} agent`,
+      targetAgent: this,
+    });
   }
 }

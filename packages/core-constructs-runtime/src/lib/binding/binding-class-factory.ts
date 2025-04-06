@@ -2,6 +2,8 @@ import { BindingClass, BindingClassFactory, Journal } from '@ferment-ai/runtime-
 import { ModelBinding } from './model-binding.js';
 import { AgentContextBinding } from './agent-context-binding.js';
 import { ToolBinding } from './tool-binding.js';
+import { SendEmailToolBinding } from './send-email-tool-binding.js';
+import { ExitPointToolBinding } from './exit-point-tool-binding.js';
 
 /**
  * Implementation of the BindingClassFactory interface
@@ -17,11 +19,13 @@ export class DefaultBindingClassFactory implements BindingClassFactory {
    * 
    * @param journal The journal to use
    */
-  constructor(journal: Journal) {
+  constructor(private readonly journal: Journal) {
     this.bindingClasses = [
       new ModelBinding(journal),
       new AgentContextBinding(journal),
       new ToolBinding(journal),
+      new SendEmailToolBinding(journal),
+      new ExitPointToolBinding(journal),
     ];
   }
 

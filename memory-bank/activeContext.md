@@ -2,7 +2,7 @@
 
 ## Current Focus
 
-We have made significant progress in implementing the core constructs for the Ferment AI system:
+We have made significant progress in implementing the core constructs and runtime modules for the Ferment AI system:
 
 1. **Implemented Core Constructs**: We have created the base constructs for the system, including:
    - `FermentConstruct`: Base class for all Ferment constructs
@@ -11,6 +11,8 @@ We have made significant progress in implementing the core constructs for the Fe
    - `Model` (with `OpenAIModel` and `AnthropicModel`): LLM provider interfaces
    - `Tool` (with `FileTool` and `CommandTool`): Tool interfaces
    - `Entrypoint` and `ExitPoint`: Starting and ending points for a virtual model
+   - `SendEmailTool`: Tool for sending messages between agents
+   - `ExitPointTool`: Tool for finishing virtual model execution
 
 2. **Set Up Project Structure**: We have set up an Nx monorepo with the following packages:
    - `@ferment-ai/core-constructs-lib`: Core construct library (renamed from constructs)
@@ -40,7 +42,13 @@ We have made significant progress in implementing the core constructs for the Fe
 
 ## Active Considerations
 
-1. **Package Boundaries**: We have clarified the boundaries between the different packages:
+1. **Module System Implementation**: We have implemented the `.addModule` interface in the HttpApplication class to properly mount runtime modules and give them access to the journal. This replaces the previous placeholder implementation.
+
+2. **Core Constructs Implementation**: We have built out additional core constructs in the core-constructs-lib (SendEmailTool, ExitPointTool) and created their corresponding implementations in the core-constructs-runtime.
+
+3. **Binding Classes Implementation**: We have implemented binding classes for the new tool types (SendEmailToolBinding, ExitPointToolBinding) and updated the binding class factory to include them.
+
+4. **Package Boundaries**: We have clarified the boundaries between the different packages:
    - **core-constructs-lib**: Defines the constructs using the Constructs library. It defines the relationship between agents and what they have access to, but does NOT define how to actually run the agent.
    - **runtime-common**: Defines interfaces and utilities that both core-constructs-runtime and runtime will implement. It serves as a contract between the definition and runtime layers.
    - **core-constructs-runtime**: Defines how to run the constructs at runtime by binding to the Journal. It has a 1-to-1 relationship with core-constructs-lib.
@@ -67,7 +75,13 @@ We have made significant progress in implementing the core constructs for the Fe
 
 ## Next Steps
 
-1. **Fix TypeScript Errors**: Address the remaining TypeScript errors in the HttpApplication and ModuleProcessor classes.
+1. **Fix TypeScript Errors**: Address the remaining TypeScript errors in the HttpApplication and ModuleProcessor classes. Add type declarations for Express, CORS, and body-parser.
+
+2. **Enhance Tool Implementations**: Improve the tool implementations with better error handling and validation.
+
+3. **Implement Testing**: Create unit tests for the new components and develop integration tests for the complete system.
+
+4. **Create Documentation**: Document the new components and their usage.
 
 2. **Enhance Demo Application**: Further develop the demo application to showcase more features of the framework and demonstrate the full lifecycle from construct definition to execution.
 

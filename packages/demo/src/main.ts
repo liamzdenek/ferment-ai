@@ -1,5 +1,7 @@
 import { AgentContext, Entrypoint, OpenAIModel, VirtualModel } from '@ferment-ai/core-constructs-lib';
+import { HttpApplication } from '@ferment-ai/runtime';
 import { Construct, RootConstruct } from 'constructs';
+import { createCoreConstructsRuntimeModule } from '@ferment-ai/core-constructs-runtime';
 
 class TwoAgentModel extends VirtualModel {
     constructor(scope: Construct, id: string) {
@@ -38,8 +40,15 @@ class TwoAgentModel extends VirtualModel {
         //seniorEngineer.addTool(this.exitPoint!.finishWorkingTool());
     }
 }
-const app = new RootConstruct();
+const app = new HttpApplication('HttpApp', {
+    journalProps: {
+        enableCompression: false
+    }
+});
+
 new TwoAgentModel(app, 'TwoAgentModel');
+
+app.addModule(createCoreConstructsRuntimeModule());
 
 console.log('node', app.node);
 

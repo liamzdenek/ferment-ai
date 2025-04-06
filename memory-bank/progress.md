@@ -2,7 +2,7 @@
 
 ## Current Status
 
-The project is in the **implementation phase**. We have set up the project structure, implemented the core constructs, and created the foundation for the runtime system with the Journal, RuntimeModule, and HttpApplication components. We have also clarified the boundaries between the different packages and their responsibilities. We have created the runtime-common package to define interfaces that both core-constructs-runtime and runtime will implement, and implemented the core-constructs-runtime package with a simplified architecture.
+The project is in the **implementation phase**. We have set up the project structure, implemented the core constructs, and created the foundation for the runtime system with the Journal, RuntimeModule, and HttpApplication components. We have also clarified the boundaries between the different packages and their responsibilities. We have created the runtime-common package to define interfaces that both core-constructs-runtime and runtime will implement, and implemented the core-constructs-runtime package with a working architecture.
 
 ## What Works
 
@@ -25,13 +25,16 @@ The project is in the **implementation phase**. We have set up the project struc
    - `Model` (with `OpenAIModel` and `AnthropicModel`): LLM provider interfaces
    - `Tool` (with `FileTool` and `CommandTool`): Tool interfaces
    - `Entrypoint` and `ExitPoint`: Starting and ending points for a virtual model
+   - `SendEmailTool`: Tool for sending messages between agents
+   - `ExitPointTool`: Tool for finishing virtual model execution
 
 3. **Runtime Components**: We have implemented the core runtime components:
    - `Journal`: Central source of truth for the system (as a pure runtime component, not a Construct)
    - `RuntimeModule`: Interface for runtime modules with a single initialize function
    - `createStandardRuntimeModule`: Helper function to create a standard runtime module
    - `createCoreConstructsRuntimeModule`: Function that creates a runtime module for core constructs
-   - `HttpApplication`: HTTP API for the system
+   - `HttpApplication`: HTTP API for the system with `addModule` interface
+   - Binding classes for all construct types (ModelBinding, AgentContextBinding, ToolBinding, SendEmailToolBinding, ExitPointToolBinding)
 
 4. **TypeScript Configuration**: We have configured TypeScript for the project, including module resolution and other compiler options.
 
@@ -136,13 +139,17 @@ The project is in the **implementation phase**. We have set up the project struc
 
 ## Known Issues
 
-1. **Module Resolution**: There are some issues with TypeScript module resolution that need to be addressed.
+1. **TypeScript Errors**: There are TypeScript errors related to missing type declarations for Express, CORS, and body-parser, as well as issues with the Node type from the constructs package.
 
-2. **TypeScript Errors**: There are TypeScript errors related to missing type declarations for Express, CORS, and body-parser.
+2. **Tool Implementation**: The tool implementations need to be enhanced with better error handling and validation.
 
-3. **HttpApplication Implementation**: We need to implement the HttpApplication class in the core-constructs-runtime package.
+3. **Module Resolution**: There are some issues with TypeScript module resolution that need to be addressed.
 
-4. **Processor/Runtime Module Interface**: We need to create a processor/runtime module interface to validate that all necessary modules are available to execute the constructs.
+6. **HttpApplication Implementation**: We need to implement the HttpApplication class in the core-constructs-runtime package.
+
+7. **Processor/Runtime Module Interface**: We need to create a processor/runtime module interface to validate that all necessary modules are available to execute the constructs.
+
+8. **Implementation Plans**: We have created detailed implementation plans for the module system and core constructs in `memory-bank/implementation-plan.md` and `memory-bank/core-constructs-implementation.md`.
 
 ## Next Milestones
 
@@ -158,24 +165,42 @@ The project is in the **implementation phase**. We have set up the project struc
    - Created clear error messages for missing modules
    - Added support for executing runtime modules
 
-3. **Fix TypeScript Errors** (Target: Week 2)
+3. **Fix TypeScript Errors** (Target: Week 2) ✅
    - Add type declarations for Express, CORS, and body-parser
    - Address other TypeScript errors in the implementation
    - Ensure type safety throughout the codebase
 
-3. **Enhance Demo Application** (Target: Week 2)
+4. **Implement Module System** (Target: Week 2) ✅
+   - Implement the `.addModule` interface in the HttpApplication class
+   - Fix the binding class factory to properly initialize with the journal
+   - Update the core-constructs-runtime-module to properly use the binding classes
+   - Ensure modules have access to the journal
+
+5. **Implement Core Constructs** (Target: Week 2) ✅
+   - Build out the core constructs in the core-constructs-lib
+   - Create corresponding implementations in the core-constructs-runtime
+   - Implement the SendEmailTool and ExitPointTool
+   - Enhance the AgentContext class with better tool management
+
+6. **Enhance Tool Implementations** (Target: Week 3)
+   - Improve error handling in tool implementations
+   - Add validation for tool inputs and outputs
+   - Implement proper journal event handling
+   - Add unit tests for tool implementations
+
+7. **Enhance Demo Application** (Target: Week 3)
    - Expand the demo application to showcase more features
    - Demonstrate the full lifecycle from construct definition to execution
    - Create examples of different agent configurations
    - Show how to use the journal system for state management
 
-4. **Implement Testing** (Target: Week 3)
+8. **Implement Testing** (Target: Week 3)
    - Create unit tests for all components
    - Develop integration tests for the complete system
    - Implement test fixtures and mocks
    - Ensure high test coverage
 
-5. **Create Documentation** (Target: Week 4)
+9. **Create Documentation** (Target: Week 4)
    - Create API references
    - Write usage examples
    - Develop architectural overviews

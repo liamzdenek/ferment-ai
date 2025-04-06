@@ -1,6 +1,7 @@
 import { Construct } from 'constructs';
 import { FermentConstruct, FermentConstructProps } from './base-construct.js';
 import { AgentContext } from './agent-context.js';
+import { ExitPointTool } from './exit-point-tool.js';
 
 /**
  * Properties for the Entrypoint construct
@@ -56,7 +57,7 @@ export class ExitPoint extends FermentConstruct {
   /**
    * The message to display when the virtual model exits
    */
-  private readonly exitMessage?: string;
+  public readonly exitMessage?: string;
 
   /**
    * Creates a new instance of the ExitPoint class
@@ -76,9 +77,17 @@ export class ExitPoint extends FermentConstruct {
    * @returns A tool that can be used to finish the virtual model execution
    */
   public finishWorkingTool(): Construct {
-    // This is a placeholder for now
-    // In a real implementation, this would create a tool that
-    // finishes the virtual model execution
-    return new Construct(this, `${this.node.id}FinishWorkingTool`);
+    return new ExitPointTool(this, `${this.node.id}FinishWorkingTool`, {
+      name: 'Finish Working',
+      description: 'Finish the virtual model execution and return the result',
+      exitPoint: this,
+    });
+  }
+
+  /**
+   * Gets the exit message
+   */
+  public getExitMessage(): string | undefined {
+    return this.exitMessage;
   }
 }
