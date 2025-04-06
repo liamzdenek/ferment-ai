@@ -8,17 +8,22 @@ Ferment AI uses the AWS CDK constructs library to create a hierarchical, composa
 
 ```mermaid
 graph TD
-    Construct[Base Construct] --> VirtualModel[Virtual Model]
-    Construct --> AgentContext[Agent Context]
-    Construct --> Tool[Tool]
-    Construct --> Model[Model]
-    Construct --> Entrypoint[Entrypoint]
-    Construct --> ExitPoint[Exit Point]
+    Construct[Base Construct] --> FermentConstruct[Ferment Construct]
+    FermentConstruct --> VirtualModel[Virtual Model]
+    FermentConstruct --> AgentContext[Agent Context]
+    FermentConstruct --> Tool[Tool]
+    FermentConstruct --> Model[Model]
+    FermentConstruct --> Entrypoint[Entrypoint]
+    FermentConstruct --> ExitPoint[Exit Point]
+    Model --> OpenAIModel[OpenAI Model]
+    Model --> AnthropicModel[Anthropic Model]
+    Tool --> FileTool[File Tool]
+    Tool --> CommandTool[Command Tool]
 ```
 
-- **L1 Constructs**: Core primitives (VirtualModel, AgentContext, Tool, etc.)
-- **L2 Constructs**: Combinations of L1 constructs for common patterns
-- **L3 Constructs**: High-level, domain-specific constructs
+- **L1 Constructs**: Core primitives (FermentConstruct, VirtualModel, AgentContext, Tool, etc.)
+- **L2 Constructs**: Combinations of L1 constructs for common patterns (to be implemented)
+- **L3 Constructs**: High-level, domain-specific constructs (to be implemented)
 
 This pattern enables:
 - Clear separation between declaration and runtime
@@ -63,152 +68,192 @@ This pattern enables:
 - Scalability
 - Extensibility
 
-## Design Patterns
+## Implementation Patterns
 
-### 1. Factory Pattern
+### 1. Base Construct Pattern
 
-Used for creating instances of constructs:
+The `FermentConstruct` class serves as the base for all Ferment constructs:
 
 ```typescript
-// Example factory for creating agent contexts
-class AgentContextFactory {
-  createAgentContext(scope: Construct, id: string, props: AgentContextProps): AgentContext {
-    return new AgentContext(scope, id, props);
+export abstract class FermentConstruct extends Construct {
+  public readonly description?: string;
+
+  constructor(scope: Construct, id: string, props: FermentConstructProps = {}) {
+    super(scope, id);
+    this.description = props.description;
+  }
+
+  public override toString(): string {
+    return `${this.node.id}${this.description ? ` (${this.description})` : ''}`;
   }
 }
 ```
 
-### 2. Observer Pattern
+This pattern provides:
+- Common properties and methods for all constructs
+- Consistent initialization
+- Clear identification of constructs
 
-Used for the pub-sub system:
+### 2. Virtual Model Pattern
+
+The `VirtualModel` class represents a complete agent system:
 
 ```typescript
-// Example observer pattern for journal events
-interface JournalObserver {
-  onEvent(event: JournalEvent): void;
-}
+export class VirtualModel extends FermentConstruct {
+  public readonly name: string;
+  private _entrypoint?: Construct;
+  private _exitPoint?: Construct;
 
-class Journal {
-  private observers: Map<string, JournalObserver[]> = new Map();
-  
-  subscribe(eventType: string, observer: JournalObserver): void {
-    // Implementation
+  constructor(scope: Construct, id: string, props: VirtualModelProps = {}) {
+    super(scope, id, props);
+    this.name = props.name ?? id;
   }
-  
-  publish(event: JournalEvent): void {
-    // Implementation
+
+  public set entrypoint(entrypoint: Construct) {
+    this._entrypoint = entrypoint;
+  }
+
+  public get entrypoint(): Construct | undefined {
+    return this._entrypoint;
+  }
+
+  public set exitPoint(exitPoint: Construct) {
+    this._exitPoint = exitPoint;
+  }
+
+  public get exitPoint(): Construct | undefined {
+    return this._exitPoint;
+  }
+
+  public validate(): void {
+    if (!this._entrypoint) {
+      throw new Error(`Virtual model ${this.name} must have an entrypoint`);
+    }
   }
 }
 ```
 
-### 3. Strategy Pattern
+This pattern provides:
+- A container for agent contexts
+- Entry and exit points for the system
+- Validation of the system configuration
 
-Used for different model implementations:
+### 3. Agent Context Pattern
 
-```typescript
-// Example strategy pattern for models
-interface ModelStrategy {
-  generateResponse(prompt: string): Promise<string>;
-}
-
-class OpenAIModel implements ModelStrategy {
-  generateResponse(prompt: string): Promise<string> {
-    // Implementation
-  }
-}
-
-class AnthropicModel implements ModelStrategy {
-  generateResponse(prompt: string): Promise<string> {
-    // Implementation
-  }
-}
-```
-
-### 4. Builder Pattern
-
-Used for constructing complex objects:
+The `AgentContext` class represents an environment for a single agent:
 
 ```typescript
-// Example builder pattern for agent contexts
-class AgentContextBuilder {
-  private model: Model;
-  private tools: Tool[] = [];
-  private prompt: string;
-  
-  withModel(model: Model): AgentContextBuilder {
-    this.model = model;
+export class AgentContext extends FermentConstruct {
+  public readonly prompt: string;
+  public readonly model: Construct;
+  private readonly _tools: Construct[] = [];
+
+  constructor(scope: Construct, id: string, props: AgentContextProps) {
+    super(scope, id, props);
+    this.prompt = props.prompt;
+    this.model = props.model;
+
+    if (props.tools) {
+      for (const tool of props.tools) {
+        this.addTool(tool);
+      }
+    }
+  }
+
+  public addTool(tool: Construct): AgentContext {
+    this._tools.push(tool);
     return this;
   }
-  
-  withTool(tool: Tool): AgentContextBuilder {
-    this.tools.push(tool);
-    return this;
+
+  public get tools(): Construct[] {
+    return [...this._tools];
   }
-  
-  withPrompt(prompt: string): AgentContextBuilder {
-    this.prompt = prompt;
-    return this;
-  }
-  
-  build(scope: Construct, id: string): AgentContext {
-    return new AgentContext(scope, id, {
-      model: this.model,
-      tools: this.tools,
-      prompt: this.prompt
-    });
+
+  public sendEmailTool(): Construct {
+    return new Construct(this, `${this.node.id}SendEmailTool`);
   }
 }
 ```
 
-## Component Relationships
+This pattern provides:
+- A container for agent-specific configuration
+- Management of tools available to the agent
+- Creation of communication tools
 
-### 1. VirtualModel and AgentContext
+### 4. Model Pattern
 
-```mermaid
-graph TD
-    VirtualModel[Virtual Model] -->|Contains| AgentContext1[Agent Context 1]
-    VirtualModel -->|Contains| AgentContext2[Agent Context 2]
-    VirtualModel -->|Contains| AgentContextN[Agent Context N]
-    VirtualModel -->|Has| Entrypoint[Entrypoint]
-    VirtualModel -->|Has| ExitPoint[Exit Point]
+The `Model` class represents an LLM provider:
+
+```typescript
+export abstract class Model extends FermentConstruct {
+  public readonly modelId: string;
+  protected readonly apiKey?: string;
+  protected readonly baseUrl?: string;
+  protected readonly parameters: Record<string, any>;
+
+  constructor(scope: Construct, id: string, props: ModelProps) {
+    super(scope, id, props);
+    this.modelId = props.model;
+    this.apiKey = props.apiKey;
+    this.baseUrl = props.baseUrl;
+    this.parameters = props.parameters ?? {};
+  }
+}
 ```
 
-### 2. AgentContext and Tools
+This pattern provides:
+- Common configuration for LLM providers
+- Specific implementations for different providers (OpenAI, Anthropic)
+- Consistent interface for agent contexts
 
-```mermaid
-graph TD
-    AgentContext[Agent Context] -->|Uses| Model[Model]
-    AgentContext -->|Has| Tool1[Tool 1]
-    AgentContext -->|Has| Tool2[Tool 2]
-    AgentContext -->|Has| ToolN[Tool N]
+### 5. Tool Pattern
+
+The `Tool` class represents a capability that can be used by an agent:
+
+```typescript
+export abstract class Tool<
+  TInputSchema extends z.ZodType = z.ZodType,
+  TOutputSchema extends z.ZodType = z.ZodType
+> extends FermentConstruct {
+  public override readonly description: string;
+  public readonly name: string;
+  public abstract readonly inputSchema: TInputSchema;
+  public abstract readonly outputSchema: TOutputSchema;
+
+  constructor(scope: Construct, id: string, props: ToolProps) {
+    super(scope, id, props);
+    this.name = props.name;
+    this.description = props.description;
+  }
+
+  public toJsonSchema(): Record<string, any> {
+    return {
+      name: this.name,
+      description: this.description,
+      input_schema: zodToJsonSchema(this.inputSchema),
+      output_schema: zodToJsonSchema(this.outputSchema),
+    };
+  }
+}
 ```
 
-### 3. Journal and Components
-
-```mermaid
-graph TD
-    Journal[Journal] -->|Provides state to| AgentContext1[Agent Context 1]
-    Journal -->|Provides state to| AgentContext2[Agent Context 2]
-    Journal -->|Provides state to| AgentContextN[Agent Context N]
-    Tool1[Tool 1] -->|Publishes events to| Journal
-    Tool2[Tool 2] -->|Publishes events to| Journal
-    ToolN[Tool N] -->|Publishes events to| Journal
-    Model1[Model 1] -->|Publishes events to| Journal
-    Model2[Model 2] -->|Publishes events to| Journal
-```
+This pattern provides:
+- Schema validation for tool inputs and outputs
+- Conversion to JSON Schema for documentation
+- Specific implementations for different tool types (File, Command)
 
 ## Key Technical Decisions
 
-1. **Using AWS CDK Constructs**: Provides a proven, well-designed pattern for declarative configuration.
+1. **Using AWS CDK Constructs**: We're using the actual "constructs" npm package from AWS CDK as the foundation for our configuration system.
 
-2. **Journal as Source of Truth**: Simplifies state management and enables stateless operation.
+2. **Journal as Source of Truth**: The journal is the central source of truth for the entire system, containing all data needed to reconstruct agent contexts and continue execution.
 
-3. **Pub-Sub for Component Communication**: Enables loose coupling and extensibility.
+3. **Stateless API Design**: The system has no persistence and relies on a stateless API, where the end user stores the entire journal and passes it to the API to resume a paused/canceled prompt.
 
-4. **Zod for Schema Validation**: Provides runtime type safety and clear error messages.
+4. **Package Structure**: We've organized the codebase into multiple packages to maintain separation of concerns and enable modular development.
 
-5. **TypeScript for Type Safety**: Catches errors at compile time and improves developer experience.
+5. **Tool Implementation with Zod**: We're using Zod for schema validation in our tools, which provides runtime type safety and clear error messages.
 
-6. **Streaming for Real-Time Updates**: Provides transparency and immediate feedback.
+6. **TypeScript Configuration**: We've configured TypeScript to use the appropriate module resolution strategy and other compiler options.
 
-7. **Client-Side State Storage**: Simplifies server architecture and enables easy scaling.
+7. **Testing with Jest**: We're using Jest for testing, although we're currently experiencing issues with the Jest plugin in the Nx configuration.

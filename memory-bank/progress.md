@@ -2,37 +2,51 @@
 
 ## Current Status
 
-The project is in the **initial planning and architecture phase**. We have defined the high-level architecture and key components, but implementation has not yet begun.
+The project is in the **implementation phase**. We have set up the project structure and implemented the core constructs, but we still need to implement the runtime, journal, and API layers.
 
 ## What Works
 
-As the project is in the planning phase, no components have been implemented yet. However, we have:
+1. **Project Structure**: We have set up an Nx monorepo with the following packages:
+   - `@ferment/constructs`: Core construct library
+   - `@ferment/runtime`: Runtime implementation
+   - `@ferment/journal`: Journal system
+   - `@ferment/api`: API layer
+   - `@ferment/tools`: Tool implementations
+   - `@ferment/models`: Model integrations
+   - `@ferment/testing`: Testing utilities
 
-1. **Defined the Core Architecture**: Established the foundational patterns and components that will form the basis of the system.
+2. **Core Constructs**: We have implemented the core constructs for the system:
+   - `FermentConstruct`: Base class for all Ferment constructs
+   - `VirtualModel`: Top-level container for agent systems
+   - `AgentContext`: Environment for a single agent
+   - `Model` (with `OpenAIModel` and `AnthropicModel`): LLM provider interfaces
+   - `Tool` (with `FileTool` and `CommandTool`): Tool interfaces
+   - `Entrypoint` and `ExitPoint`: Starting and ending points for a virtual model
 
-2. **Designed the Configuration Approach**: Decided to use the AWS CDK constructs library for the configuration system.
+3. **TypeScript Configuration**: We have configured TypeScript for the project, including module resolution and other compiler options.
 
-3. **Established Key Design Principles**: Defined the journal-centric architecture, stateless operation, and real-time visibility requirements.
-
-4. **Identified Core Components**: Outlined the main components of the system (Configuration Layer, Runtime Layer, Journal System, Agent System, Tool System, Messaging System, API Layer).
+4. **Dependencies**: We have installed the necessary dependencies, including:
+   - `constructs`: AWS CDK constructs library
+   - `zod`: Schema validation library
+   - `zod-to-json-schema`: Converts Zod schemas to JSON Schema
 
 ## What's Left to Build
 
-### Phase 1: Foundation
+### Phase 1: Foundation (In Progress)
 
-- [ ] **Project Setup**
-  - [ ] Initialize repository
-  - [ ] Set up build system
-  - [ ] Configure testing framework
-  - [ ] Set up linting and formatting
+- [x] **Project Setup**
+  - [x] Initialize repository
+  - [x] Set up build system
+  - [x] Configure TypeScript
+  - [ ] Configure testing framework (Jest issues to resolve)
 
-- [ ] **Core Construct System**
-  - [ ] Implement base Construct class
-  - [ ] Create VirtualModel construct
-  - [ ] Develop AgentContext construct
-  - [ ] Implement Model interface
-  - [ ] Create Tool interface
-  - [ ] Develop Entrypoint and ExitPoint constructs
+- [x] **Core Construct System**
+  - [x] Implement base Construct class
+  - [x] Create VirtualModel construct
+  - [x] Develop AgentContext construct
+  - [x] Implement Model interface
+  - [x] Create Tool interface
+  - [x] Develop Entrypoint and ExitPoint constructs
 
 - [ ] **Journal System**
   - [ ] Define journal event structure
@@ -41,9 +55,9 @@ As the project is in the planning phase, no components have been implemented yet
   - [ ] Develop serialization/deserialization
   - [ ] Implement event filtering
 
-### Phase 2: Core Functionality
+### Phase 2: Core Functionality (Not Started)
 
-- [ ] **Agent System**
+- [ ] **Runtime System**
   - [ ] Implement agent context reconstruction
   - [ ] Develop prompt construction
   - [ ] Create LLM invocation mechanism
@@ -57,19 +71,13 @@ As the project is in the planning phase, no components have been implemented yet
   - [ ] Implement error handling
   - [ ] Create basic tool library
 
-- [ ] **Messaging System**
-  - [ ] Define message structure
-  - [ ] Implement message routing
-  - [ ] Create message queue
-  - [ ] Develop asynchronous delivery
-
 - [ ] **API Layer**
   - [ ] Create API server
   - [ ] Implement endpoints
   - [ ] Develop streaming support
   - [ ] Create journal-based state management
 
-### Phase 3: Enhanced Features
+### Phase 3: Enhanced Features (Not Started)
 
 - [ ] **Advanced Tool Library**
   - [ ] File system tools
@@ -92,7 +100,7 @@ As the project is in the planning phase, no components have been implemented yet
   - [ ] Compression
   - [ ] Selective event filtering
 
-### Phase 4: Refinement
+### Phase 4: Refinement (Not Started)
 
 - [ ] **Performance Optimization**
   - [ ] Profiling
@@ -118,38 +126,39 @@ As the project is in the planning phase, no components have been implemented yet
 
 ## Known Issues
 
-As the project is in the planning phase, there are no implementation issues yet. However, we have identified several challenges that will need to be addressed:
+1. **Jest Configuration**: We're experiencing issues with the Jest plugin in the Nx configuration, which prevents us from running tests and creating new applications.
 
-1. **Journal Size**: The journal may grow large for complex interactions, requiring efficient serialization/deserialization.
+2. **Demo Application**: We haven't been able to create a demo application due to the Jest configuration issues.
 
-2. **Context Window Management**: LLMs have limited context windows, so we'll need strategies for managing large journals.
-
-3. **Tool Execution Security**: Tools have full access to the system, which could pose security risks.
-
-4. **Concurrency Management**: Multiple agent contexts may run concurrently, requiring careful resource management.
-
-5. **Error Handling Complexity**: Surfacing errors to agents requires careful design to ensure they can handle them appropriately.
-
-6. **Testing Complexity**: Testing complex agent interactions will require sophisticated mocking and simulation.
+3. **Module Resolution**: There are some issues with TypeScript module resolution that need to be addressed.
 
 ## Next Milestones
 
-1. **Complete Core Architecture Design** (Target: Week 1)
-   - Finalize interface definitions
-   - Complete component relationship diagrams
-   - Establish testing strategy
+1. **Fix Jest Configuration** (Target: Week 1)
+   - Resolve the issues with the Jest plugin
+   - Enable proper testing
+   - Allow creation of new applications
 
-2. **Implement Basic Construct System** (Target: Week 2)
-   - Create base classes
-   - Implement configuration validation
-   - Develop simple examples
+2. **Create Demo Application** (Target: Week 1)
+   - Create a demo application that showcases the usage of our constructs
+   - Implement a simple two-agent model
+   - Demonstrate the core functionality
 
-3. **Develop Journal System Prototype** (Target: Week 3)
-   - Implement basic journal functionality
-   - Create serialization/deserialization
-   - Test with simple scenarios
+3. **Implement Journal System** (Target: Week 2)
+   - Define journal event structure
+   - Implement event publishing and subscription
+   - Develop serialization/deserialization
+   - Create event filtering
 
-4. **Create Simple Agent Context** (Target: Week 4)
-   - Implement context reconstruction
-   - Develop LLM integration
-   - Test with basic prompts
+4. **Implement Runtime System** (Target: Week 3)
+   - Implement agent context reconstruction
+   - Develop prompt construction
+   - Create LLM invocation mechanism
+   - Implement tool registration and invocation
+   - Develop message handling
+
+5. **Implement API Layer** (Target: Week 4)
+   - Create API server
+   - Implement endpoints
+   - Develop streaming support
+   - Create journal-based state management
