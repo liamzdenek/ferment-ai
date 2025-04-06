@@ -2,20 +2,10 @@
 
 ## Current Focus
 
-We have made significant progress in implementing the core constructs and runtime modules for the Ferment AI system:
+We are rearchitecting the Journal, Modules, and Runtime library using an event-oriented variant of the Entity-Component-System (ECS) pattern. This architecture draws inspiration from game development but is tailored for a real-time, event-driven system where we want to avoid processing Agents that aren't doing work.
 
-1. **Implemented Core Constructs**: We have created the base constructs for the system, including:
-   - `FermentConstruct`: Base class for all Ferment constructs
-   - `VirtualModel`: Top-level container for agent systems
-   - `AgentContext`: Environment for a single agent
-   - `Model` (with `OpenAIModel` and `AnthropicModel`): LLM provider interfaces
-   - `Tool` (with `FileTool` and `CommandTool`): Tool interfaces
-   - `Entrypoint` and `ExitPoint`: Starting and ending points for a virtual model
-   - `SendEmailTool`: Tool for sending messages between agents
-   - `ExitPointTool`: Tool for finishing virtual model execution
-
-2. **Set Up Project Structure**: We have set up an Nx monorepo with the following packages:
-   - `@ferment-ai/core-constructs-lib`: Core construct library (renamed from constructs)
+1. **Project Structure**: We have set up an Nx monorepo with the following packages:
+   - `@ferment-ai/core-constructs-lib`: Core construct library
    - `@ferment-ai/runtime-common`: Common interfaces and utilities for runtime packages
    - `@ferment-ai/core-constructs-runtime`: Runtime implementation for constructs
    - `@ferment-ai/runtime`: Runtime implementation
@@ -26,290 +16,88 @@ We have made significant progress in implementing the core constructs and runtim
    - `@ferment-ai/testing`: Testing utilities
    - `@ferment-ai/demo`: Demo application
 
-3. **Configured TypeScript**: We have configured TypeScript for the project, including module resolution and other compiler options.
+2. **ECS Architecture Design**: We have designed a new architecture based on the Entity-Component-System pattern:
+   - **Journal**: The central "World" that stores all entities, components, systems, and processes
+   - **Entity**: A unique identifier with associated components
+   - **Component**: Pure data objects attached to entities
+   - **System**: Event-based callbacks that respond to journal events and create Processes
+   - **Process**: Represents operations like agent calls and tool calls
+   - **Module**: A function that converts constructs into entities, components, systems, etc.
+   - **Entrypoint**: Defines how to start an execution of a journal
+
+3. **Implementation Approach**: We have created detailed implementation plans for the new architecture:
+   - `ecs-architecture-proposal.md`: High-level overview of the new architecture
+   - `ecs-implementation-approach.md`: Detailed implementation approach for each component
+   - `ecs-migration-guide.md`: Strategy for migrating from the old architecture to the new one
 
 ## Recent Decisions
 
-1. **Using AWS CDK Constructs Library**: We're using the actual "constructs" npm package from AWS CDK as the foundation for our configuration system.
+1. **Entity-Component-System Pattern**: We've decided to adopt the ECS pattern for our architecture, where entities are just identifiers, components are pure data, and systems contain the logic.
 
-2. **Journal-Centric Architecture**: The journal will be the source of truth for the entire system state, containing all data needed to reconstruct agent contexts and continue execution.
+2. **Journal as World**: The Journal will now represent the "World" within the ECS pattern, storing all entities, components, systems, and processes.
 
-3. **Stateless API Design**: The system will have no persistence and will rely on a stateless API, where the end user stores the entire journal and passes it to the API to resume a paused/canceled prompt.
+3. **Process-Based Execution**: Agent calls, tool calls, etc. will be represented as processes with a clear lifecycle (created, running, completed, failed).
 
-4. **Package Structure**: We've organized the codebase into multiple packages to maintain separation of concerns and enable modular development.
+4. **Module-Based Initialization**: Constructs will be converted to entities, components, and systems by modules during initialization.
 
-5. **Tool Implementation with Zod**: We're using Zod for schema validation in our tools, which provides runtime type safety and clear error messages.
+5. **Async Iterable Execution**: The Journal's execute method will be an async iterable that yields events as they happen, allowing for real-time streaming.
+
+6. **Full State Serialization**: The Journal will serialize not just events but also the state of entities, components, systems, and processes.
+
+7. **Construct Binding Validation**: Modules must mark constructs as "bound" by calling a function on the journal, and a validation function will throw errors if there are any unbound constructs.
 
 ## Active Considerations
 
-1. **Module System Implementation**: We have implemented the `.addModule` interface in the HttpApplication class to properly mount runtime modules and give them access to the journal. This replaces the previous placeholder implementation.
+1. **Journal Implementation**: The new Journal class will be the central component of the architecture, responsible for managing entities, components, systems, and processes. It will provide methods for creating and managing entities, adding and retrieving components, registering systems, creating and managing processes, publishing events, and serializing/deserializing the full state.
 
-2. **Core Constructs Implementation**: We have built out additional core constructs in the core-constructs-lib (SendEmailTool, ExitPointTool) and created their corresponding implementations in the core-constructs-runtime.
+2. **Entity and Component Design**: Entities will be simple objects with just an ID, and components will be pure data objects with a type field and additional fields specific to the component type. Components will not have methods; instead, functions will operate on component data.
 
-3. **Binding Classes Implementation**: We have implemented binding classes for the new tool types (SendEmailToolBinding, ExitPointToolBinding) and updated the binding class factory to include them.
+3. **System Implementation**: Systems will be objects with a unique ID, an array of event types they handle, and an execute method that takes the journal and an event. Systems will query the journal for entities with specific components and create processes as needed.
 
-4. **Package Boundaries**: We have clarified the boundaries between the different packages:
-   - **core-constructs-lib**: Defines the constructs using the Constructs library. It defines the relationship between agents and what they have access to, but does NOT define how to actually run the agent.
-   - **runtime-common**: Defines interfaces and utilities that both core-constructs-runtime and runtime will implement. It serves as a contract between the definition and runtime layers.
-   - **core-constructs-runtime**: Defines how to run the constructs at runtime by binding to the Journal. It has a 1-to-1 relationship with core-constructs-lib.
-   - **runtime**: Contains logic related to running the application as a whole. It sets up the journal, strings everything together, and allows the user to define what they want out of the agents.
-   - **journal**: Defines the journal and the pubsub patterns around it, providing functionality to search, store, append, and compact the journal.
+4. **Process Lifecycle**: Processes will be objects with a unique ID, a type, a status, start and end timestamps, and a result object when completed. Processes will be independent with no direct dependencies and will communicate through journal events.
 
-2. **Runtime Module Architecture**: We have implemented a simplified RuntimeModule interface in the runtime-common package:
-   - Has a single initialize function that takes a root node and a journal
-   - Provides a standard implementation that uses a setup map to bind constructs
-   - Allows for a more functional approach to runtime module implementation
+5. **Module Interface**: Modules will be objects with a unique ID, a version, and an initialize method that takes a RootConstruct and a Journal. The initialize method will traverse the construct tree recursively, create entities and components based on the constructs, register systems with the journal, and mark constructs as bound.
 
-3. **Core Constructs Runtime Module**: We have implemented the createCoreConstructsRuntimeModule function in the core-constructs-runtime package:
-   - Creates a runtime module for core constructs
-   - Uses the standard runtime module implementation
-   - Binds constructs to the journal using binding classes
-
-4. **Demo Application**: We have created a barebones demo application in 'packages/demo/src/main.ts' that shows how the app will be initialized and navigated. It demonstrates a two-agent model with a junior engineer and senior engineer that can communicate with each other.
-
-5. **Journal Implementation**: We have implemented the Journal class as a pure runtime component (not a Construct) in the journal package. It provides a pub-sub model for event handling and serialization/deserialization for state persistence.
-
-6. **Runtime Implementation**: We have implemented the `HttpApplication` class in the runtime package. This class extends `RootConstruct` and provides an HTTP API for the system.
-
-7. **API Implementation**: We need to continue implementing the API layer that will expose the system to external clients.
+6. **HttpApplication Integration**: The HttpApplication class will still extend RootConstruct but will use the new Journal implementation. It will provide an initialize method that creates a journal and initializes it with the modules, and a serve method that creates an Express app and configures routes for executing the journal and getting its state.
 
 ## Next Steps
 
-1. **Fix TypeScript Errors**: Address the remaining TypeScript errors in the HttpApplication and ModuleProcessor classes. Add type declarations for Express, CORS, and body-parser.
+1. **Create New Journal Implementation**:
+   - Implement the new Journal class with ECS support
+   - Create interfaces for Entity, Component, System, and Process
+   - Implement serialization and deserialization of the full state
 
-2. **Enhance Tool Implementations**: Improve the tool implementations with better error handling and validation.
+2. **Create Module System**:
+   - Implement the Module interface
+   - Create the initializeJournal function
+   - Implement the CoreConstructsModule
 
-3. **Implement Testing**: Create unit tests for the new components and develop integration tests for the complete system.
+3. **Update HttpApplication**:
+   - Update the HttpApplication class to use the new Journal
+   - Implement the execute endpoint with async iterable streaming
+   - Update the state endpoint to return the full serialized state
 
-4. **Create Documentation**: Document the new components and their usage.
+4. **Migrate Existing Functionality**:
+   - Create components for each construct type (AgentContext, Model, Tool, etc.)
+   - Create systems for each operation (agent invocation, tool execution, etc.)
+   - Update the demo application to use the new architecture
 
-2. **Enhance Demo Application**: Further develop the demo application to showcase more features of the framework and demonstrate the full lifecycle from construct definition to execution.
+5. **Testing and Documentation**:
+   - Create unit tests for all components
+   - Develop integration tests for the complete system
+   - Update documentation to reflect the new architecture
 
-3. **Implement Testing**: Create unit tests for all components and develop integration tests for the complete system.
+## Open Questions
 
-4. **Create Documentation**: Create API references, write usage examples, develop architectural overviews, and create tutorials for common use cases.
+1. **Component Granularity**: How fine-grained should our components be? Should we have a single component for an agent, or should we break it down into smaller components like prompt, model, tools, etc.?
 
-5. **Performance Optimization**: Profile the system, optimize memory usage, and reduce latency.
+2. **System Triggering**: What's the best way to trigger systems? Should they register for specific event types, or should we have a more generic event system with filtering?
 
-6. **Implement Advanced Features**: Add context windowing, priority-based message handling, and advanced prompt construction.
+3. **Process Dependencies**: How should we handle dependencies between processes? Should we have explicit dependencies, or should we rely on the event system?
 
-7. **Create L2 Constructs**: Implement higher-level constructs for common patterns.
+4. **Serialization Format**: What's the most efficient format for serializing the journal state? Should we use JSON, a binary format like Protocol Buffers or MessagePack, or something else?
 
-## Open Questions and Architectural Recommendations
-
-1. **Processor/Runtime Module Interface Design**
-
-   The best design for the processor/runtime module interface would be:
-   
-   - Create a `RuntimeModule` interface (not extending FermentConstruct) that represents a runtime resource
-   - Implement a `ModuleProcessor` that parses constructs from the root node and binds listeners to the journal
-   - Implement a `RuntimeExecutor` class to execute modules in dependency order
-   - Create specific module implementations (ModelProcessor, ToolProcessor, etc.)
-   - Use dependency declarations to validate module availability before execution
-   
-   **Validation of Construct Usage**:
-   
-   To identify if a construct defined in the tree is not actually bound to be used by a runtime module:
-   
-   1. Implement a tracking system during processing that marks constructs as "bound" when they're processed
-   2. After processing, traverse the construct tree again to find any unmarked constructs
-   3. Generate errors for any constructs that aren't bound to a runtime module
-   4. Categorize constructs by type to provide specific warnings (e.g., "Tool X is defined but not used by any agent")
-   5. Provide configuration to specify which constructs are allowed to be unbound
-   
-   ```typescript
-   export interface RuntimeModule {
-     /**
-      * The ID of this module
-      */
-     readonly id: string;
-
-     /**
-      * The version of this module
-      */
-     readonly version: string;
-
-     /**
-      * The dependencies of this module
-      */
-     readonly dependencies: RuntimeModuleDependency[];
-
-     /**
-      * Initializes this module by binding all nodes in the tree
-      * 
-      * @param rootNode The root node of the construct tree
-      * @param journal The journal to use
-      */
-     initialize(rootNode: Node, journal: Journal): Promise<void>;
-   }
-
-   export function createStandardRuntimeModule(options: StandardRuntimeModuleOptions): RuntimeModule {
-     // Implementation that uses a setup map to bind constructs
-   }
-   
-   export class ModuleProcessor {
-     private readonly modules: Map<string, RuntimeModule> = new Map();
-     private readonly boundConstructs: Set<string> = new Set();
-     
-     constructor(private readonly journal: Journal) {}
-     
-     public processRootConstruct(rootConstruct: RootConstruct): void {
-       // Parse the construct tree starting from the root
-       const node = rootConstruct.node;
-       
-       // Find all relevant constructs and create appropriate runtime modules
-       this.processNode(node);
-       
-       // Bind journal listeners for each module
-       for (const module of this.modules.values()) {
-         this.bindJournalListeners(module);
-       }
-       
-       // Validate that all constructs are bound
-       const validationResult = this.validateConstructBinding(node);
-       if (validationResult.warnings.length > 0) {
-         console.warn('Construct binding warnings:', validationResult.warnings);
-       }
-       if (validationResult.errors.length > 0) {
-         console.error('Construct binding errors:', validationResult.errors);
-       }
-     }
-     
-     private processNode(node: Node): void {
-       // Process this node and create a module if appropriate
-       // When a construct is bound to a runtime module, mark it
-       this.boundConstructs.add(node.id);
-       
-       // Process child nodes recursively
-       for (const child of node.children) {
-         this.processNode(child);
-       }
-     }
-     
-     private validateConstructBinding(node: Node): ValidationResult {
-       const errors: ValidationError[] = [];
-       const warnings: ValidationWarning[] = [];
-       
-       // Traverse the construct tree and check if all constructs are bound
-       this.checkNodeBinding(node, warnings, errors);
-       
-       return { valid: errors.length === 0, errors, warnings };
-     }
-     
-     private checkNodeBinding(node: Node, warnings: ValidationWarning[], errors: ValidationError[]): void {
-       // Check if this node is bound
-       if (!this.boundConstructs.has(node.id)) {
-         const construct = node.host;
-         
-         // Different handling based on construct type
-         if (construct instanceof Tool) {
-           warnings.push({
-             constructId: node.id,
-             message: `Tool "${node.id}" is defined but not used by any agent`,
-           });
-         } else if (construct instanceof Model) {
-           warnings.push({
-             constructId: node.id,
-             message: `Model "${node.id}" is defined but not used by any agent`,
-           });
-         } else if (construct instanceof AgentContext) {
-           errors.push({
-             constructId: node.id,
-             message: `AgentContext "${node.id}" is defined but not bound to any runtime module`,
-           });
-         }
-       }
-       
-       // Check child nodes recursively
-       for (const child of node.children) {
-         this.checkNodeBinding(child, warnings, errors);
-       }
-     }
-     
-     private bindJournalListeners(module: RuntimeModule): void {
-       // Bind journal listeners for this module
-       // ...
-     }
-   }
-   ```
-
-2. **HttpApplication Structure**
-
-   The HttpApplication class should be structured as follows:
-   
-   - Extend RootConstruct to maintain the construct hierarchy
-   - Use a ModuleProcessor to process constructs and create runtime modules
-   - Implement a plugin architecture for middleware and route handlers
-   - Provide flexible configuration options for server settings
-   - Use event-based communication for loose coupling
-   - Separate API routes into distinct handlers for better organization
-   
-   ```typescript
-   export class HttpApplication extends RootConstruct {
-     private readonly journal: Journal;
-     private readonly moduleProcessor: ModuleProcessor;
-     private readonly plugins: HttpPlugin[] = [];
-     private server?: http.Server;
-     
-     constructor(scope: Construct, id: string, props: HttpApplicationProps = {}) {
-       super(id);
-       this.journal = new Journal(this, 'Journal', props.journalProps);
-       this.moduleProcessor = new ModuleProcessor(this.journal);
-       
-       if (props.plugins) {
-         for (const plugin of props.plugins) {
-           this.addPlugin(plugin);
-         }
-       }
-     }
-     
-     public addPlugin(plugin: HttpPlugin): void {
-       this.plugins.push(plugin);
-     }
-     
-     public serve(options: ServeOptions = {}): Promise<void> {
-       // Initialize Express app
-       // Configure middleware
-       // Apply plugins
-       // Set up routes
-       // Start server
-     }
-   }
-   ```
-
-3. **Journal System Implementation**
-
-   For efficient serialization/deserialization in the journal system:
-   
-   - Use a streaming architecture for processing large journals
-   - Implement incremental updates to avoid full serialization/deserialization
-   - Use a binary format like Protocol Buffers or MessagePack for efficiency
-   - Implement compression for large journals
-   - Use a schema-based approach for backward compatibility
-   - Consider using a hybrid approach with a small in-memory cache and disk storage
-
-4. **Context Window Limitations**
-
-   To handle context window limitations in the runtime system:
-   
-   - Implement a sliding window approach for context management
-   - Use relevance scoring to prioritize important messages
-   - Implement summarization for older messages
-   - Allow agents to explicitly manage their context
-   - Use a hierarchical context structure with different levels of detail
-   - Implement context pruning strategies based on token limits
-
-5. **API Layer Implementation**
-
-   For implementing the API layer with cross-client compatibility:
-   
-   - Use a RESTful API design with clear resource boundaries
-   - Implement versioning for backward compatibility
-   - Use Server-Sent Events (SSE) for real-time streaming
-   - Provide comprehensive documentation with OpenAPI/Swagger
-   - Implement proper error handling with standardized error responses
-   - Use content negotiation for different formats (JSON, MessagePack)
-   - Implement rate limiting and authentication/authorization
+5. **Performance Optimization**: How can we optimize the performance of the system, especially for large journals with many entities and components?
 
 ## Commands
 

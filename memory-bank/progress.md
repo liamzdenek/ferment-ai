@@ -2,12 +2,12 @@
 
 ## Current Status
 
-The project is in the **implementation phase**. We have set up the project structure, implemented the core constructs, and created the foundation for the runtime system with the Journal, RuntimeModule, and HttpApplication components. We have also clarified the boundaries between the different packages and their responsibilities. We have created the runtime-common package to define interfaces that both core-constructs-runtime and runtime will implement, and implemented the core-constructs-runtime package with a working architecture.
+The project is entering a **rearchitecting phase**. We have decided to adopt an Entity-Component-System (ECS) architecture for the Journal, Modules, and Runtime library. This architecture draws inspiration from game development but is tailored for a real-time, event-driven system where we want to avoid processing Agents that aren't doing work. We have created detailed design documents for the new architecture and are preparing to implement it.
 
 ## What Works
 
 1. **Project Structure**: We have set up an Nx monorepo with the following packages:
-   - `@ferment-ai/core-constructs-lib`: Core construct library (renamed from constructs)
+   - `@ferment-ai/core-constructs-lib`: Core construct library
    - `@ferment-ai/runtime-common`: Common interfaces and utilities for runtime packages
    - `@ferment-ai/core-constructs-runtime`: Runtime implementation for constructs
    - `@ferment-ai/runtime`: Runtime implementation
@@ -28,189 +28,146 @@ The project is in the **implementation phase**. We have set up the project struc
    - `SendEmailTool`: Tool for sending messages between agents
    - `ExitPointTool`: Tool for finishing virtual model execution
 
-3. **Runtime Components**: We have implemented the core runtime components:
-   - `Journal`: Central source of truth for the system (as a pure runtime component, not a Construct)
-   - `RuntimeModule`: Interface for runtime modules with a single initialize function
-   - `createStandardRuntimeModule`: Helper function to create a standard runtime module
-   - `createCoreConstructsRuntimeModule`: Function that creates a runtime module for core constructs
-   - `HttpApplication`: HTTP API for the system with `addModule` interface
-   - Binding classes for all construct types (ModelBinding, AgentContextBinding, ToolBinding, SendEmailToolBinding, ExitPointToolBinding)
-
-4. **TypeScript Configuration**: We have configured TypeScript for the project, including module resolution and other compiler options.
+3. **TypeScript Configuration**: We have configured TypeScript for the project, including module resolution and other compiler options.
 
 4. **Dependencies**: We have installed the necessary dependencies, including:
    - `constructs`: AWS CDK constructs library
    - `zod`: Schema validation library
    - `zod-to-json-schema`: Converts Zod schemas to JSON Schema
 
+5. **ECS Architecture Design**: We have designed a new architecture based on the Entity-Component-System pattern:
+   - **Journal**: The central "World" that stores all entities, components, systems, and processes
+   - **Entity**: A unique identifier with associated components
+   - **Component**: Pure data objects attached to entities
+   - **System**: Event-based callbacks that respond to journal events and create Processes
+   - **Process**: Represents operations like agent calls and tool calls
+   - **Module**: A function that converts constructs into entities, components, systems, etc.
+   - **Entrypoint**: Defines how to start an execution of a journal
+
 ## What's Left to Build
 
-### Phase 1: Foundation (In Progress)
+### Phase 1: ECS Foundation (In Progress)
 
-- [x] **Project Setup**
-  - [x] Initialize repository
-  - [x] Set up build system
-  - [x] Configure TypeScript
-  - [x] Configure testing framework (Jest issues resolved)
+- [ ] **New Journal Implementation**
+  - [ ] Create Journal class with ECS support
+  - [ ] Implement entity management
+  - [ ] Implement component management
+  - [ ] Implement system management
+  - [ ] Implement process management
+  - [ ] Implement event handling
+  - [ ] Implement serialization/deserialization
 
-- [x] **Core Construct System**
-  - [x] Implement base Construct class
-  - [x] Create VirtualModel construct
-  - [x] Develop AgentContext construct
-  - [x] Implement Model interface
-  - [x] Create Tool interface
-  - [x] Develop Entrypoint and ExitPoint constructs
+- [ ] **Module System**
+  - [ ] Create Module interface
+  - [ ] Implement initializeJournal function
+  - [ ] Create CoreConstructsModule
 
-- [x] **Journal System**
-  - [x] Define journal event structure
-  - [x] Implement event publishing
-  - [x] Create subscription mechanism
-  - [x] Develop serialization/deserialization
-  - [x] Implement event filtering
+- [ ] **HttpApplication Updates**
+  - [ ] Update HttpApplication to use new Journal
+  - [ ] Implement execute endpoint with async iterable
+  - [ ] Update state endpoint for full serialization
 
-### Phase 2: Core Functionality (Not Started)
+### Phase 2: Component and System Implementation
 
-- [x] **Runtime System**
-  - [x] Implement RuntimeModule interface
-  - [x] Create standard runtime module implementation
-  - [x] Implement core constructs runtime module
-  - [x] Create HttpApplication for API access
-  - [ ] Develop message handling
+- [ ] **Core Components**
+  - [ ] Create AgentComponent
+  - [ ] Create ModelComponent
+  - [ ] Create ToolComponent
+  - [ ] Create EntrypointComponent
+  - [ ] Create ExitPointComponent
 
-- [ ] **Tool System**
-  - [ ] Implement base Tool class
-  - [ ] Create schema validation
-  - [ ] Develop tool execution
-  - [ ] Implement error handling
-  - [ ] Create basic tool library
+- [ ] **Core Systems**
+  - [ ] Create AgentSystem
+  - [ ] Create ToolSystem
+  - [ ] Create EntrypointSystem
+  - [ ] Create ExitPointSystem
 
-- [ ] **API Layer**
-  - [ ] Create API server
-  - [ ] Implement endpoints
-  - [ ] Develop streaming support
-  - [ ] Create journal-based state management
+- [ ] **Process Implementation**
+  - [ ] Create AgentProcess
+  - [ ] Create ToolProcess
+  - [ ] Implement process lifecycle management
 
-### Phase 3: Enhanced Features (Not Started)
+### Phase 3: Migration and Integration
 
-- [ ] **Advanced Tool Library**
-  - [ ] File system tools
-  - [ ] Command execution tools
-  - [ ] Web API tools
-  - [ ] Utility tools
+- [ ] **Construct to Entity Conversion**
+  - [ ] Implement conversion of AgentContext to entities/components
+  - [ ] Implement conversion of Model to entities/components
+  - [ ] Implement conversion of Tool to entities/components
+  - [ ] Implement conversion of Entrypoint to entities/components
+  - [ ] Implement conversion of ExitPoint to entities/components
 
-- [ ] **Enhanced Agent Context**
-  - [ ] Context windowing
-  - [ ] Priority-based message handling
-  - [ ] Advanced prompt construction
+- [ ] **Demo Application Updates**
+  - [ ] Update demo to use new ECS architecture
+  - [ ] Create examples of different entity/component configurations
+  - [ ] Demonstrate process creation and execution
 
-- [ ] **Configuration Enhancements**
-  - [ ] L2 constructs for common patterns
-  - [ ] Configuration validation
-  - [ ] Error reporting
-
-- [ ] **Journal Enhancements**
-  - [ ] Efficient serialization
-  - [ ] Compression
-  - [ ] Selective event filtering
-
-### Phase 4: Refinement (Not Started)
+### Phase 4: Refinement and Enhancement
 
 - [ ] **Performance Optimization**
-  - [ ] Profiling
-  - [ ] Memory usage optimization
-  - [ ] Latency reduction
+  - [ ] Optimize entity/component lookups
+  - [ ] Implement efficient serialization
+  - [ ] Reduce memory usage
 
 - [ ] **Documentation**
-  - [ ] API reference
-  - [ ] User guides
-  - [ ] Examples
-  - [ ] Tutorials
+  - [ ] Document ECS architecture
+  - [ ] Create API references
+  - [ ] Write usage examples
+  - [ ] Develop tutorials
 
 - [ ] **Testing**
-  - [ ] Unit tests
-  - [ ] Integration tests
-  - [ ] Performance tests
-  - [ ] Compatibility tests
-
-- [ ] **Bug Fixes and Improvements**
-  - [ ] Address feedback
-  - [ ] Fix issues
-  - [ ] Enhance usability
+  - [ ] Create unit tests for Journal, Entity, Component, System, Process
+  - [ ] Develop integration tests for the complete system
+  - [ ] Implement performance tests
 
 ## Known Issues
 
-1. **TypeScript Errors**: There are TypeScript errors related to missing type declarations for Express, CORS, and body-parser, as well as issues with the Node type from the constructs package.
+1. **Architecture Transition**: We need to carefully manage the transition from the current architecture to the new ECS architecture to avoid breaking existing functionality.
 
-2. **Tool Implementation**: The tool implementations need to be enhanced with better error handling and validation.
+2. **Performance Concerns**: The ECS architecture may introduce performance overhead, especially for serialization/deserialization of the full state.
 
-3. **Module Resolution**: There are some issues with TypeScript module resolution that need to be addressed.
+3. **Compatibility**: We need to ensure that the new architecture is compatible with existing code that uses the current architecture.
 
-6. **HttpApplication Implementation**: We need to implement the HttpApplication class in the core-constructs-runtime package.
-
-7. **Processor/Runtime Module Interface**: We need to create a processor/runtime module interface to validate that all necessary modules are available to execute the constructs.
-
-8. **Implementation Plans**: We have created detailed implementation plans for the module system and core constructs in `memory-bank/implementation-plan.md` and `memory-bank/core-constructs-implementation.md`.
+4. **Learning Curve**: The ECS architecture introduces new concepts that may require a learning curve for developers familiar with the current architecture.
 
 ## Next Milestones
 
-1. **Implement HttpApplication** (Target: Week 1) ✅
-   - Created the HttpApplication class in the runtime package
-   - Implemented the serve operation to initialize the HTTP API
-   - Integrated with the journal system
-   - Added support for plugins and custom routes
+1. **Implement New Journal Class** (Target: Week 1)
+   - Create Journal class with ECS support
+   - Implement entity, component, system, and process management
+   - Implement event handling
+   - Implement serialization/deserialization
 
-2. **Create ModuleProcessor** (Target: Week 1) ✅
-   - Implemented the ModuleProcessor class in the runtime package
-   - Added validation for construct binding
-   - Created clear error messages for missing modules
-   - Added support for executing runtime modules
+2. **Create Module System** (Target: Week 1)
+   - Create Module interface
+   - Implement initializeJournal function
+   - Create CoreConstructsModule
 
-3. **Fix TypeScript Errors** (Target: Week 2) ✅
-   - Add type declarations for Express, CORS, and body-parser
-   - Address other TypeScript errors in the implementation
-   - Ensure type safety throughout the codebase
+3. **Update HttpApplication** (Target: Week 2)
+   - Update HttpApplication to use new Journal
+   - Implement execute endpoint with async iterable
+   - Update state endpoint for full serialization
 
-4. **Implement Module System** (Target: Week 2) ✅
-   - Implement the `.addModule` interface in the HttpApplication class
-   - Fix the binding class factory to properly initialize with the journal
-   - Update the core-constructs-runtime-module to properly use the binding classes
-   - Ensure modules have access to the journal
+4. **Implement Core Components and Systems** (Target: Week 2)
+   - Create components for each construct type
+   - Create systems for each operation
+   - Implement process lifecycle management
 
-5. **Implement Core Constructs** (Target: Week 2) ✅
-   - Build out the core constructs in the core-constructs-lib
-   - Create corresponding implementations in the core-constructs-runtime
-   - Implement the SendEmailTool and ExitPointTool
-   - Enhance the AgentContext class with better tool management
+5. **Update Demo Application** (Target: Week 3)
+   - Update demo to use new ECS architecture
+   - Create examples of different entity/component configurations
+   - Demonstrate process creation and execution
 
-6. **Enhance Tool Implementations** (Target: Week 3)
-   - Improve error handling in tool implementations
-   - Add validation for tool inputs and outputs
-   - Implement proper journal event handling
-   - Add unit tests for tool implementations
-
-7. **Enhance Demo Application** (Target: Week 3)
-   - Expand the demo application to showcase more features
-   - Demonstrate the full lifecycle from construct definition to execution
-   - Create examples of different agent configurations
-   - Show how to use the journal system for state management
-
-8. **Implement Testing** (Target: Week 3)
-   - Create unit tests for all components
-   - Develop integration tests for the complete system
-   - Implement test fixtures and mocks
-   - Ensure high test coverage
-
-9. **Create Documentation** (Target: Week 4)
+6. **Create Documentation and Tests** (Target: Week 4)
+   - Document ECS architecture
    - Create API references
-   - Write usage examples
-   - Develop architectural overviews
-   - Create tutorials for common use cases
+   - Write unit and integration tests
+   - Develop tutorials
 
 ## Demo Applications
 
 ### Main Demo
 
-A barebones demo application has been created in 'packages/demo/src/main.ts' that shows how the app will be initialized and navigated. It demonstrates a two-agent model with a junior engineer and senior engineer that can communicate with each other.
+A barebones demo application has been created in 'packages/demo/src/main.ts' that shows how the app will be initialized and navigated. It demonstrates a two-agent model with a junior engineer and senior engineer that can communicate with each other. This demo will be updated to use the new ECS architecture.
 
 To build and run the main demo application:
 
@@ -221,7 +178,7 @@ npx nx serve demo
 
 ### HTTP Application Demo
 
-An HTTP application demo has been created in 'packages/demo/src/http-app-example.ts' that shows how to use the HttpApplication class from the runtime package. It demonstrates how to create a virtual model and serve it over HTTP.
+An HTTP application demo has been created in 'packages/demo/src/http-app-example.ts' that shows how to use the HttpApplication class from the runtime package. It demonstrates how to create a virtual model and serve it over HTTP. This demo will be updated to use the new ECS architecture.
 
 To build and run the HTTP application demo:
 
@@ -234,3 +191,5 @@ We have also created examples for the Journal and HttpApplication components to 
 
 - `packages/journal/src/examples/journal-example.ts`: Shows how to use the Journal class for event publishing and subscription
 - `packages/runtime/src/examples/http-server.ts`: Shows how to use the HttpApplication class to create an HTTP API
+
+These examples will be updated to use the new ECS architecture.

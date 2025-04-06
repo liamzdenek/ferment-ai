@@ -183,7 +183,7 @@ export interface RuntimeModule {
  * @param journal The journal to use
  * @returns A promise that resolves when the setup is complete
  */
-export type ConstructSetupFunction = (construct: Construct, journal: Journal) => Promise<void>;
+export type ConstructSetupFunction = (construct: Construct) => Promise<void>;
 
 /**
  * A mapping from constructor names to setup functions
@@ -239,7 +239,7 @@ export function createStandardRuntimeModule(options: StandardRuntimeModuleOption
         
         if (setupFunction) {
           // Call the setup function with the node and journal
-          await setupFunction(construct, journal);
+          await setupFunction(construct);
           console.log('setting up node', constructorName, construct.node.id);
         }
 

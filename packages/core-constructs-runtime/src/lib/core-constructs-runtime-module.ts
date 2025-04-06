@@ -35,7 +35,7 @@ export function createCoreConstructsRuntimeModule(): RuntimeModule {
       
       // Add setup functions for each binding class
       for (const bindingClass of allBindingClasses) {
-        setupMap.set(bindingClass.constructType, async (construct: Construct, journal: Journal) => {
+        setupMap.set(bindingClass.constructType, async (construct: Construct) => {
           const result = await bindingClass.bind(construct);
           if (!result.success) {
             console.warn(`Failed to bind construct ${construct.node.id} with binding class ${bindingClass.id}: ${result.errors.map(e => e.message).join(', ')}`);
