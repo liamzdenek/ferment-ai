@@ -8,6 +8,12 @@ export interface FermentConstructProps {
    * Optional description for the construct
    */
   description?: string;
+  
+  /**
+   * Optional construct type identifier
+   * If not provided, it will be set based on the class name
+   */
+  constructType?: string;
 }
 
 /**
@@ -21,6 +27,12 @@ export abstract class FermentConstruct extends Construct {
    * Optional description for the construct
    */
   public readonly description?: string;
+  
+  /**
+   * Construct type identifier
+   * Format: "CoreConstructs::[ConstructName]"
+   */
+  public readonly constructType: string;
 
   /**
    * Creates a new instance of the FermentConstruct class
@@ -32,6 +44,10 @@ export abstract class FermentConstruct extends Construct {
   constructor(scope: Construct, id: string, props: FermentConstructProps = {}) {
     super(scope, id);
     this.description = props.description;
+    
+    // Set the construct type based on the class name if not provided
+    const className = this.constructor.name;
+    this.constructType = props.constructType ?? `CoreConstructs::${className}`;
   }
 
   /**

@@ -35,6 +35,7 @@
     }
   },
   "dependencies": {
+    "@ferment-ai/journal": "*",
     "constructs": "^10.4.2"
   }
 }

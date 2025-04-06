@@ -1,6 +1,5 @@
 import { RootConstruct } from 'constructs';
-import type { Module } from '@ferment-ai/runtime-common';
-import type { Journal } from '@ferment-ai/journal';
+import type { Module, Journal } from '@ferment-ai/runtime-interfaces';
 
 /**
  * Creates an HTTP application module

@@ -1,5 +1,5 @@
 import { AgentContext, Entrypoint, OpenAIModel, VirtualModel } from '@ferment-ai/core-constructs-lib';
-import { HttpApplication } from '@ferment-ai/runtime';
+import { HttpApplication } from '@ferment-ai/runtime-http';
 import { Construct, RootConstruct } from 'constructs';
 import { createCoreConstructsModule } from '@ferment-ai/core-constructs-runtime';
 

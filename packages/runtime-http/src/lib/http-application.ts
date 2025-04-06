@@ -3,9 +3,8 @@ import express from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
 import http from 'http';
-import type { Module } from '@ferment-ai/runtime-common';
-import type { Journal, JournalOptions } from '@ferment-ai/journal';
-import { initializeJournal } from '@ferment-ai/runtime-common';
+import type { Module, Journal, JournalOptions } from '@ferment-ai/runtime-interfaces';
+import { initializeJournal } from '@ferment-ai/runtime-in-memory';
 import { createHttpApplicationModule } from './http-application-module.js';
 
 /**

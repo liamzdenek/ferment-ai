@@ -1,5 +1,5 @@
 {
-  "name": "@ferment-ai/runtime",
+  "name": "@ferment-ai/runtime-in-memory",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -23,29 +23,23 @@
           "{options.outputPath}"
         ],
         "options": {
-          "outputPath": "packages/runtime/dist",
-          "main": "packages/runtime/src/index.ts",
-          "tsConfig": "packages/runtime/tsconfig.lib.json",
+          "outputPath": "packages/runtime-in-memory/dist",
+          "main": "packages/runtime-in-memory/src/index.ts",
+          "tsConfig": "packages/runtime-in-memory/tsconfig.lib.json",
           "format": [
             "esm"
           ],
-          "declarationRootDir": "packages/runtime/src"
+          "declarationRootDir": "packages/runtime-in-memory/src"
         }
       }
     }
   },
   "dependencies": {
-    "@ferment-ai/core-constructs-lib": "*",
-    "@ferment-ai/core-constructs-runtime": "*",
-    "@ferment-ai/journal": "*",
-    "body-parser": "^1.20.2",
+    "@ferment-ai/runtime-interfaces": "*",
     "constructs": "^10.4.2",
-    "cors": "^2.8.5",
-    "express": "^4.18.3"
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
-    "@types/body-parser": "^1.19.5",
-    "@types/cors": "^2.8.17",
-    "@types/express": "^5.0.1"
+    "@types/node": "^20.11.30"
   }
 }

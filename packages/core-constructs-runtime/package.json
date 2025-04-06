@@ -35,8 +35,8 @@
     }
   },
   "dependencies": {
-    "@ferment-ai/journal": "*",
-    "@ferment-ai/runtime-common": "*",
+    "@ferment-ai/runtime-interfaces": "*",
+    "@ferment-ai/runtime-in-memory": "*",
     "body-parser": "^2.2.0",
     "constructs": "^10.4.2",
     "cors": "^2.8.5",

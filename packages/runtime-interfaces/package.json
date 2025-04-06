@@ -1,5 +1,5 @@
 {
-  "name": "@ferment-ai/journal",
+  "name": "@ferment-ai/runtime-interfaces",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -23,19 +23,16 @@
           "{options.outputPath}"
         ],
         "options": {
-          "outputPath": "packages/journal/dist",
-          "main": "packages/journal/src/index.ts",
-          "tsConfig": "packages/journal/tsconfig.lib.json",
+          "outputPath": "packages/runtime-interfaces/dist",
+          "main": "packages/runtime-interfaces/src/index.ts",
+          "tsConfig": "packages/runtime-interfaces/tsconfig.lib.json",
           "format": [
             "esm"
           ],
-          "declarationRootDir": "packages/journal/src"
+          "declarationRootDir": "packages/runtime-interfaces/src"
         }
       }
     }
   },
-  "dependencies": {
-    "constructs": "^10.4.2",
-    "uuid": "^9.0.1"
-  }
+  "dependencies": {}
 }

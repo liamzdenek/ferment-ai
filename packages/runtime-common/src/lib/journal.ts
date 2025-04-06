@@ -1,4 +1,4 @@
-import { Entity, EntityId, Component, ComponentType, System, Process, ProcessId, ProcessResult } from './ecs.js';
+import type { Entity, EntityId, Component, ComponentType, System, Process, ProcessId, ProcessResult, SystemStateContext } from '@ferment-ai/journal';
 
 /**
  * Journal event type
@@ -63,6 +63,26 @@ export interface JournalEvent {
    * Event payload
    */
   payload: Record<string, any>;
+}
+
+/**
+ * System state component
+ */
+export interface SystemStateComponent extends Component {
+  /**
+   * The type of this component
+   */
+  type: 'SystemStateComponent';
+  
+  /**
+   * The ID of the system this state belongs to
+   */
+  systemId: string;
+  
+  /**
+   * The state data
+   */
+  state: any;
 }
 
 /**
@@ -253,7 +273,7 @@ export interface Journal {
    * 
    * @param system The system to register
    */
-  registerSystem(system: System): void;
+  registerSystem<T extends Record<string, any> = Record<string, any>, S = any>(system: System<T, S>): void;
 
   /**
    * Unregisters a system
@@ -293,6 +313,13 @@ export interface Journal {
    * @returns The process, or undefined if not found
    */
   getProcess(processId: ProcessId): Process | undefined;
+  
+  /**
+   * Gets all processes in the journal
+   *
+   * @returns A map of process IDs to processes
+   */
+  getProcesses(): Map<ProcessId, Process>;
 
   /**
    * Marks a construct as bound

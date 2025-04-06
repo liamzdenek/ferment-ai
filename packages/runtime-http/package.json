@@ -1,5 +1,5 @@
 {
-  "name": "@ferment-ai/journal",
+  "name": "@ferment-ai/runtime-http",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -23,19 +23,30 @@
           "{options.outputPath}"
         ],
         "options": {
-          "outputPath": "packages/journal/dist",
-          "main": "packages/journal/src/index.ts",
-          "tsConfig": "packages/journal/tsconfig.lib.json",
+          "outputPath": "packages/runtime-http/dist",
+          "main": "packages/runtime-http/src/index.ts",
+          "tsConfig": "packages/runtime-http/tsconfig.lib.json",
           "format": [
             "esm"
           ],
-          "declarationRootDir": "packages/journal/src"
+          "declarationRootDir": "packages/runtime-http/src"
         }
       }
     }
   },
   "dependencies": {
+    "@ferment-ai/core-constructs-lib": "*",
+    "@ferment-ai/core-constructs-runtime": "*",
+    "@ferment-ai/runtime-interfaces": "*",
+    "@ferment-ai/runtime-in-memory": "*",
+    "body-parser": "^1.20.2",
     "constructs": "^10.4.2",
-    "uuid": "^9.0.1"
+    "cors": "^2.8.5",
+    "express": "^4.18.3"
+  },
+  "devDependencies": {
+    "@types/body-parser": "^1.19.5",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.1"
   }
 }

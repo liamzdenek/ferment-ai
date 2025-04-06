@@ -15,9 +15,10 @@ import {
   ProcessId,
   ProcessResult,
   EventType,
+  System,
+  SystemStateContext,
   SystemStateComponent
-} from './types.js';
-import { System, SystemStateContext } from '@ferment-ai/runtime-common';
+} from '@ferment-ai/runtime-interfaces';
 
 /**
  * Implementation of the Journal interface
@@ -516,12 +517,7 @@ export class JournalImpl implements Journal {
       processes: Array.from(this.state.processes.entries()),
       boundConstructs: Array.from(this.state.boundConstructs),
     };
-
-    if (this.enableCompression) {
-      // In a real implementation, we would compress the data here
-      return JSON.stringify(data);
-    }
-
+    
     return JSON.stringify(data);
   }
 
@@ -532,11 +528,7 @@ export class JournalImpl implements Journal {
    */
   public deserialize(data: string): void {
     const parsed = JSON.parse(data);
-
-    if (this.enableCompression) {
-      // In a real implementation, we would decompress the data here
-    }
-
+    
     this.state.events = parsed.events || [];
     this.state.entities = new Map(parsed.entities || []);
     this.state.components = new Map(
@@ -563,18 +555,14 @@ export class JournalImpl implements Journal {
   }
 
   /**
-   * Notifies listeners of an event
+   * Notifies all listeners of an event
    * 
-   * @param event The event to notify about
+   * @param event The event to notify listeners of
    */
   private notifyListeners(event: JournalEvent): void {
-    for (const { filter, listener } of this.eventListeners.values()) {
-      if (this.eventMatchesFilter(event, filter)) {
-        try {
-          listener(event);
-        } catch (error) {
-          console.error('Error in event listener:', error);
-        }
+    for (const { listener, filter } of this.eventListeners.values()) {
+      if (!filter || this.eventMatchesFilter(event, filter)) {
+        listener(event);
       }
     }
   }
@@ -607,47 +595,43 @@ export class JournalImpl implements Journal {
   }
 
   /**
-   * Finds constructs that are not bound
+   * Finds all constructs that are not bound
    * 
    * @param construct The construct to check
    * @returns The IDs of constructs that are not bound
    */
   private findUnboundConstructs(construct: RootConstruct): string[] {
     const unboundConstructs: string[] = [];
-
+    
     const traverse = (node: any): void => {
       if (!node) {
-        console.log('Node is undefined');
         return;
       }
       
-      const id = node.id;
-      if (!id) {
-        console.log('Node ID is undefined:', node);
-        return;
-      }
-      
-      console.log('Checking if construct is bound:', id, node.constructor?.name);
-      if (!this.state.boundConstructs.has(id)) {
-        unboundConstructs.push(id);
-        console.log('Construct is not bound:', id);
-      }
-
-      if (node.children) {
-        for (const child of node.children) {
-          traverse(child);
+      // Check if this node is bound
+      const nodeId = node.node?.id;
+      if (nodeId && !this.state.boundConstructs.has(nodeId)) {
+        // Skip the root construct
+        if (node !== construct) {
+          unboundConstructs.push(nodeId);
         }
       }
+      
+      // Traverse children
+      const children = node.node?.children || [];
+      for (const child of children) {
+        traverse(child);
+      }
     };
-
-    traverse(construct.node);
-
+    
+    traverse(construct);
+    
     return unboundConstructs;
   }
 
   /**
    * Creates a state context for a system
-   *
+   * 
    * @param systemId The ID of the system
    * @returns The state context
    */

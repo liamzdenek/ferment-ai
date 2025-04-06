@@ -1,189 +1,4 @@
-/**
- * Entity ID type
- */
-export type EntityId = string;
-
-/**
- * Entity interface
- *
- * An Entity is simply a unique identifier with associated components.
- */
-export interface Entity {
-  /**
-   * The unique identifier for this entity
-   */
-  id: EntityId;
-}
-
-/**
- * Component type
- */
-export type ComponentType = string;
-
-/**
- * Component interface
- *
- * A Component is a pure data object that stores state for an entity.
- */
-export interface Component {
-  /**
-   * The type of this component
-   */
-  type: ComponentType;
-}
-
-/**
- * Process ID type
- */
-export type ProcessId = string;
-
-/**
- * Process status
- */
-export type ProcessStatus = 'created' | 'running' | 'completed' | 'failed';
-
-/**
- * Process result
- */
-export interface ProcessResult {
-  /**
-   * Whether the process was successful
-   */
-  success: boolean;
-
-  /**
-   * The data returned by the process (if successful)
-   */
-  data?: any;
-
-  /**
-   * The error that occurred (if unsuccessful)
-   */
-  error?: Error;
-}
-
-/**
- * Process interface
- *
- * A Process represents an operation like an agent call or tool call.
- * It has a start invocation and either fails or succeeds with a single result.
- */
-export interface Process {
-  /**
-   * The unique identifier for this process
-   */
-  id: ProcessId;
-
-  /**
-   * The type of this process
-   */
-  type: string;
-
-  /**
-   * The status of this process
-   */
-  status: ProcessStatus;
-
-  /**
-   * The time this process was started
-   */
-  startTime: number;
-
-  /**
-   * The time this process ended (if completed or failed)
-   */
-  endTime?: number;
-
-  /**
-   * The result of this process (if completed or failed)
-   */
-  result?: ProcessResult;
-}
-
-/**
- * Generic event interface
- */
-export interface Event<T = any> {
-  /**
-   * The unique identifier for this event
-   */
-  id: string;
-
-  /**
-   * The type of this event
-   */
-  type: string;
-
-  /**
-   * The source of this event
-   */
-  source: string;
-
-  /**
-   * The target of this event (optional)
-   */
-  target?: string;
-
-  /**
-   * The timestamp of this event
-   */
-  timestamp: number;
-
-  /**
-   * The payload of this event
-   */
-  payload: T;
-}
-
-/**
- * System state context
- */
-export interface SystemStateContext<S = any> {
-  /**
-   * Gets the current state
-   */
-  getState(): S;
-
-  /**
-   * Sets the new state
-   */
-  setState(state: S): void;
-}
-
-/**
- * System interface
- *
- * A System is an event-based callback that responds to journal events and creates Processes.
- */
-export interface System<T extends Record<string, any> = Record<string, any>, S = any> {
-  /**
-   * The unique identifier for this system
-   */
-  id: string;
-
-  /**
-   * The event types this system handles
-   */
-  eventTypes: string[];
-
-  /**
-   * The initial state for this system
-   */
-  initialState: S;
-
-  /**
-   * Executes this system in response to an event
-   *
-   * @param journal The journal
-   * @param event The event
-   * @param stateContext The state context
-   */
-  execute<K extends keyof T>(
-    journal: any,
-    event: Event<T[K]> & { type: K & string },
-    stateContext: SystemStateContext<S>
-  ): Promise<void>;
-}
+import type { Entity, EntityId, Component, ComponentType, System, Process, ProcessId, ProcessResult, SystemStateContext, Event } from './ecs.js';
 
 /**
  * Journal event type
@@ -218,56 +33,11 @@ export enum EventType {
 /**
  * Journal event
  */
-export interface JournalEvent {
-  /**
-   * Event ID
-   */
-  id: string;
-
+export interface JournalEvent extends Event {
   /**
    * Event type
    */
   type: EventType | string;
-
-  /**
-   * Event source
-   */
-  source: string;
-
-  /**
-   * Event target
-   */
-  target?: string;
-
-  /**
-   * Event timestamp
-   */
-  timestamp: number;
-
-  /**
-   * Event payload
-   */
-  payload: Record<string, any>;
-}
-
-/**
- * System state component
- */
-export interface SystemStateComponent extends Component {
-  /**
-   * The type of this component
-   */
-  type: 'SystemStateComponent';
-  
-  /**
-   * The ID of the system this state belongs to
-   */
-  systemId: string;
-  
-  /**
-   * The state data
-   */
-  state: any;
 }
 
 /**
@@ -352,7 +122,7 @@ export interface JournalOptions {
 export interface Journal {
   /**
    * Publishes an event to the journal
-   *
+   * 
    * @param type The event type
    * @param source The event source
    * @param payload The event payload
@@ -368,7 +138,7 @@ export interface Journal {
 
   /**
    * Subscribes to events in the journal
-   *
+   * 
    * @param listener The event listener
    * @param filter The event filter
    * @returns A subscription ID that can be used to unsubscribe
@@ -377,21 +147,21 @@ export interface Journal {
 
   /**
    * Unsubscribes from events in the journal
-   *
+   * 
    * @param id The subscription ID
    */
   unsubscribe(id: string): void;
 
   /**
    * Gets all events in the journal
-   *
+   * 
    * @returns All events in the journal
    */
   getEvents(): JournalEvent[];
 
   /**
    * Gets events in the journal that match a filter
-   *
+   * 
    * @param filter The event filter
    * @returns Events that match the filter
    */
@@ -399,21 +169,21 @@ export interface Journal {
 
   /**
    * Creates an entity
-   *
+   * 
    * @returns The ID of the created entity
    */
   createEntity(): EntityId;
 
   /**
    * Removes an entity
-   *
+   * 
    * @param id The ID of the entity to remove
    */
   removeEntity(id: EntityId): void;
 
   /**
    * Gets an entity
-   *
+   * 
    * @param id The ID of the entity to get
    * @returns The entity, or undefined if not found
    */
@@ -421,7 +191,7 @@ export interface Journal {
 
   /**
    * Adds a component to an entity
-   *
+   * 
    * @param entityId The ID of the entity
    * @param componentType The type of the component
    * @param component The component
@@ -430,7 +200,7 @@ export interface Journal {
 
   /**
    * Removes a component from an entity
-   *
+   * 
    * @param entityId The ID of the entity
    * @param componentType The type of the component
    */
@@ -438,7 +208,7 @@ export interface Journal {
 
   /**
    * Gets a component from an entity
-   *
+   * 
    * @param entityId The ID of the entity
    * @param componentType The type of the component
    * @returns The component, or undefined if not found
@@ -447,7 +217,7 @@ export interface Journal {
 
   /**
    * Gets all entities that have a specific component
-   *
+   * 
    * @param componentType The type of the component
    * @returns The IDs of entities that have the component
    */
@@ -455,21 +225,21 @@ export interface Journal {
 
   /**
    * Registers a system
-   *
+   * 
    * @param system The system to register
    */
   registerSystem<T extends Record<string, any> = Record<string, any>, S = any>(system: System<T, S>): void;
 
   /**
    * Unregisters a system
-   *
+   * 
    * @param systemId The ID of the system to unregister
    */
   unregisterSystem(systemId: string): void;
 
   /**
    * Creates a process
-   *
+   * 
    * @param process The process to create
    * @returns The ID of the created process
    */
@@ -477,7 +247,7 @@ export interface Journal {
 
   /**
    * Completes a process
-   *
+   * 
    * @param processId The ID of the process to complete
    * @param result The result of the process
    */
@@ -485,7 +255,7 @@ export interface Journal {
 
   /**
    * Fails a process
-   *
+   * 
    * @param processId The ID of the process to fail
    * @param error The error that caused the process to fail
    */
@@ -493,7 +263,7 @@ export interface Journal {
 
   /**
    * Gets a process
-   *
+   * 
    * @param processId The ID of the process to get
    * @returns The process, or undefined if not found
    */
@@ -508,21 +278,21 @@ export interface Journal {
 
   /**
    * Marks a construct as bound
-   *
+   * 
    * @param constructId The ID of the construct to mark as bound
    */
   markConstructAsBound(constructId: string): void;
 
   /**
    * Validates that all constructs are bound
-   *
+   * 
    * @param rootConstruct The root construct
    */
   validateAllConstructsBound(rootConstruct: any): void;
 
   /**
    * Executes the journal starting from an entrypoint
-   *
+   * 
    * @param entrypointId The ID of the entrypoint
    * @returns An async iterable of journal events
    */
@@ -530,14 +300,14 @@ export interface Journal {
 
   /**
    * Serializes the journal to a string
-   *
+   * 
    * @returns The serialized journal
    */
   serialize(): string;
 
   /**
    * Deserializes the journal from a string
-   *
+   * 
    * @param data The serialized journal
    */
   deserialize(data: string): void;

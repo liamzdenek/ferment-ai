@@ -1,4 +1,8 @@
+// Export journal implementation
 export { createJournal } from './lib/journal-factory.js';
+export { initializeJournal } from './lib/module.js';
+
+// Re-export interfaces from runtime-interfaces
 export type {
   Journal,
   JournalEvent,
@@ -17,6 +21,9 @@ export type {
   Event,
   SystemStateContext,
   SystemStateComponent,
-  ProcessStatus
-} from './lib/types.js';
-export { EventType } from './lib/types.js';
+  ProcessStatus,
+  Module,
+  ModuleDependency
+} from '@ferment-ai/runtime-interfaces';
+
+export { EventType } from '@ferment-ai/runtime-interfaces';

@@ -1,7 +1,67 @@
 import { RootConstruct } from 'constructs';
-import type { Module } from '@ferment-ai/runtime-common';
-import type { Journal } from '@ferment-ai/journal';
+import type { Module, Journal, System, SystemStateContext, Event } from '@ferment-ai/runtime-interfaces';
 import { v4 as uuidv4 } from 'uuid';
+
+// Event payload types
+interface AgentInvokePayload {
+  agentId: string;
+  input: any;
+}
+
+interface ToolInvokePayload {
+  toolId: string;
+  input: any;
+}
+
+interface ToolResultPayload {
+  toolId: string;
+  processId: string;
+  result: any;
+}
+
+interface EntrypointInvokedPayload {
+  entrypointId: string;
+  initialPayload: any;
+}
+
+// Type guards
+function isAgentInvokePayload(payload: any): payload is AgentInvokePayload {
+  return payload && 'agentId' in payload && 'input' in payload;
+}
+
+function isToolInvokePayload(payload: any): payload is ToolInvokePayload {
+  return payload && 'toolId' in payload && 'input' in payload;
+}
+
+function isToolResultPayload(payload: any): payload is ToolResultPayload {
+  return payload && 'toolId' in payload && 'processId' in payload && 'result' in payload;
+}
+
+function isEntrypointInvokedPayload(payload: any): payload is EntrypointInvokedPayload {
+  return payload && 'entrypointId' in payload && 'initialPayload' in payload;
+}
+
+// Event type mapping
+interface CoreConstructsEventPayloads {
+  'agent_invoke': AgentInvokePayload;
+  'tool_invoke': ToolInvokePayload;
+  'tool_result': ToolResultPayload;
+  'entrypoint_invoked': EntrypointInvokedPayload;
+}
+
+// System state types
+interface AgentSystemState {
+  activeAgents: Record<string, { lastInput: any; timestamp: number }>;
+  pendingToolResults: Record<string, any>;
+}
+
+interface ToolSystemState {
+  activeTools: Record<string, { lastInput: any; timestamp: number }>;
+}
+
+interface EntrypointSystemState {
+  activeEntrypoints: Record<string, { timestamp: number }>;
+}
 
 /**
  * Creates a core constructs module
@@ -50,27 +110,33 @@ async function processConstruct(
   processedConstructs.add(constructId);
   
   // Process based on construct type
-  if (construct.constructor.name === 'AgentContext') {
-    await processAgentContext(construct, journal);
-  } else if (construct.constructor.name === 'VirtualModel') {
-    await processVirtualModel(construct, journal);
-  } else if (construct.constructor.name === 'Model') {
-    await processModel(construct, journal);
-  } else if (construct.constructor.name === 'Tool') {
-    await processTool(construct, journal);
-  } else if (construct.constructor.name === 'Entrypoint') {
-    await processEntrypoint(construct, journal);
-  } else if (construct.constructor.name === 'ExitPoint') {
-    await processExitPoint(construct, journal);
-  }
-  // Only mark the construct as bound if it's a core construct
-  if (construct.constructor.name === 'AgentContext' ||
-      construct.constructor.name === 'VirtualModel' ||
-      construct.constructor.name === 'Model' ||
-      construct.constructor.name === 'Tool' ||
-      construct.constructor.name === 'Entrypoint' ||
-      construct.constructor.name === 'ExitPoint') {
-    journal.markConstructAsBound(constructId);
+  const constructType = (construct as any).constructType;
+  console.log('Processing construct:', constructId, constructType);
+  
+  if (constructType && constructType.startsWith('CoreConstructs::')) {
+    if (constructType === 'CoreConstructs::AgentContext') {
+      await processAgentContext(construct, journal);
+      journal.markConstructAsBound(constructId);
+    } else if (constructType === 'CoreConstructs::VirtualModel' || constructType === 'CoreConstructs::TwoAgentModel') {
+      await processVirtualModel(construct, journal);
+      journal.markConstructAsBound(constructId);
+    } else if (constructType === 'CoreConstructs::Model' ||
+               constructType === 'CoreConstructs::OpenAIModel' ||
+               constructType === 'CoreConstructs::AnthropicModel') {
+      await processModel(construct, journal);
+      journal.markConstructAsBound(constructId);
+    } else if (constructType === 'CoreConstructs::Tool' ||
+               constructType === 'CoreConstructs::SendEmailTool' ||
+               constructType === 'CoreConstructs::ExitPointTool') {
+      await processTool(construct, journal);
+      journal.markConstructAsBound(constructId);
+    } else if (constructType === 'CoreConstructs::Entrypoint') {
+      await processEntrypoint(construct, journal);
+      journal.markConstructAsBound(constructId);
+    } else if (constructType === 'CoreConstructs::ExitPoint') {
+      await processExitPoint(construct, journal);
+      journal.markConstructAsBound(constructId);
+    }
   }
   
   
@@ -212,67 +278,149 @@ async function processExitPoint(exitPoint: any, journal: Journal): Promise<void>
  * @param journal The journal
  */
 function registerSystems(journal: Journal): void {
-  // Register the agent system
-  journal.registerSystem({
+  // Define the agent system
+  const agentSystem: System<CoreConstructsEventPayloads, AgentSystemState> = {
     id: 'agent-system',
     eventTypes: ['agent_invoke', 'tool_result'],
-    async execute(journal: Journal, event: any): Promise<void> {
-      if (event.type === 'agent_invoke') {
+    initialState: {
+      activeAgents: {},
+      pendingToolResults: {}
+    },
+    async execute(journal: Journal, event, stateContext) {
+      // Get the current state
+      const state = stateContext.getState();
+      
+      if (event.type === 'agent_invoke' && isAgentInvokePayload(event.payload)) {
         // Create a process to invoke the agent
-        const agentId = event.payload.agentId;
+        const { agentId, input } = event.payload;
         const agentComponent = journal.getComponent<any>(agentId, 'AgentComponent');
         if (agentComponent) {
+          // Update state to track this agent
+          state.activeAgents[agentId] = {
+            lastInput: input,
+            timestamp: Date.now()
+          };
+          stateContext.setState(state);
+          
           const process = {
             id: uuidv4(),
             type: 'AgentProcess',
             status: 'running' as const,
             agentId,
-            input: event.payload.input,
+            input,
             startTime: Date.now()
           };
           journal.createProcess(process);
-          // Actual agent invocation would happen here
+          
+          // Simulate agent invocation with a delay
+          setTimeout(() => {
+            // Complete the process
+            journal.completeProcess(process.id, {
+              success: true,
+              data: { output: `Agent ${agentId} processed input: ${JSON.stringify(input)}` }
+            });
+            
+            // Update state
+            const currentState = stateContext.getState();
+            delete currentState.activeAgents[agentId];
+            stateContext.setState(currentState);
+            
+            // Invoke a tool
+            journal.publish('tool_invoke', 'agent-system', {
+              toolId: 'tool1',
+              input: { message: 'Hello from agent' }
+            });
+          }, 1000);
         }
-      } else if (event.type === 'tool_result') {
+      } else if (event.type === 'tool_result' && isToolResultPayload(event.payload)) {
         // Handle tool result
-        // ...
+        const { toolId, processId, result } = event.payload;
+        
+        // Check if we're waiting for this tool result
+        if (state.pendingToolResults[processId]) {
+          // Process the result
+          // ...
+          
+          // Update state
+          delete state.pendingToolResults[processId];
+          stateContext.setState(state);
+        }
       }
     }
-  });
+  };
   
-  // Register the tool system
-  journal.registerSystem({
+  // Define the tool system
+  const toolSystem: System<CoreConstructsEventPayloads, ToolSystemState> = {
     id: 'tool-system',
     eventTypes: ['tool_invoke'],
-    async execute(journal: Journal, event: any): Promise<void> {
-      if (event.type === 'tool_invoke') {
+    initialState: {
+      activeTools: {}
+    },
+    async execute(journal: Journal, event, stateContext) {
+      // Get the current state
+      const state = stateContext.getState();
+      
+      if (event.type === 'tool_invoke' && isToolInvokePayload(event.payload)) {
         // Create a process to invoke the tool
-        const toolId = event.payload.toolId;
+        const { toolId, input } = event.payload;
         const toolComponent = journal.getComponent<any>(toolId, 'ToolComponent');
         if (toolComponent) {
+          // Update state to track this tool
+          state.activeTools[toolId] = {
+            lastInput: input,
+            timestamp: Date.now()
+          };
+          stateContext.setState(state);
+          
           const process = {
             id: uuidv4(),
             type: 'ToolProcess',
             status: 'running' as const,
             toolId,
-            input: event.payload.input,
+            input,
             startTime: Date.now()
           };
           journal.createProcess(process);
-          // Actual tool invocation would happen here
+          
+          // Simulate tool execution with a delay
+          setTimeout(() => {
+            // Complete the process
+            journal.completeProcess(process.id, {
+              success: true,
+              data: { result: `Tool ${toolId} processed input: ${JSON.stringify(input)}` }
+            });
+            
+            // Update state
+            const currentState = stateContext.getState();
+            delete currentState.activeTools[toolId];
+            stateContext.setState(currentState);
+            
+            // Publish result
+            journal.publish('tool_result', 'tool-system', {
+              toolId,
+              processId: process.id,
+              result: { output: `Tool ${toolId} processed input: ${JSON.stringify(input)}` }
+            });
+          }, 1000);
         }
       }
     }
-  });
+  };
   
-  // Register the entrypoint system
-  journal.registerSystem({
+  // Define the entrypoint system
+  const entrypointSystem: System<CoreConstructsEventPayloads, EntrypointSystemState> = {
     id: 'entrypoint-system',
     eventTypes: ['entrypoint_invoked'],
-    async execute(journal: Journal, event: any): Promise<void> {
-      if (event.type === 'entrypoint_invoked') {
+    initialState: {
+      activeEntrypoints: {}
+    },
+    async execute(journal: Journal, event, stateContext) {
+      // Get the current state
+      const state = stateContext.getState();
+      
+      if (event.type === 'entrypoint_invoked' && isEntrypointInvokedPayload(event.payload)) {
         // Find the entrypoint entity
-        const entrypointId = event.payload.entrypointId;
+        const { entrypointId, initialPayload } = event.payload;
         const entrypointEntities = journal.getEntitiesWithComponent('EntrypointComponent');
         const entrypointEntity = entrypointEntities.find((entityId: string) => {
           const component = journal.getComponent<any>(entityId, 'EntrypointComponent');
@@ -280,6 +428,12 @@ function registerSystems(journal: Journal): void {
         });
         
         if (entrypointEntity) {
+          // Update state to track this entrypoint
+          state.activeEntrypoints[entrypointId] = {
+            timestamp: Date.now()
+          };
+          stateContext.setState(state);
+          
           // Find the virtual model that contains this entrypoint
           const virtualModelEntities = journal.getEntitiesWithComponent('VirtualModelComponent');
           const virtualModelEntity = virtualModelEntities.find((entityId: string) => {
@@ -302,16 +456,34 @@ function registerSystems(journal: Journal): void {
             };
             journal.createProcess(process);
             
-            // Invoke the first agent in the virtual model
-            // This would typically be determined by the virtual model's configuration
-            // For now, we'll just use a placeholder
-            journal.publish('agent_invoke', 'entrypoint-system', {
-              agentId: 'placeholder-agent-id',
-              input: event.payload.initialPayload
-            });
+            // Find an agent to invoke
+            const agentEntities = journal.getEntitiesWithComponent('AgentComponent');
+            if (agentEntities.length > 0) {
+              // For now, just use the first agent
+              const agentId = agentEntities[0];
+              
+              // Invoke the agent
+              journal.publish('agent_invoke', 'entrypoint-system', {
+                agentId,
+                input: initialPayload
+              });
+            } else {
+              // No agents found, complete the process with an error
+              journal.failProcess(process.id, new Error('No agents found'));
+              
+              // Update state
+              const currentState = stateContext.getState();
+              delete currentState.activeEntrypoints[entrypointId];
+              stateContext.setState(currentState);
+            }
           }
         }
       }
     }
-  });
+  };
+  
+  // Register the systems
+  journal.registerSystem(agentSystem);
+  journal.registerSystem(toolSystem);
+  journal.registerSystem(entrypointSystem);
 }
