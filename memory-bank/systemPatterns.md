@@ -322,19 +322,48 @@ These packages contain specific implementations for different providers or funct
 
 ### 1. HttpApplication Pattern
 
-The `HttpApplication` class will be implemented in the core-constructs-runtime package:
+The `HttpApplication` class is implemented in the runtime package:
 
 ```typescript
 export class HttpApplication extends RootConstruct {
-  constructor(scope: Construct, id: string, props: HttpApplicationProps = {}) {
-    super(scope, id);
-    // Initialize HTTP application properties
+  constructor(id: string, props: HttpApplicationProps = {}) {
+    super(id);
+    // Create the journal
+    this.journal = new Journal({
+      enableCompression: props.journalProps?.enableCompression,
+      initialEvents: props.journalProps?.initialEvents,
+    });
+    
+    // Create the module processor
+    this.moduleProcessor = new ModuleProcessor(this.journal);
   }
 
-  public serve(options: ServeOptions = {}): void {
-    // Initialize the HTTP API
-    // Set up routes
+  public serve(options: ServeOptions = {}): Promise<void> {
+    // Process the construct tree
+    this.moduleProcessor.processRootConstruct(this);
+    
+    // Create the Express app
+    const app = express();
+    
+    // Configure middleware
+    app.use(cors());
+    app.use(bodyParser.json());
+    
+    // Apply plugins
+    for (const plugin of this.plugins) {
+      plugin.apply(app);
+    }
+    
+    // Configure routes
+    this.configureRoutes(app);
+    
     // Start the server
+    return new Promise<void>((resolve, reject) => {
+      this.server = app.listen(port, host, () => {
+        console.log(`Server listening on http://${host}:${port}`);
+        resolve();
+      });
+    });
   }
 }
 ```

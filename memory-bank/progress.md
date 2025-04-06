@@ -146,17 +146,17 @@ The project is in the **implementation phase**. We have set up the project struc
 
 ## Next Milestones
 
-1. **Implement HttpApplication** (Target: Week 1)
-   - Create the HttpApplication class in the core-constructs-runtime package
-   - Implement the serve operation to initialize the HTTP API
-   - Integrate with the journal system
-   - Support real-time streaming of events
+1. **Implement HttpApplication** (Target: Week 1) ✅
+   - Created the HttpApplication class in the runtime package
+   - Implemented the serve operation to initialize the HTTP API
+   - Integrated with the journal system
+   - Added support for plugins and custom routes
 
-2. **Create Processor/Runtime Module Interface** (Target: Week 1)
-   - Design and implement a processor/runtime module interface
-   - Validate that all necessary modules are available to execute the constructs
-   - Create clear error messages for missing modules
-   - Support extensibility for custom modules
+2. **Create ModuleProcessor** (Target: Week 1) ✅
+   - Implemented the ModuleProcessor class in the runtime package
+   - Added validation for construct binding
+   - Created clear error messages for missing modules
+   - Added support for executing runtime modules
 
 3. **Fix TypeScript Errors** (Target: Week 2)
    - Add type declarations for Express, CORS, and body-parser
@@ -181,15 +181,28 @@ The project is in the **implementation phase**. We have set up the project struc
    - Develop architectural overviews
    - Create tutorials for common use cases
 
-## Demo Application
+## Demo Applications
+
+### Main Demo
 
 A barebones demo application has been created in 'packages/demo/src/main.ts' that shows how the app will be initialized and navigated. It demonstrates a two-agent model with a junior engineer and senior engineer that can communicate with each other.
 
-To build and run the demo application:
+To build and run the main demo application:
 
 ```bash
 npx nx build demo
 npx nx serve demo
+```
+
+### HTTP Application Demo
+
+An HTTP application demo has been created in 'packages/demo/src/http-app-example.ts' that shows how to use the HttpApplication class from the runtime package. It demonstrates how to create a virtual model and serve it over HTTP.
+
+To build and run the HTTP application demo:
+
+```bash
+npx nx build demo
+node packages/demo/dist/http-app-example.js
 ```
 
 We have also created examples for the Journal and HttpApplication components to demonstrate their usage:

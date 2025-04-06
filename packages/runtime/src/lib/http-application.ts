@@ -1,10 +1,10 @@
 import { RootConstruct } from 'constructs';
-import { ModuleProcessor } from '@ferment-ai/core-constructs-runtime';
 import { Journal } from '@ferment-ai/journal';
+import { ModuleProcessor } from './module-processor.js';
 import * as http from 'http';
 import express from 'express';
 import cors from 'cors';
-import bodyParser from 'body-parser';
+import * as bodyParser from 'body-parser';
 
 /**
  * Options for the HttpApplication serve method
@@ -147,7 +147,7 @@ export class HttpApplication extends RootConstruct {
         resolve();
       });
       
-      this.server.on('error', (error) => {
+      this.server?.on('error', (error) => {
         reject(error);
       });
     });
@@ -181,7 +181,7 @@ export class HttpApplication extends RootConstruct {
    */
   private configureRoutes(app: express.Express): void {
     // Execute route
-    app.post('/execute', async (req, res) => {
+    app.post('/execute', async (req: express.Request, res: express.Response) => {
       try {
         // Validate request
         if (!req.body.journal) {
@@ -213,7 +213,7 @@ export class HttpApplication extends RootConstruct {
     });
     
     // Status route
-    app.get('/status', (req, res) => {
+    app.get('/status', (req: express.Request, res: express.Response) => {
       return res.json({
         status: 'ok',
         version: '0.0.1',

@@ -67,19 +67,19 @@ We have made significant progress in implementing the core constructs for the Fe
 
 ## Next Steps
 
-1. **Implement HttpApplication**: Create the HttpApplication class in the core-constructs-runtime package that extends RootConstruct and has a 'serve' operation to initialize the HTTP API.
+1. **Fix TypeScript Errors**: Address the remaining TypeScript errors in the HttpApplication and ModuleProcessor classes.
 
-2. **Create Processor/Runtime Module Interface**: Design and implement a processor/runtime module interface to validate that all necessary modules are available to execute the constructs.
+2. **Enhance Demo Application**: Further develop the demo application to showcase more features of the framework and demonstrate the full lifecycle from construct definition to execution.
 
-3. **Update Journal Package**: Update the journal package to implement the Journal interface from runtime-common.
+3. **Implement Testing**: Create unit tests for all components and develop integration tests for the complete system.
 
-4. **Update Runtime Package**: Update the runtime package to use the interfaces from runtime-common.
+4. **Create Documentation**: Create API references, write usage examples, develop architectural overviews, and create tutorials for common use cases.
 
-5. **Enhance Demo Application**: Further develop the demo application to showcase more features of the framework and demonstrate the full lifecycle from construct definition to execution.
+5. **Performance Optimization**: Profile the system, optimize memory usage, and reduce latency.
 
-6. **Fix TypeScript Errors**: Add type declarations for Express, CORS, and body-parser, and address other TypeScript errors in the implementation.
+6. **Implement Advanced Features**: Add context windowing, priority-based message handling, and advanced prompt construction.
 
-7. **Implement Testing**: Create unit tests for all components and develop integration tests for the complete system.
+7. **Create L2 Constructs**: Implement higher-level constructs for common patterns.
 
 ## Open Questions and Architectural Recommendations
 

@@ -36,6 +36,7 @@
   },
   "dependencies": {
     "@ferment-ai/core-constructs-lib": "*",
+    "@ferment-ai/runtime-common": "*",
     "constructs": "^10.4.2",
     "uuid": "^9.0.1"
   }

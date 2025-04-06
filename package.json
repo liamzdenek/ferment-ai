@@ -5,7 +5,11 @@
   "scripts": {},
   "private": true,
   "dependencies": {
-    "constructs": "^10.4.2"
+    "body-parser": "^2.2.0",
+    "constructs": "^10.4.2",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.8.0",
@@ -19,8 +23,12 @@
     "@swc/core": "~1.5.7",
     "@swc/helpers": "~0.5.11",
     "@swc/jest": "^0.2.37",
+    "@types/body-parser": "^1.19.5",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.1",
     "@types/jest": "^29.5.12",
     "@types/node": "18.16.9",
+    "@types/uuid": "^10.0.0",
     "esbuild": "^0.19.2",
     "eslint": "^9.8.0",
     "eslint-config-prettier": "^9.0.0",
