@@ -29,6 +29,12 @@
     },
     {
       "path": "./packages/demo"
+    },
+    {
+      "path": "./packages/runtime-types"
+    },
+    {
+      "path": "./packages/runtime-common"
     }
   ]
 }

@@ -1,29 +1,5 @@
 import { Node } from 'constructs';
-
-/**
- * Dependency information for a runtime module
- */
-export interface RuntimeModuleDependency {
-  /**
-   * The ID of the module that this module depends on
-   */
-  readonly moduleId: string;
-
-  /**
-   * The minimum version of the module that this module depends on
-   */
-  readonly minVersion?: string;
-
-  /**
-   * The maximum version of the module that this module depends on
-   */
-  readonly maxVersion?: string;
-
-  /**
-   * Whether this dependency is optional
-   */
-  readonly optional: boolean;
-}
+import { Journal } from './journal.js';
 
 /**
  * Result of validating a runtime module
@@ -92,7 +68,7 @@ export interface ExecutionContext {
   /**
    * The journal to use for execution
    */
-  readonly journal: any; // This would be the Journal type from the journal package
+  readonly journal: Journal;
 
   /**
    * The modules available for execution
@@ -143,6 +119,31 @@ export interface ExecutionError {
    * The type of error
    */
   readonly type: string;
+}
+
+/**
+ * Dependency information for a runtime module
+ */
+export interface RuntimeModuleDependency {
+  /**
+   * The ID of the module that this module depends on
+   */
+  readonly moduleId: string;
+
+  /**
+   * The minimum version of the module that this module depends on
+   */
+  readonly minVersion?: string;
+
+  /**
+   * The maximum version of the module that this module depends on
+   */
+  readonly maxVersion?: string;
+
+  /**
+   * Whether this dependency is optional
+   */
+  readonly optional: boolean;
 }
 
 /**
