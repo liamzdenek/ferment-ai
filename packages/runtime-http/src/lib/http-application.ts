@@ -248,9 +248,6 @@ export class HttpApplication extends RootConstruct {
         // Publish the initial event to trigger the execution
         const initialEvent = newJournal.publish(event.type, event.source, payload, event.target);
         
-        // Wait for a bit to allow events to be processed
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
         // Unsubscribe from events
         newJournal.unsubscribe(allEventsSubscriptionId);
 

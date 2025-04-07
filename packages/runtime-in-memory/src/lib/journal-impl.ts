@@ -793,7 +793,7 @@ export class JournalImpl implements Journal {
         console.log(`DEBUG - Publishing warning event for unhandled event: ${event.type}`);
         
         const warningEvent = this.publish('warning', 'journal', {
-          message: `No listeners for event of type: ${event.type}`,
+          message: `No listeners for event of type: ${event.type} ${event.payload?.action}`,
           eventId: event.id,
           eventType: event.type,
           eventSource: event.source,

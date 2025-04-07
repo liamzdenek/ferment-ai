@@ -483,9 +483,23 @@ function registerSystems(journal: Journal): void {
       }
     }
   };
+
+  /*
+  // Define the entrypoint system
+  const entityCreatedWarningSilencer: System<CoreConstructsEventPayloads, EntrypointSystemState> = {
+    id: 'entity-created-warning-silencer',
+    eventTypes: ['entity'],
+    initialState: {
+      activeEntrypoints: {}
+    },
+    async execute(journal: Journal, event, stateContext) {
+    }
+  };
+  */
   
   // Register the systems
   journal.registerSystem(agentSystem);
   journal.registerSystem(toolSystem);
   journal.registerSystem(entrypointSystem);
+  //journal.registerSystem(entityCreatedWarningSilencer);
 }
