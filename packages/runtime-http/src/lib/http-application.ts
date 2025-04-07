@@ -219,6 +219,8 @@ export class HttpApplication extends RootConstruct {
         }
 
         console.log('Journal initialized, setting up SSE response');
+        //console.log('Journal systems:', newJournal.);
+        
         // Set up SSE
         res.setHeader('Content-Type', 'text/event-stream');
         res.setHeader('Cache-Control', 'no-cache');

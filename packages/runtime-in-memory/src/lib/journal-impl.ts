@@ -567,10 +567,16 @@ export class JournalImpl implements Journal {
    * @param event The event to notify listeners of
    */
   private notifyListeners(event: JournalEvent): void {
+    let hasListeners = false;
     for (const { listener, filter } of this.eventListeners.values()) {
       if (!filter || this.eventMatchesFilter(event, filter)) {
+        hasListeners = true;
         listener(event);
       }
+    }
+
+    if(!hasListeners) {
+      console.warn(`No listeners for event:`, event);
     }
   }
 
