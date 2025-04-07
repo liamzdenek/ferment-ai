@@ -76,6 +76,9 @@ export class JournalImpl implements Journal {
     payload: Record<string, any>,
     target?: string
   ): JournalEvent {
+    console.log(`DEBUG - publish called with type: ${type}, source: ${source}, target: ${target}`);
+    console.log(`DEBUG - payload: ${JSON.stringify(payload)}`);
+    
     const event: JournalEvent = {
       id: uuidv4(),
       type,
@@ -85,8 +88,15 @@ export class JournalImpl implements Journal {
       payload,
     };
 
+    console.log(`DEBUG - created event: ${JSON.stringify(event)}`);
+    console.log(`DEBUG - current events count before push: ${this.state.events.length}`);
+    
     this.state.events.push(event);
+    console.log(`DEBUG - current events count after push: ${this.state.events.length}`);
+    
+    console.log(`DEBUG - calling notifyListeners for event: ${event.id}`);
     this.notifyListeners(event);
+    console.log(`DEBUG - notifyListeners completed for event: ${event.id}`);
 
     return event;
   }
@@ -432,78 +442,100 @@ export class JournalImpl implements Journal {
   }
 
   /**
-   * Executes the journal starting from an entrypoint
+   * Executes the journal, processing events until there are no more active processes
    * 
-   * @param entrypointId The ID of the entrypoint
    * @returns An async iterable of journal events
    */
-  public async *execute(entrypointId: string, initialPayload?: any): AsyncIterable<JournalEvent> {
-    console.log(`Executing journal with entrypointId: ${entrypointId}, initialPayload:`, initialPayload);
+  public async *execute(): AsyncIterable<JournalEvent> {
+    console.log(`Executing journal - DEBUG MODE`);
+    console.log(`Initial events count: ${this.state.events.length}`);
+    console.log(`Initial events: ${JSON.stringify(this.state.events)}`);
     
-    // Find the entrypoint entity
-    const entrypointEntities = this.getEntitiesWithComponent('EntrypointComponent');
-    const entrypointEntity = entrypointEntities.find(entityId => {
-      const component = this.getComponent<any>(entityId, 'EntrypointComponent');
-      return component && component.id === entrypointId;
+    // Add a direct subscription to all events for debugging
+    const debugSubscriptionId = this.subscribe((event) => {
+      console.log(`DEBUG - Event received in subscription: ${JSON.stringify(event)}`);
     });
-
-    if (!entrypointEntity) {
-      throw new Error(`Entrypoint with ID ${entrypointId} not found`);
-    }
-
-    // Create an initial event to trigger the entrypoint
-    const entrypointComponent = this.getComponent<any>(entrypointEntity, 'EntrypointComponent');
     
-    // Use the provided initialPayload if available, otherwise use the component's initialPayload
-    const payload = initialPayload || entrypointComponent.initialPayload || {};
-    console.log('Using payload for entrypoint:', payload);
+    // Reset the last processed event index
+    this.lastProcessedEventIndex = this.state.events.length;
+    console.log(`Last processed event index: ${this.lastProcessedEventIndex}`);
     
-    const initialEvent = this.publish(EventType.SYSTEM, 'journal', {
-      action: 'entrypoint_invoked',
-      entrypointId,
-      initialPayload: payload,
-    });
-
-    // Yield the initial event
-    yield initialEvent;
-
     // Process events until there are no more active processes
     let activeProcesses = true;
-    while (activeProcesses) {
+    
+    // Keep track of the last event we've seen
+    let lastEventCount = this.state.events.length;
+    let checkCount = 0;
+    
+    while (activeProcesses || lastEventCount < this.state.events.length) {
+      console.log(`Loop iteration - Active processes: ${activeProcesses}, Events count: ${this.state.events.length}, Last event count: ${lastEventCount}`);
+      
       // Check if there are any active processes
       activeProcesses = Array.from(this.state.processes.values())
         .some(process => process.status === 'running');
-
-      // If there are no active processes, we're done
-      if (!activeProcesses) {
-        break;
+      
+      // Check if we have new events since the last check
+      const hasNewEvents = lastEventCount < this.state.events.length;
+      
+      // If no active processes and no new events for several checks, we're done
+      if (!activeProcesses && !hasNewEvents) {
+        // Do a few more checks to ensure we've captured all events
+        checkCount++;
+        if (checkCount > 3) {
+          break;
+        }
+      } else {
+        checkCount = 0; // Reset the check count if we have activity
       }
 
       // Wait for the next event (using a promise to simulate async behavior)
-      await new Promise(resolve => setTimeout(resolve, 0));
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       // Check if any new events have been published
       const newEvents = this.state.events.slice(this.lastProcessedEventIndex);
+      console.log(`New events count: ${newEvents.length}`);
+      if (newEvents.length > 0) {
+        console.log(`New events: ${JSON.stringify(newEvents)}`);
+      }
+      
       this.lastProcessedEventIndex = this.state.events.length;
+      lastEventCount = this.state.events.length;
 
       // Process each new event
       for (const event of newEvents) {
+        console.log(`Processing event: ${JSON.stringify(event)}`);
+        
         // Find systems that handle this event type
         const matchingSystems = this.state.systems
           .filter(system => system.eventTypes.includes(event.type));
+        
+        console.log(`Matching systems count: ${matchingSystems.length}`);
+        if (matchingSystems.length > 0) {
+          console.log(`Matching systems: ${matchingSystems.map(s => s.id).join(', ')}`);
+        }
 
         // Execute each matching system
         for (const system of matchingSystems) {
+          console.log(`Executing system: ${system.id}`);
+          
           // Create state context for the system
           const stateContext = this.createStateContext(system.id);
           
           // Execute the system with the state context
           await system.execute(this, event, stateContext);
+          
+          console.log(`System ${system.id} execution completed`);
         }
 
         // Yield the event
+        console.log(`Yielding event: ${JSON.stringify(event)}`);
         yield event;
       }
+      
+      // Unsubscribe from debug events
+      this.unsubscribe(debugSubscriptionId);
+      
+      console.log(`Execute method completed - Final events count: ${this.state.events.length}`);
     }
   }
 
@@ -513,19 +545,26 @@ export class JournalImpl implements Journal {
    * @returns The serialized journal
    */
   public serialize(): string {
-    const data = {
+    // Convert Maps and Sets to plain objects and arrays
+    const serialized = {
+      schemaVersion: '1.0.0',
+      timestamp: Date.now(),
       events: this.state.events,
-      entities: Array.from(this.state.entities.entries()),
-      components: Array.from(this.state.components.entries()).map(([type, map]) => [
-        type,
-        Array.from(map.entries()),
-      ]),
-      systems: this.state.systems,
-      processes: Array.from(this.state.processes.entries()),
+      entities: Object.fromEntries(this.state.entities.entries()),
+      components: Object.fromEntries(
+        Array.from(this.state.components.entries()).map((entry) => {
+          const [type, map] = entry;
+          return [
+            type,
+            Object.fromEntries(map.entries()),
+          ];
+        })
+      ),
+      processes: Object.fromEntries(this.state.processes.entries()),
       boundConstructs: Array.from(this.state.boundConstructs),
     };
     
-    return JSON.stringify(data);
+    return JSON.stringify(serialized);
   }
 
   /**
@@ -536,17 +575,38 @@ export class JournalImpl implements Journal {
   public deserialize(data: string): void {
     const parsed = JSON.parse(data);
     
+    // Convert plain objects and arrays back to Maps and Sets
     this.state.events = parsed.events || [];
-    this.state.entities = new Map(parsed.entities || []);
-    this.state.components = new Map(
-      (parsed.components || []).map(([type, entries]: [string, [string, any][]]) => [
-        type,
-        new Map(entries),
-      ])
-    );
-    this.state.systems = parsed.systems || [];
-    this.state.processes = new Map(parsed.processes || []);
+    this.state.entities = new Map();
+    this.state.components = new Map();
+    this.state.systems = []; // Systems are not serialized, they will be reloaded
+    this.state.processes = new Map();
     this.state.boundConstructs = new Set(parsed.boundConstructs || []);
+    
+    // Convert entities
+    if (parsed.entities) {
+      for (const [id, entity] of Object.entries(parsed.entities)) {
+        this.state.entities.set(id, entity as Entity);
+      }
+    }
+    
+    // Convert components
+    if (parsed.components) {
+      for (const [type, entities] of Object.entries(parsed.components)) {
+        const entityMap = new Map<EntityId, Component>();
+        for (const [entityId, component] of Object.entries(entities as Record<string, any>)) {
+          entityMap.set(entityId, component as Component);
+        }
+        this.state.components.set(type, entityMap);
+      }
+    }
+    
+    // Convert processes
+    if (parsed.processes) {
+      for (const [id, process] of Object.entries(parsed.processes)) {
+        this.state.processes.set(id, process as Process);
+      }
+    }
   }
 
   /**
@@ -567,16 +627,41 @@ export class JournalImpl implements Journal {
    * @param event The event to notify listeners of
    */
   private notifyListeners(event: JournalEvent): void {
+    console.log(`DEBUG - notifyListeners called for event: ${JSON.stringify(event)}`);
+    console.log(`DEBUG - Current listeners count: ${this.eventListeners.size}`);
+    
     let hasListeners = false;
-    for (const { listener, filter } of this.eventListeners.values()) {
+    for (const [id, { listener, filter }] of this.eventListeners.entries()) {
+      console.log(`DEBUG - Checking listener ${id} with filter: ${JSON.stringify(filter)}`);
+      
       if (!filter || this.eventMatchesFilter(event, filter)) {
+        console.log(`DEBUG - Listener ${id} matches event`);
         hasListeners = true;
         listener(event);
+      } else {
+        console.log(`DEBUG - Listener ${id} does not match event`);
       }
     }
 
     if(!hasListeners) {
       console.warn(`No listeners for event:`, event);
+      
+      // Add a warning to the journal, but only if it's not a warning event itself
+      // to prevent infinite recursion
+      if (event.type !== 'warning') {
+        console.log(`DEBUG - Publishing warning event for unhandled event: ${event.type}`);
+        
+        const warningEvent = this.publish('warning', 'journal', {
+          message: `No listeners for event of type: ${event.type}`,
+          eventId: event.id,
+          eventType: event.type,
+          eventSource: event.source,
+        });
+        
+        console.log(`DEBUG - Warning event published: ${JSON.stringify(warningEvent)}`);
+      } else {
+        console.log(`DEBUG - Not publishing warning for warning event to prevent recursion`);
+      }
     }
   }
 

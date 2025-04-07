@@ -291,13 +291,11 @@ export interface Journal {
   validateAllConstructsBound(rootConstruct: any): void;
 
   /**
-   * Executes the journal starting from an entrypoint
+   * Executes the journal, processing events until there are no more active processes
    *
-   * @param entrypointId The ID of the entrypoint
-   * @param initialPayload Optional initial payload to pass to the entrypoint
    * @returns An async iterable of journal events
    */
-  execute(entrypointId: string, initialPayload?: any): AsyncIterable<JournalEvent>;
+  execute(): AsyncIterable<JournalEvent>;
 
   /**
    * Serializes the journal to a string

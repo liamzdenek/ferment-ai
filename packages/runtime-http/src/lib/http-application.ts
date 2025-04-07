@@ -13,7 +13,8 @@ import type {
   Component,
   ComponentType,
   Process,
-  ProcessId
+  ProcessId,
+  JournalEvent
 } from '@ferment-ai/runtime-interfaces';
 import { initializeJournal } from '@ferment-ai/runtime-in-memory';
 import { createHttpApplicationModule } from './http-application-module.js';
@@ -155,10 +156,20 @@ export class HttpApplication extends RootConstruct {
     app.post('/execute', async (req, res) => {
       try {
         console.log('Received execute request:', JSON.stringify(req.body, null, 2));
-        const { entrypointId, initialState } = req.body;
-        const message = initialState?.message || {};
+        const { event, initialState } = req.body;
         
-        console.log('Message for entrypoint:', message);
+        if (!event) {
+          throw new Error('Event is required');
+        }
+        
+        // Ensure event has required properties
+        if (!event.type || !event.source) {
+          throw new Error('Event must have type and source properties');
+        }
+        
+        const payload = event.payload || {};
+        
+        console.log('Event for execution:', event);
 
         // Use the current journal's state if no initial state is provided
         let newJournal;
@@ -226,12 +237,22 @@ export class HttpApplication extends RootConstruct {
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
 
-        console.log(`Executing journal with entrypointId: ${entrypointId} and message:`, message);
-        // Execute the journal and stream events
-        for await (const event of newJournal.execute(entrypointId, message)) {
-          console.log('Journal event:', JSON.stringify(event));
-          res.write(`data: ${JSON.stringify(event)}\n\n`);
-        }
+        console.log(`Executing journal with event:`, event);
+        
+        // Set up a direct subscription to all events
+        const allEventsSubscriptionId = newJournal.subscribe((journalEvent) => {
+          console.log('Journal event from subscription:', JSON.stringify(journalEvent));
+          res.write(`data: ${JSON.stringify(journalEvent)}\n\n`);
+        });
+        
+        // Publish the initial event to trigger the execution
+        const initialEvent = newJournal.publish(event.type, event.source, payload, event.target);
+        
+        // Wait for a bit to allow events to be processed
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Unsubscribe from events
+        newJournal.unsubscribe(allEventsSubscriptionId);
 
         console.log('Journal execution completed');
         // End the response
