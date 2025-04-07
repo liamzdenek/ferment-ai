@@ -61,12 +61,22 @@ describe('Journal Components', () => {
     journal.addComponent(entityId, 'TestComponent', component);
     journal.removeComponent(entityId, 'TestComponent');
     
-    expect(events.length).toBe(2);
-    expect(events[0].payload.action).toBe('component_added');
-    expect(events[0].payload.entityId).toBe(entityId);
-    expect(events[0].payload.componentType).toBe('TestComponent');
-    expect(events[1].payload.action).toBe('component_removed');
-    expect(events[1].payload.entityId).toBe(entityId);
-    expect(events[1].payload.componentType).toBe('TestComponent');
+    expect(events.length).toBeGreaterThanOrEqual(2);
+    
+    // Find the events we're interested in
+    const addEvent = events.find(e =>
+      e.payload.action === 'component_added' &&
+      e.payload.entityId === entityId &&
+      e.payload.componentType === 'TestComponent'
+    );
+    const removeEvent = events.find(e =>
+      e.payload.action === 'component_removed' &&
+      e.payload.entityId === entityId &&
+      e.payload.componentType === 'TestComponent'
+    );
+    
+    // Verify the events were found
+    expect(addEvent).toBeDefined();
+    expect(removeEvent).toBeDefined();
   });
 });

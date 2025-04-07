@@ -1,5 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { RootConstruct } from 'constructs';
+import { Observable, Subject, ReplaySubject, BehaviorSubject, Subscription, merge, from } from 'rxjs';
+import { filter as rxFilter, tap, scan } from 'rxjs/operators';
 import {
   Journal,
   JournalEvent,
@@ -21,18 +23,38 @@ import {
 } from '@ferment-ai/runtime-interfaces';
 
 /**
- * Implementation of the Journal interface
+ * Implementation of the Journal interface using RxJS
  */
 export class JournalImpl implements Journal {
   /**
    * The state of the journal
    */
-  private state: JournalState;
+  private state$: BehaviorSubject<JournalState>;
 
   /**
-   * Event listeners
+   * Stream of all events (historical + live)
+   */
+  private allEvents$: ReplaySubject<JournalEvent>;
+
+  /**
+   * Stream of only new live events
+   */
+  private liveEvents$: Subject<JournalEvent>;
+
+  /**
+   * Event listeners (legacy API)
    */
   private eventListeners: Map<string, { filter?: EventFilter; listener: EventListener }> = new Map();
+
+  /**
+   * RxJS subscriptions
+   */
+  private subscriptions: Map<string, Subscription> = new Map();
+
+  /**
+   * Internal subscriptions for the journal's own use
+   */
+  private internalSubscriptions: Subscription = new Subscription();
 
   /**
    * Whether compression is enabled
@@ -40,17 +62,13 @@ export class JournalImpl implements Journal {
   private readonly enableCompression: boolean;
 
   /**
-   * The index of the last processed event
-   */
-  private lastProcessedEventIndex: number = 0;
-
-  /**
    * Creates a new Journal
    * 
    * @param options The journal options
    */
   constructor(options: JournalOptions = {}) {
-    this.state = options.initialState || {
+    // Initialize the state
+    const initialState = options.initialState || {
       events: [],
       entities: new Map(),
       components: new Map(),
@@ -58,7 +76,62 @@ export class JournalImpl implements Journal {
       processes: new Map(),
       boundConstructs: new Set()
     };
+
+    // Initialize RxJS streams
+    this.state$ = new BehaviorSubject<JournalState>(initialState);
+    this.allEvents$ = new ReplaySubject<JournalEvent>();
+    this.liveEvents$ = new Subject<JournalEvent>();
+    
+    // Set up internal subscriptions
+    this.connectLiveEventProcessing();
+    
+    // Prime the allEvents$ with historical events
+    if (initialState.events.length > 0) {
+      console.log(`Priming allEvents$ with ${initialState.events.length} historical events`);
+      for (const event of initialState.events) {
+        this.allEvents$.next(event);
+      }
+    }
+    
     this.enableCompression = options.enableCompression ?? false;
+  }
+  
+  /**
+   * Connects the live event processing pipeline
+   */
+  private connectLiveEventProcessing(): void {
+    // Clean up any existing subscriptions
+    this.internalSubscriptions.unsubscribe();
+    this.internalSubscriptions = new Subscription();
+    
+    // 1. Feed live events to the replay subject
+    this.internalSubscriptions.add(
+      this.liveEvents$.subscribe((event: JournalEvent) => {
+        this.allEvents$.next(event);
+      })
+    );
+    
+    // 2. Update state based on live events
+    this.internalSubscriptions.add(
+      this.liveEvents$.pipe(
+        scan((state: JournalState, event: JournalEvent) => {
+          // Add the event to the state's events array
+          return {
+            ...state,
+            events: [...state.events, event]
+          };
+        }, this.state$.getValue())
+      ).subscribe((newState: JournalState) => {
+        this.state$.next(newState);
+      })
+    );
+    
+    // 3. Notify legacy event listeners
+    this.internalSubscriptions.add(
+      this.liveEvents$.subscribe((event: JournalEvent) => {
+        this.notifyListeners(event);
+      })
+    );
   }
 
   /**
@@ -77,7 +150,6 @@ export class JournalImpl implements Journal {
     target?: string
   ): JournalEvent {
     console.log(`DEBUG - publish called with type: ${type}, source: ${source}, target: ${target}`);
-    console.log(`DEBUG - payload: ${JSON.stringify(payload)}`);
     
     const event: JournalEvent = {
       id: uuidv4(),
@@ -89,15 +161,14 @@ export class JournalImpl implements Journal {
     };
 
     console.log(`DEBUG - created event: ${JSON.stringify(event)}`);
-    console.log(`DEBUG - current events count before push: ${this.state.events.length}`);
     
-    this.state.events.push(event);
-    console.log(`DEBUG - current events count after push: ${this.state.events.length}`);
+    // Publish to the live events stream
+    // This will trigger:
+    // 1. Adding to allEvents$ via the internal subscription
+    // 2. Updating state$ via the internal subscription
+    // 3. Notifying legacy listeners via the internal subscription
+    this.liveEvents$.next(event);
     
-    console.log(`DEBUG - calling notifyListeners for event: ${event.id}`);
-    this.notifyListeners(event);
-    console.log(`DEBUG - notifyListeners completed for event: ${event.id}`);
-
     return event;
   }
 
@@ -110,7 +181,18 @@ export class JournalImpl implements Journal {
    */
   public subscribe(listener: EventListener, filter?: EventFilter): string {
     const id = uuidv4();
+    
+    // Store in legacy event listeners map for backward compatibility
     this.eventListeners.set(id, { listener, filter });
+    
+    // Create an RxJS subscription
+    const subscription = this.allEvents$.pipe(
+      rxFilter((event: JournalEvent) => !filter || this.eventMatchesFilter(event, filter))
+    ).subscribe(event => listener(event));
+    
+    // Store the subscription
+    this.subscriptions.set(id, subscription);
+    
     return id;
   }
 
@@ -120,7 +202,15 @@ export class JournalImpl implements Journal {
    * @param id The subscription ID
    */
   public unsubscribe(id: string): void {
+    // Remove from legacy event listeners
     this.eventListeners.delete(id);
+    
+    // Unsubscribe from RxJS subscription
+    const subscription = this.subscriptions.get(id);
+    if (subscription) {
+      subscription.unsubscribe();
+      this.subscriptions.delete(id);
+    }
   }
 
   /**
@@ -129,7 +219,7 @@ export class JournalImpl implements Journal {
    * @returns All events in the journal
    */
   public getEvents(): JournalEvent[] {
-    return [...this.state.events];
+    return [...this.state$.getValue().events];
   }
 
   /**
@@ -143,7 +233,7 @@ export class JournalImpl implements Journal {
       return this.getEvents();
     }
 
-    return this.state.events.filter(event => this.eventMatchesFilter(event, filter));
+    return this.state$.getValue().events.filter((event: JournalEvent) => this.eventMatchesFilter(event, filter));
   }
 
   /**
@@ -154,7 +244,15 @@ export class JournalImpl implements Journal {
   public createEntity(): EntityId {
     const id = uuidv4();
     const entity: Entity = { id };
-    this.state.entities.set(id, entity);
+    
+    // Get current state
+    const currentState = this.state$.getValue();
+    
+    // Update entities map
+    currentState.entities.set(id, entity);
+    
+    // Update state
+    this.state$.next(currentState);
 
     this.publish(EventType.ENTITY, 'journal', {
       action: 'entity_created',
@@ -170,13 +268,19 @@ export class JournalImpl implements Journal {
    * @param id The ID of the entity to remove
    */
   public removeEntity(id: EntityId): void {
+    // Get current state
+    const currentState = this.state$.getValue();
+    
     // Remove the entity
-    this.state.entities.delete(id);
+    currentState.entities.delete(id);
 
     // Remove all components for this entity
-    for (const componentMap of this.state.components.values()) {
+    for (const componentMap of currentState.components.values()) {
       componentMap.delete(id);
     }
+    
+    // Update state
+    this.state$.next(currentState);
 
     this.publish(EventType.ENTITY, 'journal', {
       action: 'entity_removed',
@@ -191,7 +295,7 @@ export class JournalImpl implements Journal {
    * @returns The entity, or undefined if not found
    */
   public getEntity(id: EntityId): Entity | undefined {
-    return this.state.entities.get(id);
+    return this.state$.getValue().entities.get(id);
   }
 
   /**
@@ -202,19 +306,25 @@ export class JournalImpl implements Journal {
    * @param component The component
    */
   public addComponent<T extends Component>(entityId: EntityId, componentType: ComponentType, component: T): void {
+    // Get current state
+    const currentState = this.state$.getValue();
+    
     // Ensure the entity exists
-    if (!this.state.entities.has(entityId)) {
+    if (!currentState.entities.has(entityId)) {
       throw new Error(`Entity ${entityId} does not exist`);
     }
 
     // Ensure the component map exists
-    if (!this.state.components.has(componentType)) {
-      this.state.components.set(componentType, new Map());
+    if (!currentState.components.has(componentType)) {
+      currentState.components.set(componentType, new Map());
     }
 
     // Add the component
-    const componentMap = this.state.components.get(componentType)!;
+    const componentMap = currentState.components.get(componentType)!;
     componentMap.set(entityId, component);
+    
+    // Update state
+    this.state$.next(currentState);
 
     this.publish(EventType.COMPONENT, 'journal', {
       action: 'component_added',
@@ -231,14 +341,20 @@ export class JournalImpl implements Journal {
    * @param componentType The type of the component
    */
   public removeComponent(entityId: EntityId, componentType: ComponentType): void {
+    // Get current state
+    const currentState = this.state$.getValue();
+    
     // Ensure the component map exists
-    if (!this.state.components.has(componentType)) {
+    if (!currentState.components.has(componentType)) {
       return;
     }
 
     // Remove the component
-    const componentMap = this.state.components.get(componentType)!;
+    const componentMap = currentState.components.get(componentType)!;
     componentMap.delete(entityId);
+    
+    // Update state
+    this.state$.next(currentState);
 
     this.publish(EventType.COMPONENT, 'journal', {
       action: 'component_removed',
@@ -255,13 +371,16 @@ export class JournalImpl implements Journal {
    * @returns The component, or undefined if not found
    */
   public getComponent<T extends Component>(entityId: EntityId, componentType: ComponentType): T | undefined {
+    // Get current state
+    const currentState = this.state$.getValue();
+    
     // Ensure the component map exists
-    if (!this.state.components.has(componentType)) {
+    if (!currentState.components.has(componentType)) {
       return undefined;
     }
 
     // Get the component
-    const componentMap = this.state.components.get(componentType)!;
+    const componentMap = currentState.components.get(componentType)!;
     return componentMap.get(entityId) as T | undefined;
   }
 
@@ -272,13 +391,16 @@ export class JournalImpl implements Journal {
    * @returns The IDs of entities that have the component
    */
   public getEntitiesWithComponent(componentType: ComponentType): EntityId[] {
+    // Get current state
+    const currentState = this.state$.getValue();
+    
     // Ensure the component map exists
-    if (!this.state.components.has(componentType)) {
+    if (!currentState.components.has(componentType)) {
       return [];
     }
 
     // Get the entities with this component
-    const componentMap = this.state.components.get(componentType)!;
+    const componentMap = currentState.components.get(componentType)!;
     return Array.from(componentMap.keys());
   }
 
@@ -288,7 +410,14 @@ export class JournalImpl implements Journal {
    * @param system The system to register
    */
   public registerSystem<T extends Record<string, any> = Record<string, any>, S = any>(system: System<T, S>): void {
-    this.state.systems.push(system);
+    // Get current state
+    const currentState = this.state$.getValue();
+    
+    // Add system to systems array
+    currentState.systems.push(system);
+    
+    // Update state
+    this.state$.next(currentState);
 
     // Create an entity for the system's state
     const entityId = this.createEntity();
@@ -305,6 +434,20 @@ export class JournalImpl implements Journal {
       systemId: system.id,
       eventTypes: system.eventTypes,
     });
+    
+    // Set up subscription for this system to listen to its events
+    const systemSubscription = this.liveEvents$.pipe(
+      rxFilter((event: JournalEvent) => system.eventTypes.includes(event.type))
+    ).subscribe(async (event: JournalEvent) => {
+      // Create state context for the system
+      const stateContext = this.createStateContext(system.id);
+      
+      // Execute the system with the state context
+      await system.execute(this, event, stateContext);
+    });
+    
+    // Add to internal subscriptions
+    this.internalSubscriptions.add(systemSubscription);
   }
 
   /**
@@ -313,7 +456,14 @@ export class JournalImpl implements Journal {
    * @param systemId The ID of the system to unregister
    */
   public unregisterSystem(systemId: string): void {
-    this.state.systems = this.state.systems.filter(system => system.id !== systemId);
+    // Get current state
+    const currentState = this.state$.getValue();
+    
+    // Remove system from systems array
+    currentState.systems = currentState.systems.filter((system: System) => system.id !== systemId);
+    
+    // Update state
+    this.state$.next(currentState);
 
     this.publish(EventType.SYSTEM, 'journal', {
       action: 'system_unregistered',
@@ -328,7 +478,14 @@ export class JournalImpl implements Journal {
    * @returns The ID of the created process
    */
   public createProcess(process: Process): ProcessId {
-    this.state.processes.set(process.id, process);
+    // Get current state
+    const currentState = this.state$.getValue();
+    
+    // Add process to processes map
+    currentState.processes.set(process.id, process);
+    
+    // Update state
+    this.state$.next(currentState);
 
     this.publish(EventType.PROCESS, 'journal', {
       action: 'process_created',
@@ -346,7 +503,10 @@ export class JournalImpl implements Journal {
    * @param result The result of the process
    */
   public completeProcess(processId: ProcessId, result: ProcessResult): void {
-    const process = this.state.processes.get(processId);
+    // Get current state
+    const currentState = this.state$.getValue();
+    
+    const process = currentState.processes.get(processId);
     if (!process) {
       throw new Error(`Process ${processId} does not exist`);
     }
@@ -354,6 +514,9 @@ export class JournalImpl implements Journal {
     process.status = 'completed';
     process.endTime = Date.now();
     process.result = result;
+    
+    // Update state
+    this.state$.next(currentState);
 
     this.publish(EventType.PROCESS, 'journal', {
       action: 'process_completed',
@@ -369,7 +532,10 @@ export class JournalImpl implements Journal {
    * @param error The error that caused the process to fail
    */
   public failProcess(processId: ProcessId, error: Error): void {
-    const process = this.state.processes.get(processId);
+    // Get current state
+    const currentState = this.state$.getValue();
+    
+    const process = currentState.processes.get(processId);
     if (!process) {
       throw new Error(`Process ${processId} does not exist`);
     }
@@ -380,6 +546,9 @@ export class JournalImpl implements Journal {
       success: false,
       error,
     };
+    
+    // Update state
+    this.state$.next(currentState);
 
     this.publish(EventType.PROCESS, 'journal', {
       action: 'process_failed',
@@ -395,7 +564,7 @@ export class JournalImpl implements Journal {
    * @returns The process, or undefined if not found
    */
   public getProcess(processId: ProcessId): Process | undefined {
-    return this.state.processes.get(processId);
+    return this.state$.getValue().processes.get(processId);
   }
   
   /**
@@ -404,7 +573,7 @@ export class JournalImpl implements Journal {
    * @returns A map of process IDs to processes
    */
   public getProcesses(): Map<ProcessId, Process> {
-    return this.state.processes;
+    return this.state$.getValue().processes;
   }
 
   /**
@@ -413,7 +582,14 @@ export class JournalImpl implements Journal {
    * @param constructId The ID of the construct to mark as bound
    */
   public markConstructAsBound(constructId: string): void {
-    this.state.boundConstructs.add(constructId);
+    // Get current state
+    const currentState = this.state$.getValue();
+    
+    // Add construct to boundConstructs set
+    currentState.boundConstructs.add(constructId);
+    
+    // Update state
+    this.state$.next(currentState);
 
     this.publish(EventType.SYSTEM, 'journal', {
       action: 'construct_bound',
@@ -427,8 +603,11 @@ export class JournalImpl implements Journal {
    * @param rootConstruct The root construct
    */
   public validateAllConstructsBound(rootConstruct: RootConstruct): void {
+    // Get current state
+    const currentState = this.state$.getValue();
+    
     console.log('Validating all constructs are bound...');
-    console.log('Bound constructs:', Array.from(this.state.boundConstructs));
+    console.log('Bound constructs:', Array.from(currentState.boundConstructs));
     
     const unboundConstructs = this.findUnboundConstructs(rootConstruct);
     console.log('Unbound constructs:', unboundConstructs);
@@ -443,100 +622,16 @@ export class JournalImpl implements Journal {
 
   /**
    * Executes the journal, processing events until there are no more active processes
-   * 
-   * @returns An async iterable of journal events
+   *
+   * @returns An Observable of journal events
    */
-  public async *execute(): AsyncIterable<JournalEvent> {
-    console.log(`Executing journal - DEBUG MODE`);
-    console.log(`Initial events count: ${this.state.events.length}`);
-    console.log(`Initial events: ${JSON.stringify(this.state.events)}`);
+  public execute(): Observable<JournalEvent> {
+    console.log(`Execute method called - returning allEvents$ observable`);
     
-    // Add a direct subscription to all events for debugging
-    const debugSubscriptionId = this.subscribe((event) => {
-      console.log(`DEBUG - Event received in subscription: ${JSON.stringify(event)}`);
-    });
-    
-    // Reset the last processed event index
-    this.lastProcessedEventIndex = this.state.events.length;
-    console.log(`Last processed event index: ${this.lastProcessedEventIndex}`);
-    
-    // Process events until there are no more active processes
-    let activeProcesses = true;
-    
-    // Keep track of the last event we've seen
-    let lastEventCount = this.state.events.length;
-    let checkCount = 0;
-    
-    while (activeProcesses || lastEventCount < this.state.events.length) {
-      console.log(`Loop iteration - Active processes: ${activeProcesses}, Events count: ${this.state.events.length}, Last event count: ${lastEventCount}`);
-      
-      // Check if there are any active processes
-      activeProcesses = Array.from(this.state.processes.values())
-        .some(process => process.status === 'running');
-      
-      // Check if we have new events since the last check
-      const hasNewEvents = lastEventCount < this.state.events.length;
-      
-      // If no active processes and no new events for several checks, we're done
-      if (!activeProcesses && !hasNewEvents) {
-        // Do a few more checks to ensure we've captured all events
-        checkCount++;
-        if (checkCount > 3) {
-          break;
-        }
-      } else {
-        checkCount = 0; // Reset the check count if we have activity
-      }
-
-      // Wait for the next event (using a promise to simulate async behavior)
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      // Check if any new events have been published
-      const newEvents = this.state.events.slice(this.lastProcessedEventIndex);
-      console.log(`New events count: ${newEvents.length}`);
-      if (newEvents.length > 0) {
-        console.log(`New events: ${JSON.stringify(newEvents)}`);
-      }
-      
-      this.lastProcessedEventIndex = this.state.events.length;
-      lastEventCount = this.state.events.length;
-
-      // Process each new event
-      for (const event of newEvents) {
-        console.log(`Processing event: ${JSON.stringify(event)}`);
-        
-        // Find systems that handle this event type
-        const matchingSystems = this.state.systems
-          .filter(system => system.eventTypes.includes(event.type));
-        
-        console.log(`Matching systems count: ${matchingSystems.length}`);
-        if (matchingSystems.length > 0) {
-          console.log(`Matching systems: ${matchingSystems.map(s => s.id).join(', ')}`);
-        }
-
-        // Execute each matching system
-        for (const system of matchingSystems) {
-          console.log(`Executing system: ${system.id}`);
-          
-          // Create state context for the system
-          const stateContext = this.createStateContext(system.id);
-          
-          // Execute the system with the state context
-          await system.execute(this, event, stateContext);
-          
-          console.log(`System ${system.id} execution completed`);
-        }
-
-        // Yield the event
-        console.log(`Yielding event: ${JSON.stringify(event)}`);
-        yield event;
-      }
-      
-      // Unsubscribe from debug events
-      this.unsubscribe(debugSubscriptionId);
-      
-      console.log(`Execute method completed - Final events count: ${this.state.events.length}`);
-    }
+    // Return the allEvents$ ReplaySubject as an Observable
+    // This will immediately emit all historical events to new subscribers
+    // and then emit any new events as they occur
+    return this.allEvents$.asObservable();
   }
 
   /**
@@ -545,23 +640,26 @@ export class JournalImpl implements Journal {
    * @returns The serialized journal
    */
   public serialize(): string {
+    // Get the current state
+    const currentState = this.state$.getValue();
+    
     // Convert Maps and Sets to plain objects and arrays
     const serialized = {
       schemaVersion: '1.0.0',
       timestamp: Date.now(),
-      events: this.state.events,
-      entities: Object.fromEntries(this.state.entities.entries()),
+      events: currentState.events,
+      entities: Object.fromEntries(currentState.entities.entries()),
       components: Object.fromEntries(
-        Array.from(this.state.components.entries()).map((entry) => {
-          const [type, map] = entry;
+        Array.from(currentState.components.entries()).map((entry) => {
+          const [type, map] = entry as [string, Map<EntityId, Component>];
           return [
             type,
             Object.fromEntries(map.entries()),
           ];
         })
       ),
-      processes: Object.fromEntries(this.state.processes.entries()),
-      boundConstructs: Array.from(this.state.boundConstructs),
+      processes: Object.fromEntries(currentState.processes.entries()),
+      boundConstructs: Array.from(currentState.boundConstructs),
     };
     
     return JSON.stringify(serialized);
@@ -573,20 +671,23 @@ export class JournalImpl implements Journal {
    * @param data The serialized journal
    */
   public deserialize(data: string): void {
+    console.log(`Deserializing journal state`);
     const parsed = JSON.parse(data);
     
     // Convert plain objects and arrays back to Maps and Sets
-    this.state.events = parsed.events || [];
-    this.state.entities = new Map();
-    this.state.components = new Map();
-    this.state.systems = []; // Systems are not serialized, they will be reloaded
-    this.state.processes = new Map();
-    this.state.boundConstructs = new Set(parsed.boundConstructs || []);
+    const newState: JournalState = {
+      events: parsed.events || [],
+      entities: new Map(),
+      components: new Map(),
+      systems: [], // Systems are not serialized, they will be reloaded
+      processes: new Map(),
+      boundConstructs: new Set(parsed.boundConstructs || []),
+    };
     
     // Convert entities
     if (parsed.entities) {
       for (const [id, entity] of Object.entries(parsed.entities)) {
-        this.state.entities.set(id, entity as Entity);
+        newState.entities.set(id, entity as Entity);
       }
     }
     
@@ -597,14 +698,37 @@ export class JournalImpl implements Journal {
         for (const [entityId, component] of Object.entries(entities as Record<string, any>)) {
           entityMap.set(entityId, component as Component);
         }
-        this.state.components.set(type, entityMap);
+        newState.components.set(type, entityMap);
       }
     }
     
     // Convert processes
     if (parsed.processes) {
       for (const [id, process] of Object.entries(parsed.processes)) {
-        this.state.processes.set(id, process as Process);
+        newState.processes.set(id, process as Process);
+      }
+    }
+    
+    // Update the state
+    this.state$.next(newState);
+    
+    // Clean up existing subscriptions
+    this.internalSubscriptions.unsubscribe();
+    this.subscriptions.forEach(sub => sub.unsubscribe());
+    this.subscriptions.clear();
+    
+    // Reinitialize RxJS streams
+    this.allEvents$ = new ReplaySubject<JournalEvent>();
+    this.liveEvents$ = new Subject<JournalEvent>();
+    
+    // Set up internal subscriptions
+    this.connectLiveEventProcessing();
+    
+    // Prime the allEvents$ with historical events
+    if (newState.events.length > 0) {
+      console.log(`Priming allEvents$ with ${newState.events.length} historical events`);
+      for (const event of newState.events) {
+        this.allEvents$.next(event);
       }
     }
   }
@@ -613,12 +737,29 @@ export class JournalImpl implements Journal {
    * Clears all events from the journal
    */
   public clear(): void {
-    this.state.events = [];
-    this.state.entities = new Map();
-    this.state.components = new Map();
-    this.state.systems = [];
-    this.state.processes = new Map();
-    this.state.boundConstructs = new Set();
+    const emptyState: JournalState = {
+      events: [],
+      entities: new Map(),
+      components: new Map(),
+      systems: [],
+      processes: new Map(),
+      boundConstructs: new Set(),
+    };
+    
+    // Update the state
+    this.state$.next(emptyState);
+    
+    // Clean up existing subscriptions
+    this.internalSubscriptions.unsubscribe();
+    this.subscriptions.forEach(sub => sub.unsubscribe());
+    this.subscriptions.clear();
+    
+    // Reinitialize RxJS streams
+    this.allEvents$ = new ReplaySubject<JournalEvent>();
+    this.liveEvents$ = new Subject<JournalEvent>();
+    
+    // Set up internal subscriptions
+    this.connectLiveEventProcessing();
   }
 
   /**
@@ -700,6 +841,7 @@ export class JournalImpl implements Journal {
    */
   private findUnboundConstructs(construct: RootConstruct): string[] {
     const unboundConstructs: string[] = [];
+    const currentState = this.state$.getValue();
     
     const traverse = (node: any): void => {
       if (!node) {
@@ -708,7 +850,7 @@ export class JournalImpl implements Journal {
       
       // Check if this node is bound
       const nodeId = node.node?.id;
-      if (nodeId && !this.state.boundConstructs.has(nodeId)) {
+      if (nodeId && !currentState.boundConstructs.has(nodeId)) {
         // Skip the root construct
         if (node !== construct) {
           unboundConstructs.push(nodeId);
@@ -746,7 +888,8 @@ export class JournalImpl implements Journal {
         }
         
         // If no state found, find the system and return its initial state
-        const system = this.state.systems.find(s => s.id === systemId);
+        const currentState = this.state$.getValue();
+        const system = currentState.systems.find((s: System) => s.id === systemId);
         return system?.initialState as S;
       },
       setState: (newState: S) => {

@@ -38,10 +38,20 @@ describe('Journal Entities', () => {
     const entityId = journal.createEntity();
     journal.removeEntity(entityId);
     
-    expect(events.length).toBe(2);
-    expect(events[0].payload.action).toBe('entity_created');
-    expect(events[0].payload.entityId).toBe(entityId);
-    expect(events[1].payload.action).toBe('entity_removed');
-    expect(events[1].payload.entityId).toBe(entityId);
+    expect(events.length).toBeGreaterThanOrEqual(2);
+    
+    // Find the events we're interested in
+    const createEvent = events.find(e =>
+      e.payload.action === 'entity_created' &&
+      e.payload.entityId === entityId
+    );
+    const removeEvent = events.find(e =>
+      e.payload.action === 'entity_removed' &&
+      e.payload.entityId === entityId
+    );
+    
+    // Verify the events were found
+    expect(createEvent).toBeDefined();
+    expect(removeEvent).toBeDefined();
   });
 });

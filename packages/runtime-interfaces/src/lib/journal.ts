@@ -1,5 +1,5 @@
+import type { Observable } from 'rxjs';
 import type { Entity, EntityId, Component, ComponentType, System, Process, ProcessId, ProcessResult, SystemStateContext, Event } from './ecs.js';
-
 /**
  * Journal event type
  */
@@ -293,9 +293,9 @@ export interface Journal {
   /**
    * Executes the journal, processing events until there are no more active processes
    *
-   * @returns An async iterable of journal events
+   * @returns An Observable stream of all journal events (historical and live)
    */
-  execute(): AsyncIterable<JournalEvent>;
+  execute(): Observable<JournalEvent>;
 
   /**
    * Serializes the journal to a string
