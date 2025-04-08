@@ -37,7 +37,7 @@ The journal now implements an event-oriented variant of the Entity-Component-Sys
 
 ```mermaid
 graph TD
-    Journal[Journal/"World"] --> Entities[Entities]
+    Journal[Journal/World] --> Entities[Entities]
     Journal --> Components[Components]
     Journal --> Systems[Systems]
     Journal --> Processes[Processes]
@@ -74,6 +74,37 @@ This pattern enables:
 - Asynchronous operation
 - Scalability
 - Extensibility
+
+### 4. Manager-Based Modularization
+
+The Journal implementation has been modularized into specialized manager classes:
+
+```mermaid
+graph TD
+    JournalImpl[Journal Implementation] --> EventManager[Event Manager]
+    JournalImpl --> EventTypeManager[Event Type Manager]
+    JournalImpl --> EntityManager[Entity Manager]
+    JournalImpl --> ComponentManager[Component Manager]
+    JournalImpl --> SystemManager[System Manager]
+    JournalImpl --> ProcessManager[Process Manager]
+    JournalImpl --> SerializationManager[Serialization Manager]
+    
+    EventManager -->|Publishes| Events[Events]
+    EventTypeManager -->|Validates| Events
+    EntityManager -->|Manages| Entities[Entities]
+    ComponentManager -->|Manages| Components[Components]
+    SystemManager -->|Manages| Systems[Systems]
+    ProcessManager -->|Manages| Processes[Processes]
+    SerializationManager -->|Serializes| JournalState[Journal State]
+```
+
+This pattern enables:
+- Single responsibility for each manager
+- Improved maintainability and testability
+- Enhanced extensibility
+- Better separation of concerns
+- Clearer code organization
+- Easier debugging and troubleshooting
 
 ## Implementation Patterns
 
@@ -249,6 +280,54 @@ This pattern provides:
 - Conversion to JSON Schema for documentation
 - Specific implementations for different tool types (File, Command)
 
+### 6. Manager Pattern
+
+The Journal implementation has been modularized into specialized manager classes, each with a single responsibility:
+
+```typescript
+export class EventManager {
+  constructor(journal: JournalImpl, initialEvents: JournalEvent[] = []) {
+    // Initialize event management
+  }
+
+  publish(type: EventType | string, source: string, payload: Record<string, any>, target?: string): JournalEvent {
+    // Publish an event
+  }
+
+  subscribe(listener: EventListener, filter?: EventFilter): string {
+    // Subscribe to events
+  }
+
+  // Other event-related methods
+}
+
+export class EntityManager {
+  constructor(journal: JournalImpl, initialEntities: Map<EntityId, Entity> = new Map()) {
+    // Initialize entity management
+  }
+
+  createEntity(): EntityId {
+    // Create an entity
+  }
+
+  removeEntity(id: EntityId): void {
+    // Remove an entity
+  }
+
+  // Other entity-related methods
+}
+
+// Other manager classes
+```
+
+This pattern provides:
+- Single responsibility for each manager
+- Clear separation of concerns
+- Improved maintainability and testability
+- Enhanced extensibility
+- Better code organization
+- Easier debugging and troubleshooting
+
 ## Package Structure and Responsibilities
 
 The Ferment AI system is organized into several packages, each with a specific responsibility:
@@ -291,6 +370,13 @@ These packages define the journal as the central "World" in the ECS architecture
 Key components:
 - `Journal`: Interface defining the central source of truth for the system
 - `JournalImpl`: Implementation of the Journal interface
+- `EventManager`: Manages event publication and subscription
+- `EventTypeManager`: Manages event type registration and validation
+- `EntityManager`: Manages entity creation and lifecycle
+- `ComponentManager`: Manages components attached to entities
+- `SystemManager`: Manages system registration and lifecycle
+- `ProcessManager`: Manages process creation and lifecycle
+- `SerializationManager`: Handles serialization and deserialization
 - `EventType`: Types of events that can be published to the journal
 - `EventFilter`: Filtering mechanism for journal events
 - `JournalState`: Interface defining the state of the journal
@@ -339,6 +425,8 @@ These packages contain specific implementations for different providers or funct
 12. **Error Handling and Logging**: We've added comprehensive error handling and logging throughout the system to aid in debugging and troubleshooting.
 
 13. **State Conversion**: We've implemented proper conversion of plain objects to Maps and Sets when deserializing journal state from HTTP requests.
+
+14. **Manager-Based Modularization**: We've modularized the Journal implementation into specialized manager classes, each with a single responsibility, making the code more maintainable, testable, and extensible.
 
 ## Implemented Patterns
 
@@ -503,14 +591,14 @@ export interface System {
 ```
 
 This pattern provides:
-- Event-driven behavior
+- Event-driven architecture
 - Clear separation of concerns
 - Modular system implementation
-- Efficient event handling
+- Flexible event handling
 
 ### 5. Process Pattern
 
-Processes represent operations with a start and end:
+Processes in the ECS architecture represent long-running operations:
 
 ```typescript
 export interface Process {
@@ -520,12 +608,54 @@ export interface Process {
   startTime: number;
   endTime?: number;
   result?: ProcessResult;
-  [key: string]: any;
+  attachedSystemId?: string;
 }
 ```
 
 This pattern provides:
 - Clear lifecycle for operations
-- Status tracking for long-running operations
-- Result handling for completed operations
-- Error handling for failed operations
+- Status tracking
+- Result handling
+- System attachment for event queueing
+
+### 6. Manager Pattern
+
+The Journal implementation has been modularized into specialized manager classes:
+
+```typescript
+export class JournalImpl implements Journal {
+  private eventManager: EventManager;
+  private eventTypeManager: EventTypeManager;
+  private entityManager: EntityManager;
+  private componentManager: ComponentManager;
+  private systemManager: SystemManager;
+  private processManager: ProcessManager;
+  private serializationManager: SerializationManager;
+
+  constructor(options: JournalOptions = {}) {
+    // Initialize managers
+    this.eventTypeManager = new EventTypeManager(this);
+    this.eventManager = new EventManager(this, options.initialState?.events || []);
+    this.entityManager = new EntityManager(this, options.initialState?.entities);
+    this.componentManager = new ComponentManager(this, options.initialState?.components);
+    this.systemManager = new SystemManager(this, options.initialState?.systems || []);
+    this.processManager = new ProcessManager(this, options.initialState?.processes);
+    this.serializationManager = new SerializationManager(this, options.enableCompression);
+  }
+
+  // Delegate methods to the appropriate managers
+  publish(...args): JournalEvent {
+    return this.eventManager.publish(...args);
+  }
+
+  // Other delegated methods
+}
+```
+
+This pattern provides:
+- Single responsibility for each manager
+- Clear separation of concerns
+- Improved maintainability and testability
+- Enhanced extensibility
+- Better code organization
+- Easier debugging and troubleshooting

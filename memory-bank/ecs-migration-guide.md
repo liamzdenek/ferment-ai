@@ -16,6 +16,7 @@ This document explains how concepts from the previous architecture map to the ne
 | Events | Events | Still central to the system, but now trigger Systems |
 | Agent Invocation | Process | Agent calls are now represented as processes with a clear lifecycle |
 | Tool Execution | Process | Tool calls are now represented as processes with a clear lifecycle |
+| Monolithic Journal | Modular Journal | Journal implementation is now modularized into specialized manager classes |
 
 ## Key Architectural Changes
 
@@ -51,6 +52,24 @@ The Journal's execute method is now an async iterable that yields events as they
 
 The Journal now serializes not just events but also the state of entities, components, systems, and processes, allowing for complete reconstruction.
 
+### 6. Modular Journal Implementation
+
+The Journal implementation has been modularized into specialized manager classes, each with a single responsibility:
+
+- **EventManager**: Handles event publication and subscription
+- **EventTypeManager**: Manages event type registration and validation
+- **EntityManager**: Handles entity creation and management
+- **ComponentManager**: Manages components attached to entities
+- **SystemManager**: Handles system registration and lifecycle
+- **ProcessManager**: Manages process creation and lifecycle
+- **SerializationManager**: Handles serialization and deserialization
+
+This modular approach makes the code more maintainable, testable, and extensible.
+
+### 7. Event Type Validation
+
+Events now have their types validated against registered schemas, ensuring that events conform to their expected structure. This helps catch errors early and provides better type safety.
+
 ## Migration Strategy
 
 ### Phase 1: Create New Journal Implementation
@@ -77,7 +96,14 @@ The Journal now serializes not just events but also the state of entities, compo
 2. Create systems for each operation (agent invocation, tool execution, etc.)
 3. Update the demo application to use the new architecture
 
-### Phase 5: Testing and Documentation
+### Phase 5: Modularize Journal Implementation
+
+1. Create specialized manager classes for different aspects of the Journal
+2. Update the JournalImpl class to delegate operations to these managers
+3. Implement event type validation
+4. Add comprehensive error handling
+
+### Phase 6: Testing and Documentation
 
 1. Create unit tests for all components
 2. Develop integration tests for the complete system
@@ -95,6 +121,16 @@ The new Journal class will:
 - Provide methods for creating and managing processes
 - Publish events and notify systems
 - Serialize and deserialize the full state
+- Delegate operations to specialized manager classes
+
+### Manager Classes Implementation
+
+The specialized manager classes will:
+- Have a single responsibility
+- Provide a clear API for their specific functionality
+- Maintain their own internal state
+- Publish events when their state changes
+- Validate inputs and handle errors appropriately
 
 ### Module Implementation
 
@@ -122,4 +158,4 @@ Processes will:
 
 ## Conclusion
 
-This migration to an Entity-Component-System architecture will provide a more flexible, performant, and maintainable implementation of the Ferment AI system. By clearly separating data (components) from behavior (systems), we can create a more modular and extensible system that better supports the requirements of real-time, event-driven applications.
+This migration to an Entity-Component-System architecture will provide a more flexible, performant, and maintainable implementation of the Ferment AI system. By clearly separating data (components) from behavior (systems), we can create a more modular and extensible system that better supports the requirements of real-time, event-driven applications. The modularization of the Journal implementation into specialized manager classes further enhances these benefits by providing a clearer separation of concerns and improved maintainability.

@@ -59,6 +59,15 @@ The project is entering a **rearchitecting phase**. We have decided to adopt an 
    - **Timestamp**: When the event was created
    - **Payload**: Strongly typed payload for the event
 
+8. **Journal Modularization**: We have modularized the Journal implementation into specialized manager classes:
+   - **EventManager**: Handles event publication and subscription
+   - **EventTypeManager**: Manages event type registration and validation
+   - **EntityManager**: Handles entity creation and management
+   - **ComponentManager**: Manages components attached to entities
+   - **SystemManager**: Handles system registration and lifecycle
+   - **ProcessManager**: Manages process creation and lifecycle
+   - **SerializationManager**: Handles serialization and deserialization
+
 ## What's Left to Build
 
 ### Phase 1: ECS Foundation (Completed)
@@ -136,6 +145,16 @@ The project is entering a **rearchitecting phase**. We have decided to adopt an 
   - [x] Create type guards for event types
   - [x] Add event registration with the journal
 
+- [x] **Journal Modularization**
+  - [x] Create EventManager for event publication and subscription
+  - [x] Create EventTypeManager for event type registration and validation
+  - [x] Create EntityManager for entity creation and management
+  - [x] Create ComponentManager for component management
+  - [x] Create SystemManager for system registration and lifecycle
+  - [x] Create ProcessManager for process creation and lifecycle
+  - [x] Create SerializationManager for serialization and deserialization
+  - [x] Update JournalImpl to delegate operations to these managers
+
 - [ ] **Documentation**
   - [x] Document ECS architecture
   - [ ] Create API references
@@ -184,30 +203,41 @@ The project is entering a **rearchitecting phase**. We have decided to adopt an 
 
 ## Recent Improvements
 
-1. **HTTP Application Initialization**:
+1. **Journal Modularization**:
+   - Modularized the Journal implementation into specialized manager classes
+   - Created EventManager for event publication and subscription
+   - Created EventTypeManager for event type registration and validation
+   - Created EntityManager for entity creation and management
+   - Created ComponentManager for component management
+   - Created SystemManager for system registration and lifecycle
+   - Created ProcessManager for process creation and lifecycle
+   - Created SerializationManager for serialization and deserialization
+   - Updated JournalImpl to delegate operations to these managers
+
+2. **HTTP Application Initialization**:
    - Fixed issue with initialState conversion in the HTTP application
    - Added proper conversion of plain objects to Maps and Sets
    - Enhanced error logging for better diagnostics
    - Resolved "Cannot read properties of undefined (reading 'set')" error
 
-2. **Entrypoint Payload Handling**:
+3. **Entrypoint Payload Handling**:
    - Updated Journal interface to accept initialPayload parameter
    - Modified JournalImpl to use provided initialPayload
    - Added logging throughout execution flow
    - Improved payload propagation from HTTP request to agent
 
-3. **System Logging and Debugging**:
+4. **System Logging and Debugging**:
    - Added detailed logging in entrypoint and agent systems
    - Improved error handling and reporting
    - Enhanced debugging capabilities throughout the system
 
-4. **Event Contract Refactoring**:
+5. **Event Contract Refactoring**:
    - Enhanced the event interface to include more metadata
    - Added event type definitions with Zod schemas for validation
    - Implemented type guards for event types
    - Added event registration with the journal
 
-5. **Hook-based System Implementation**:
+6. **Hook-based System Implementation**:
    - Created a React-like hook system for state management
    - Implemented useState, useEffect, useEventCallback, and other hooks
    - Refactored systems to use hooks for state management and event handling

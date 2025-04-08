@@ -18,6 +18,53 @@ The Journal will maintain a state object containing:
 
 This state will be serializable to allow for persistence and reconstruction.
 
+### Modular Architecture
+
+The Journal implementation has been modularized into specialized manager classes, each with a single responsibility:
+
+1. **EventManager**
+   - Handles event publication and subscription
+   - Manages event filtering and querying
+   - Provides methods for event stream access
+   - Maintains the event history
+
+2. **EventTypeManager**
+   - Manages event type registration and validation
+   - Validates event payloads against registered schemas
+   - Provides type guards for event types
+   - Registers built-in event types
+
+3. **EntityManager**
+   - Handles entity creation, retrieval, and deletion
+   - Manages entity lifecycle
+   - Publishes entity-related events
+
+4. **ComponentManager**
+   - Manages component attachment to entities
+   - Provides component querying capabilities
+   - Handles component lifecycle
+   - Publishes component-related events
+
+5. **SystemManager**
+   - Registers and manages systems
+   - Handles system mounting and unmounting
+   - Manages system event subscriptions
+   - Publishes system-related events
+
+6. **ProcessManager**
+   - Creates and manages processes
+   - Handles process lifecycle (creation, completion, failure)
+   - Manages process attachment to systems
+   - Handles event queuing for blocked systems
+   - Publishes process-related events
+
+7. **SerializationManager**
+   - Handles journal serialization and deserialization
+   - Provides compression capabilities
+   - Converts between different data formats
+
+The JournalImpl class delegates operations to these managers while maintaining the central state. This modular approach makes the code more maintainable, testable, and extensible.
+
 ### Entity Management
 
 - **Entity Creation**: Generates a unique ID and stores a minimal entity object in the entities map
@@ -35,18 +82,22 @@ This state will be serializable to allow for persistence and reconstruction.
 
 - **System Registration**: Adds a system to the systems array
 - **System Execution**: Invokes systems that handle specific event types when events are published
+- **System Mounting**: Creates a fiber for the system and mounts it
+- **System Unmounting**: Cleans up system resources and removes it
 
 ### Process Management
 
 - **Process Creation**: Stores a process in the processes map and publishes a process creation event
 - **Process Completion**: Updates a process's status to completed, stores the result, and publishes a process completion event
 - **Process Failure**: Updates a process's status to failed, stores the error, and publishes a process failure event
+- **Process Attachment**: Attaches a process to a system, which will queue events for that system until the process completes
 
 ### Event Handling
 
 - **Event Publishing**: Adds an event to the events array and notifies listeners
 - **Event Subscription**: Registers a callback to be invoked when events matching a filter are published
 - **Event Filtering**: Determines if an event matches a filter based on type, source, and target
+- **Event Type Validation**: Validates event payloads against registered schemas
 
 ### Execution
 
@@ -60,6 +111,7 @@ The execute method will be an async iterable that:
 
 - **Serialization**: Converts the entire state (events, entities, components, systems, processes) to a JSON string
 - **Deserialization**: Reconstructs the state from a JSON string
+- **Compression**: Optionally compresses the serialized state for efficiency
 
 ### Construct Binding
 
@@ -175,5 +227,9 @@ The key differences from the current implementation are:
 6. **Full State Serialization**: The Journal serializes not just events but also the state of entities, components, systems, and processes.
 
 7. **Construct Binding Validation**: Modules must mark constructs as bound, and the Journal validates that all constructs are bound.
+
+8. **Modular Journal Implementation**: The Journal implementation has been modularized into specialized manager classes, each with a single responsibility, making the code more maintainable, testable, and extensible.
+
+9. **Event Type Validation**: Events now have their types validated against registered schemas, ensuring that events conform to their expected structure.
 
 These changes will result in a more flexible, performant, and maintainable architecture that better supports the requirements of the Ferment AI system.

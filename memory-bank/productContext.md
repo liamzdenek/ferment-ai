@@ -14,6 +14,8 @@ Current frameworks for building multi-agent systems (like LangChain) have severa
 
 5. **Lack of Standardization**: Different frameworks use different patterns and approaches, creating a fragmented ecosystem.
 
+6. **Monolithic Architecture**: Many frameworks use monolithic architectures that are difficult to maintain, test, and extend.
+
 ## Solution
 
 Ferment AI addresses these problems by providing:
@@ -28,6 +30,8 @@ Ferment AI addresses these problems by providing:
 
 5. **Standardized Patterns**: Consistent patterns for defining agents, tools, and their interactions.
 
+6. **Modular Architecture**: A modular architecture with clear separation of concerns, making the system easier to maintain, test, and extend. The journal implementation, for example, is modularized into specialized manager classes, each with a single responsibility.
+
 ## User Experience Goals
 
 ### For Developers
@@ -41,6 +45,8 @@ Ferment AI addresses these problems by providing:
 4. **Reliability**: The system should handle errors gracefully and provide clear feedback.
 
 5. **Flexibility**: Support for various use cases and deployment scenarios.
+
+6. **Maintainability**: The system should be easy to maintain, with clear separation of concerns and modular components.
 
 ### For End Users
 
@@ -75,3 +81,5 @@ Ferment AI addresses these problems by providing:
 4. **User Satisfaction**: Feedback from end users on the transparency and control provided.
 
 5. **Reliability**: Error rates and recovery metrics in production systems.
+
+6. **Maintainability**: Ease of maintaining and extending the system, measured by developer feedback and code quality metrics.

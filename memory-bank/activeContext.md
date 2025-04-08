@@ -27,6 +27,15 @@ We are rearchitecting the Journal, Modules, and Runtime library using an event-o
    - `ecs-implementation-approach.md`: Detailed implementation approach for each component
    - `ecs-migration-guide.md`: Strategy for migrating from the old architecture to the new one
 
+4. **Journal Modularization**: We have modularized the Journal implementation into specialized manager classes:
+   - **EventManager**: Handles event publication and subscription
+   - **EventTypeManager**: Manages event type registration and validation
+   - **EntityManager**: Handles entity creation and management
+   - **ComponentManager**: Manages components attached to entities
+   - **SystemManager**: Handles system registration and lifecycle
+   - **ProcessManager**: Manages process creation and lifecycle
+   - **SerializationManager**: Handles serialization and deserialization
+
 ## Recent Decisions
 
 1. **Entity-Component-System Pattern**: We've decided to adopt the ECS pattern for our architecture, where entities are just identifiers, components are pure data, and systems contain the logic.
@@ -49,9 +58,11 @@ We are rearchitecting the Journal, Modules, and Runtime library using an event-o
 
 10. **Process Attachment**: Processes can be attached to systems, which will queue events for that system until the process completes.
 
+11. **Modular Journal Implementation**: The Journal implementation has been modularized into specialized manager classes, each with a single responsibility, making the code more maintainable, testable, and extensible.
+
 ## Active Considerations
 
-1. **Journal Implementation**: The new Journal class will be the central component of the architecture, responsible for managing entities, components, systems, and processes. It will provide methods for creating and managing entities, adding and retrieving components, registering systems, creating and managing processes, publishing events, and serializing/deserializing the full state.
+1. **Journal Implementation**: The Journal class has been modularized into specialized manager classes, each with a single responsibility. This makes the code more maintainable, testable, and extensible. The JournalImpl class now delegates operations to these managers while maintaining the central state.
 
 2. **Entity and Component Design**: Entities will be simple objects with just an ID, and components will be pure data objects with a type field and additional fields specific to the component type. Components will not have methods; instead, functions will operate on component data.
 
@@ -67,30 +78,43 @@ We are rearchitecting the Journal, Modules, and Runtime library using an event-o
 
 8. **Event Filtering**: The event filtering system has been enhanced to allow filtering on any attribute in the event, making it more flexible and powerful.
 
+9. **Event Type Validation**: Events now have their types validated against registered schemas, ensuring that events conform to their expected structure. This helps catch errors early and provides better type safety.
+
 ## Recent Changes
 
-1. **Fixed HTTP Application Initialization**:
+1. **Journal Modularization**:
+   - Modularized the Journal implementation into specialized manager classes
+   - Created EventManager for event publication and subscription
+   - Created EventTypeManager for event type registration and validation
+   - Created EntityManager for entity creation and management
+   - Created ComponentManager for component management
+   - Created SystemManager for system registration and lifecycle
+   - Created ProcessManager for process creation and lifecycle
+   - Created SerializationManager for serialization and deserialization
+   - Updated JournalImpl to delegate operations to these managers
+
+2. **Fixed HTTP Application Initialization**:
    - Added proper conversion of initialState from plain objects to Maps and Sets in the HTTP application
    - Enhanced error logging in the HTTP application to better diagnose issues
    - Fixed the "Cannot read properties of undefined (reading 'set')" error
 
-2. **Improved Entrypoint Payload Handling**:
+3. **Improved Entrypoint Payload Handling**:
    - Updated the Journal interface to accept an initialPayload parameter in the execute method
    - Modified the JournalImpl to use the provided initialPayload when executing an entrypoint
    - Added logging throughout the execution flow to track payload propagation
 
-3. **Enhanced System Logging**:
+4. **Enhanced System Logging**:
    - Added detailed logging in the entrypoint system to show the received initialPayload
    - Added logging in the agent system to show the input received for each agent
    - Improved error handling and reporting throughout the system
 
-4. **Refactored Event Contract**:
+5. **Refactored Event Contract**:
    - Enhanced the event interface to include more metadata
    - Added event type definitions with Zod schemas for validation
    - Implemented type guards for event types
    - Added event registration with the journal
 
-5. **Implemented Hook-based Systems**:
+6. **Implemented Hook-based Systems**:
    - Created a React-like hook system for state management
    - Implemented useState, useEffect, useEventCallback, and other hooks
    - Refactored systems to use hooks for state management and event handling

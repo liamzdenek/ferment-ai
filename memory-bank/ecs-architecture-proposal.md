@@ -19,6 +19,15 @@ The Journal would provide:
 - Serialization and deserialization of the entire state
 - Validation of construct binding
 
+The Journal implementation has been modularized into specialized manager classes, each with a single responsibility:
+- **EventManager**: Handles event publication and subscription
+- **EventTypeManager**: Manages event type registration and validation
+- **EntityManager**: Handles entity creation and management
+- **ComponentManager**: Manages components attached to entities
+- **SystemManager**: Handles system registration and lifecycle
+- **ProcessManager**: Manages process creation and lifecycle
+- **SerializationManager**: Handles serialization and deserialization
+
 ### Entity
 
 An Entity is simply a unique identifier with associated components. Agents will be entities, and possibly other elements as well. Entities have no behavior of their own; all functionality comes from their associated components and the systems that operate on them.
@@ -110,6 +119,10 @@ Entrypoints define how to start an execution of a journal. They are implemented 
 
 6. **More Testable**: Components and systems can be tested in isolation.
 
+7. **Improved Modularity**: The Journal implementation is modularized into specialized manager classes, each with a single responsibility, making the code more maintainable, testable, and extensible.
+
+8. **Enhanced Type Safety**: Events have their types validated against registered schemas, ensuring that events conform to their expected structure.
+
 ## Implementation Plan
 
 1. Create the new Journal class with ECS support
@@ -118,7 +131,8 @@ Entrypoints define how to start an execution of a journal. They are implemented 
 4. Update the HttpApplication to use the new architecture
 5. Migrate existing functionality to the new architecture
 6. Add tests for the new components
+7. Modularize the Journal implementation into specialized manager classes
 
 ## Conclusion
 
-This new architecture maintains the core requirements of the original system while providing a more flexible, performant, and maintainable implementation. By adopting the Entity-Component-System pattern, we can create a system that is more modular, easier to extend, and better suited for real-time, event-driven applications.
+This new architecture maintains the core requirements of the original system while providing a more flexible, performant, and maintainable implementation. By adopting the Entity-Component-System pattern, we can create a system that is more modular, easier to extend, and better suited for real-time, event-driven applications. The modularization of the Journal implementation into specialized manager classes further enhances these benefits by providing a clearer separation of concerns and improved maintainability.

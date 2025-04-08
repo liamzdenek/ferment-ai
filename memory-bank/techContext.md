@@ -18,8 +18,15 @@
    - Schema validation for runtime type safety
    - Used for tool input/output validation
    - Generates JSON Schema for API documentation
+   - Used for event type validation in the journal
 
-4. **Jest**
+4. **RxJS**
+   - Reactive Extensions for JavaScript
+   - Used for event streams and subscriptions
+   - Provides powerful operators for event processing
+   - Foundation for the journal's event system
+
+5. **Jest**
    - Testing framework for unit and integration tests
    - Mocking capabilities for testing components in isolation
    - Snapshot testing for configuration validation
@@ -107,30 +114,52 @@
 2. **zod** (^3.0.0)
    - Schema validation library
    - Used for tool input/output validation
+   - Used for event type validation in the journal
 
 3. **zod-to-json-schema** (^3.0.0)
    - Converts Zod schemas to JSON Schema
    - Used for API documentation
 
-4. **express** (^4.0.0)
+4. **rxjs** (^7.0.0)
+   - Reactive Extensions for JavaScript
+   - Used for event streams and subscriptions
+   - Foundation for the journal's event system
+
+5. **express** (^4.0.0)
    - Web framework for Node.js
    - Used for the API server
 
-5. **cors** (^2.0.0)
+6. **cors** (^2.0.0)
    - Cross-Origin Resource Sharing middleware
    - Used for API security
 
-6. **body-parser** (^1.0.0)
+7. **body-parser** (^1.0.0)
    - Request body parsing middleware
    - Used for API request handling
 
-7. **@ferment-ai/core-constructs-lib**
+8. **uuid** (^9.0.0)
+   - UUID generation library
+   - Used for creating unique identifiers for entities, events, and processes
+
+9. **@ferment-ai/core-constructs-lib**
    - Core construct library
    - Renamed from @ferment/constructs
 
-8. **@ferment-ai/core-constructs-runtime**
-   - Runtime implementation for constructs
-   - New package for runtime-specific functionality
+10. **@ferment-ai/core-constructs-runtime**
+    - Runtime implementation for constructs
+    - New package for runtime-specific functionality
+
+11. **@ferment-ai/runtime-interfaces**
+    - Common interfaces and utilities for runtime packages
+    - Defines the Journal interface and related types
+
+12. **@ferment-ai/runtime-hooks**
+    - React-like hooks for system state management
+    - Used for managing state in systems
+
+13. **@ferment-ai/runtime-in-memory**
+    - In-memory implementation of the Journal
+    - Includes the modular journal implementation
 
 ### Development Dependencies
 
@@ -162,14 +191,17 @@
 1. **Memory Usage**
    - Journal size may grow large for complex interactions
    - Need to implement efficient serialization/deserialization
+   - Consider compression for large journals
 
 2. **Latency**
    - Real-time streaming requires low-latency processing
    - Tool execution may introduce variable latency
+   - Event processing should be optimized
 
 3. **Concurrency**
    - Multiple agent contexts may run concurrently
    - Need to manage resource contention
+   - Event queuing for blocked systems
 
 ### Security Constraints
 
@@ -181,6 +213,7 @@
 2. **API Security**
    - Need to implement authentication/authorization
    - Protect against common web vulnerabilities
+   - Validate event types and payloads
 
 ### Compatibility Constraints
 
@@ -222,6 +255,55 @@
    - HTTP/HTTPS requests
    - Authentication handling
 
+## Architecture
+
+### Journal Architecture
+
+The Journal implementation has been modularized into specialized manager classes, each with a single responsibility:
+
+1. **EventManager**
+   - Handles event publication and subscription
+   - Manages event filtering and querying
+   - Provides methods for event stream access
+   - Maintains the event history
+
+2. **EventTypeManager**
+   - Manages event type registration and validation
+   - Validates event payloads against registered schemas
+   - Provides type guards for event types
+   - Registers built-in event types
+
+3. **EntityManager**
+   - Handles entity creation, retrieval, and deletion
+   - Manages entity lifecycle
+   - Publishes entity-related events
+
+4. **ComponentManager**
+   - Manages component attachment to entities
+   - Provides component querying capabilities
+   - Handles component lifecycle
+   - Publishes component-related events
+
+5. **SystemManager**
+   - Registers and manages systems
+   - Handles system mounting and unmounting
+   - Manages system event subscriptions
+   - Publishes system-related events
+
+6. **ProcessManager**
+   - Creates and manages processes
+   - Handles process lifecycle (creation, completion, failure)
+   - Manages process attachment to systems
+   - Handles event queuing for blocked systems
+   - Publishes process-related events
+
+7. **SerializationManager**
+   - Handles journal serialization and deserialization
+   - Provides compression capabilities
+   - Converts between different data formats
+
+The JournalImpl class delegates operations to these managers while maintaining the central state. This modular approach makes the code more maintainable, testable, and extensible.
+
 ## Deployment Considerations
 
 ### Local Development
@@ -234,6 +316,7 @@
 2. **Testing Environment**
    - Mock LLMs for deterministic testing
    - Simulated tool execution
+   - Unit tests for individual managers
 
 ### Production Deployment
 
@@ -248,6 +331,7 @@
 3. **Monitoring**
    - Logging for debugging
    - Metrics for performance monitoring
+   - Event tracking for system behavior
 
 ## Demo Application
 
@@ -268,3 +352,4 @@ The demo application showcases:
 2. Setting up agent contexts with different models
 3. Configuring communication between agents
 4. Defining an entrypoint for the system
+5. Using the modular journal implementation
