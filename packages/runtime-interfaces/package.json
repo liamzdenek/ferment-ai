@@ -29,7 +29,11 @@
           "format": [
             "esm"
           ],
-          "declarationRootDir": "packages/runtime-interfaces/src"
+          "declarationRootDir": "packages/runtime-interfaces/src",
+          "external": [
+            "constructs",
+            "@ferment-ai/*"
+          ]
         }
       }
     }

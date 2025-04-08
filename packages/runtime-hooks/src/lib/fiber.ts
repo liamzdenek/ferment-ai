@@ -1,4 +1,19 @@
-import { Fiber } from './types.js';
+import { Fiber, SystemController } from '@ferment-ai/runtime-interfaces';
+
+declare global {
+  var fiberAlreadyLoaded: string | undefined;
+}
+
+const moduleUrl = import.meta.url;
+console.log('module url', moduleUrl);
+
+if (!globalThis.fiberAlreadyLoaded) {
+  globalThis.fiberAlreadyLoaded = moduleUrl;
+}
+
+if (globalThis.fiberAlreadyLoaded !== moduleUrl) {
+  throw new Error(`Module ${moduleUrl} is loaded twice by ${globalThis.fiberAlreadyLoaded}`);
+}
 
 /**
  * Global context for the currently executing fiber
@@ -7,7 +22,7 @@ let currentlyExecutingFiber: Fiber | null = null;
 
 /**
  * Hook to access the current fiber
- * 
+ *
  * @returns The current fiber
  * @throws Error if called outside a system execution context
  */
@@ -19,77 +34,34 @@ export function useCurrentFiber(): Fiber {
 }
 
 /**
- * Function to run a callback with a specific fiber context
- * 
- * @param fiber The fiber to use as context
- * @param callback The callback to run
- * @returns The result of the callback
+ * Hook to access the current system controller
+ *
+ * @returns The current system controller
+ * @throws Error if called outside a system execution context
  */
-export function withFiberContext<T>(fiber: Fiber, callback: () => T): T {
-  const previousFiber = currentlyExecutingFiber;
-  currentlyExecutingFiber = fiber;
-  try {
-    return callback();
-  } finally {
-    currentlyExecutingFiber = previousFiber;
-  }
-}
-
-/**
- * Creates a new fiber for a system
- * 
- * @param systemId The ID of the system
- * @returns A new fiber
- */
-export function createFiber(systemId: string): Fiber {
-  return {
-    systemId,
-    state: {},
-    hooks: [],
-    hookIndex: 0,
-    cleanup: []
-  };
-}
-
-/**
- * Resets a fiber's hook index for a new execution
- * 
- * @param fiber The fiber to reset
- */
-export function resetFiberForExecution(fiber: Fiber): void {
-  fiber.hookIndex = 0;
-}
-
-/**
- * Runs cleanup functions for a fiber
- * 
- * @param fiber The fiber to clean up
- */
-export function runFiberCleanup(fiber: Fiber): void {
-  for (const cleanup of fiber.cleanup) {
-    try {
-      cleanup();
-    } catch (error) {
-      console.error(`Error in fiber cleanup for system ${fiber.systemId}:`, error);
-    }
-  }
-  fiber.cleanup = [];
+export function useSystemController(): SystemController {
+  const fiber = useCurrentFiber();
+  return fiber.systemController;
 }
 
 /**
  * Gets the current fiber or null if not in a system execution context
- * 
+ *
  * @returns The current fiber or null
  */
 export function getCurrentFiber(): Fiber | null {
+  console.log("GETTING FIBER=", currentlyExecutingFiber);
   return currentlyExecutingFiber;
 }
 
 /**
  * Sets the current fiber
- * 
+ *
  * @param fiber The fiber to set as current
+ * @returns The previous fiber
  */
-export function setCurrentFiber(fiber: Fiber | null): void {
+export function setCurrentFiber(fiber: Fiber | null): Fiber | null {
+  const previousFiber = currentlyExecutingFiber;
   currentlyExecutingFiber = fiber;
+  return previousFiber;
 }

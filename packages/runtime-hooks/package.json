@@ -29,7 +29,11 @@
           "format": [
             "esm"
           ],
-          "declarationRootDir": "packages/runtime-hooks/src"
+          "declarationRootDir": "packages/runtime-hooks/src",
+          "external": [
+            "constructs",
+            "@ferment-ai/*"
+          ]
         }
       }
     }

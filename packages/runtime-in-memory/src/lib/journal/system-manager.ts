@@ -1,10 +1,6 @@
-import { System, SystemState } from '@ferment-ai/runtime-interfaces';
+import { System } from '@ferment-ai/runtime-interfaces';
 import { JournalImpl } from '../journal-impl.js';
-import { 
-  createFiber, 
-  withFiberContext, 
-  runFiberCleanup 
-} from '@ferment-ai/runtime-hooks';
+import { SystemControllerImpl } from './system-controller.js';
 
 /**
  * Manages systems in the journal
@@ -16,9 +12,9 @@ export class SystemManager {
   private systems: Map<string, System>;
 
   /**
-   * Map of system IDs to hook-based system state
+   * Map of system IDs to system controllers
    */
-  private hookSystems: Map<string, SystemState>;
+  private systemControllers: Map<string, SystemControllerImpl>;
 
   /**
    * Reference to the journal implementation
@@ -37,59 +33,12 @@ export class SystemManager {
   ) {
     this.journal = journal;
     this.systems = new Map();
-    this.hookSystems = new Map();
+    this.systemControllers = new Map();
 
     // Register initial systems
     for (const system of initialSystems) {
-      this.registerSystem(system);
+      this.mountSystem(system);
     }
-  }
-
-  /**
-   * Registers a system
-   * 
-   * @param system The system to register
-   */
-  registerSystem(system: System): void {
-    // Store the system
-    this.systems.set(system.id, system);
-
-    // Publish an event
-    this.journal.publish(
-      'system',
-      'system-manager',
-      {
-        systemId: system.id,
-        action: 'register'
-      }
-    );
-  }
-
-  /**
-   * Unregisters a system
-   * 
-   * @param systemId The ID of the system to unregister
-   */
-  unregisterSystem(systemId: string): void {
-    // Get the system
-    const system = this.systems.get(systemId);
-
-    if (!system) {
-      return;
-    }
-
-    // Remove the system
-    this.systems.delete(systemId);
-
-    // Publish an event
-    this.journal.publish(
-      'system',
-      'system-manager',
-      {
-        systemId,
-        action: 'unregister'
-      }
-    );
   }
 
   /**
@@ -112,37 +61,32 @@ export class SystemManager {
   }
 
   /**
+   * Gets a system controller
+   * 
+   * @param systemId The ID of the system to get the controller for
+   * @returns The system controller, or undefined if not found
+   */
+  getSystemController(systemId: string): SystemControllerImpl | undefined {
+    return this.systemControllers.get(systemId);
+  }
+
+  /**
    * Mounts a hook-based system
    * 
    * @param system The system to mount
    */
   mountSystem(system: System): void {
-    // Create a fiber for the system
-    const fiber = createFiber(system.id);
+    // Store the system
+    this.systems.set(system.id, system);
     
-    // Create system state
-    const systemState: SystemState = {
-      fiber,
-      eventSubscriptions: new Map()
-    };
+    // Create a system controller
+    const controller = new SystemControllerImpl(system.id, this.journal);
     
-    // Store the system state
-    this.hookSystems.set(system.id, systemState);
+    // Store the controller
+    this.systemControllers.set(system.id, controller);
     
-    // Mount the system
-    withFiberContext(fiber, () => {
-      system.mount(this.journal);
-    });
-
-    // Publish an event
-    this.journal.publish(
-      'system',
-      'system-manager',
-      {
-        systemId: system.id,
-        action: 'mount'
-      }
-    );
+    // Mount the system using the controller
+    controller.mountSystem(system);
   }
 
   /**
@@ -151,43 +95,19 @@ export class SystemManager {
    * @param systemId The ID of the system to unmount
    */
   unmountSystem(systemId: string): void {
-    // Get the system state
-    const systemState = this.hookSystems.get(systemId);
+    // Get the system controller
+    const controller = this.systemControllers.get(systemId);
     
-    if (!systemState) {
+    if (!controller) {
       return;
     }
     
-    // Unsubscribe from all events
-    for (const subscriptionId of systemState.eventSubscriptions.values()) {
-      this.journal.unsubscribe(subscriptionId);
-    }
+    // Unmount the system using the controller
+    controller.unmountSystem();
     
-    // Run cleanup functions
-    runFiberCleanup(systemState.fiber);
-    
-    // Remove the system state
-    this.hookSystems.delete(systemId);
-
-    // Publish an event
-    this.journal.publish(
-      'system',
-      'system-manager',
-      {
-        systemId,
-        action: 'unmount'
-      }
-    );
-  }
-
-  /**
-   * Gets a system state
-   * 
-   * @param systemId The ID of the system to get the state for
-   * @returns The system state, or undefined if not found
-   */
-  getSystemState(systemId: string): SystemState | undefined {
-    return this.hookSystems.get(systemId);
+    // Remove the system and controller
+    this.systems.delete(systemId);
+    this.systemControllers.delete(systemId);
   }
 
   /**
@@ -195,11 +115,12 @@ export class SystemManager {
    */
   clear(): void {
     // Unmount all systems
-    for (const systemId of this.hookSystems.keys()) {
+    for (const systemId of this.systemControllers.keys()) {
       this.unmountSystem(systemId);
     }
 
-    // Clear systems
+    // Clear systems and controllers
     this.systems.clear();
+    this.systemControllers.clear();
   }
 }

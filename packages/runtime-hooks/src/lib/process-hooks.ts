@@ -1,6 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { useCurrentFiber } from './fiber.js';
-import { getJournal } from './event-hooks.js';
+import { useCurrentFiber, useSystemController } from './fiber.js';
 import { useEffect } from './basic-hooks.js';
 
 // Process status type
@@ -27,23 +26,16 @@ interface Process {
  * @param processId The ID of the process to attach
  */
 export function useAttachProcess(processId: string): void {
-  const fiber = useCurrentFiber();
-  const journal = getJournal();
+  const controller = useSystemController();
   
   // Attach the process to the system
-  journal.attachProcessToSystem(processId, fiber.systemId);
+  controller.attachProcess(processId);
   
   // Automatically detach when the process completes or when the system is unmounted
   useEffect(() => {
-    // Check if the process is already completed
-    const process = journal.getProcess(processId);
-    if (!process || process.status === 'completed' || process.status === 'failed') {
-      journal.detachProcessFromSystem(processId, fiber.systemId);
-    }
-    
     // Return cleanup function to detach the process when the effect is cleaned up
     return () => {
-      journal.detachProcessFromSystem(processId, fiber.systemId);
+      controller.detachProcess(processId);
     };
   }, [processId]);
 }
@@ -54,23 +46,21 @@ export function useAttachProcess(processId: string): void {
  * @returns Whether the system is blocked
  */
 export function useIsSystemBlocked(): boolean {
-  const fiber = useCurrentFiber();
-  const journal = getJournal();
+  const controller = useSystemController();
   
-  return journal.isSystemBlocked(fiber.systemId);
+  return controller.isBlocked();
 }
 
 /**
  * Creates a process and attaches it to the current system
- * 
+ *
  * @param processData The process data to create
  * @returns The ID of the created process
  */
 export function useCreateAttachedProcess(
   processData: { type: string } & Record<string, any>
 ): string {
-  const fiber = useCurrentFiber();
-  const journal = getJournal();
+  const controller = useSystemController();
   
   // Create a copy of processData without id, status, startTime, and sourceSystemId
   const { id, status, startTime, sourceSystemId, ...restData } = processData;
@@ -81,11 +71,15 @@ export function useCreateAttachedProcess(
     id: uuidv4(), // Generate a UUID for the process
     status: 'created',
     startTime: Date.now(),
-    sourceSystemId: fiber.systemId
+    sourceSystemId: controller.systemId
   };
   
-  // Create the process
-  const processId = journal.createProcess(fullProcess);
+  // Create the process by publishing an event
+  const processId = fullProcess.id;
+  controller.publishEvent('process', {
+    action: 'create',
+    process: fullProcess
+  });
   
   // Attach the process to the system
   useAttachProcess(processId);

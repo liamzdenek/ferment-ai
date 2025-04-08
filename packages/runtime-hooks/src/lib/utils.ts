@@ -1,9 +1,9 @@
-import { 
-  EnhancedEvent, 
-  EventTypeDefinition, 
-  EnhancedEventFilter, 
-  EventMetadata 
-} from './event-hooks.js';
+import {
+  EnhancedEvent,
+  EventTypeDefinition,
+  EnhancedEventFilter,
+  EventMetadata
+} from '@ferment-ai/runtime-interfaces';
 import * as z from 'zod';
 
 /**

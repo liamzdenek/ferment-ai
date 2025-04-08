@@ -252,20 +252,6 @@ export interface Journal {
   getEntitiesWithComponent(componentType: ComponentType): EntityId[];
 
   /**
-   * Registers a system
-   * 
-   * @param system The system to register
-   */
-  registerSystem<T extends Record<string, any> = Record<string, any>, S = any>(system: System): void;
-
-  /**
-   * Unregisters a system
-   * 
-   * @param systemId The ID of the system to unregister
-   */
-  unregisterSystem(systemId: string): void;
-
-  /**
    * Creates a process
    * 
    * @param process The process to create

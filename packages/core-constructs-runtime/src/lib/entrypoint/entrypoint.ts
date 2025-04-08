@@ -1,13 +1,13 @@
 import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
 import { Journal, System } from '@ferment-ai/runtime-interfaces';
-import { 
-  useState, 
-  useEffect, 
-  useEventCallback, 
+import {
+  useState,
+  useEffect,
+  useEventCallback,
   useOnUnmountCallback,
-  useAttachProcess,
-  createEventType
+  createEventType,
+  useProcessManager
 } from '@ferment-ai/runtime-hooks';
 
 // Define event types
@@ -21,6 +21,9 @@ export const entrypointSystem: System = {
   id: 'entrypoint-system',
   
   mount(journal: Journal) {
+    // Create a process manager
+    const pm = useProcessManager();
+    
     // State for active entrypoints
     const [activeEntrypoints, setActiveEntrypoints] = useState<Record<string, { timestamp: number }>>({});
     
@@ -71,7 +74,7 @@ export const entrypointSystem: System = {
           journal.createProcess(process);
           
           // Attach the process to this system
-          useAttachProcess(processId);
+          pm.attachProcess(processId);
           
           // Find an agent to invoke
           const agentEntities = journal.getEntitiesWithComponent('AgentComponent');

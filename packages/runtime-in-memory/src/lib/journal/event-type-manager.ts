@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { EventTypeDefinition } from '@ferment-ai/runtime-hooks';
 import { BUILT_IN_EVENTS } from './built-in-events.js';
 import { JournalImpl } from '../journal-impl.js';
+import { EventTypeDefinition } from '@ferment-ai/runtime-interfaces';
 
 /**
  * Manages event type definitions

@@ -1,13 +1,13 @@
 import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
 import { Journal, System } from '@ferment-ai/runtime-interfaces';
-import { 
-  useState, 
-  useEffect, 
-  useEventCallback, 
+import {
+  useState,
+  useEffect,
+  useEventCallback,
   useOnUnmountCallback,
-  useAttachProcess,
-  createEventType
+  createEventType,
+  useProcessManager
 } from '@ferment-ai/runtime-hooks';
 
 // Define event types
@@ -24,6 +24,9 @@ export const agentSystem: System = {
   id: 'agent-system',
   
   mount(journal: Journal) {
+    // Create a process manager
+    const pm = useProcessManager();
+    
     // State for active agents
     const [activeAgents, setActiveAgents] = useState<Record<string, { lastInput: any; timestamp: number }>>({});
     
@@ -61,7 +64,7 @@ export const agentSystem: System = {
         journal.createProcess(process);
         
         // Attach the process to this system
-        useAttachProcess(processId);
+        pm.attachProcess(processId);
         
         // Simulate agent invocation with a delay
         setTimeout(() => {

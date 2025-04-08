@@ -29,7 +29,11 @@
           "format": [
             "esm"
           ],
-          "declarationRootDir": "packages/core-constructs-lib/src"
+          "declarationRootDir": "packages/core-constructs-lib/src",
+          "external": [
+            "constructs",
+            "@ferment-ai/*"
+          ]
         }
       }
     }

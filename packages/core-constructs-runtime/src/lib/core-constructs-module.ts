@@ -24,9 +24,9 @@ export function createCoreConstructsModule(): Module {
       processConstruct(rootConstruct, journal, processedConstructs);
       
       // Register systems
-      journal.registerSystem(agentSystem);
-      journal.registerSystem(toolSystem);
-      journal.registerSystem(entrypointSystem);
+      journal.mountSystem(agentSystem);
+      journal.mountSystem(toolSystem);
+      journal.mountSystem(entrypointSystem);
     }
   };
 }

@@ -1,100 +1,101 @@
-/**
- * Hook types
- */
-export type HookType = 'state' | 'effect' | 'unmount' | 'eventCallback' | 'memo' | 'ref';
+import { System } from './system.js';
 
 /**
- * Base hook interface
+ * SystemController interface
+ *
+ * A SystemController has a 1-to-1 relationship with a System.
+ * It's responsible for all lifecycle events, calls in/out of the system,
+ * setup, cleanup, and setting the fiber correctly.
  */
-export interface Hook {
+export interface SystemController {
   /**
-   * The type of hook
+   * The ID of the system this controller manages
    */
-  type: HookType;
-}
-
-/**
- * State hook
- */
-export interface StateHook<T = any> extends Hook {
-  type: 'state';
-  state: T;
-}
-
-/**
- * Effect hook
- */
-export interface EffectHook extends Hook {
-  type: 'effect';
-  deps: any[] | null;
-  cleanup: (() => void) | null;
-}
-
-/**
- * Unmount hook
- */
-export interface UnmountHook extends Hook {
-  type: 'unmount';
-  callback: () => void;
-}
-
-/**
- * Event callback hook
- */
-export interface EventCallbackHook extends Hook {
-  type: 'eventCallback';
-  eventType: string;
-  filter: any;
-  subscriptionId: string | null;
-  callback: ((event: any) => void) | null;
-}
-
-/**
- * Memo hook
- */
-export interface MemoHook<T = any> extends Hook {
-  type: 'memo';
-  deps: any[] | null;
-  value: T;
-}
-
-/**
- * Ref hook
- */
-export interface RefHook<T = any> extends Hook {
-  type: 'ref';
-  current: T;
+  readonly systemId: string;
+  
+  /**
+   * Mounts the system
+   *
+   * @param system The system to mount
+   */
+  mountSystem(system: System): void;
+  
+  /**
+   * Unmounts the system
+   */
+  unmountSystem(): void;
+  
+  /**
+   * Executes a callback in the context of this system's fiber
+   *
+   * @param callback The callback to execute
+   * @returns The result of the callback
+   */
+  withFiberContext<T>(callback: () => T): T;
+  
+  /**
+   * Runs cleanup functions for the system
+   */
+  runCleanup(): void;
+  
+  /**
+   * Attaches a process to this system
+   *
+   * @param processId The ID of the process to attach
+   */
+  attachProcess(processId: string): void;
+  
+  /**
+   * Detaches a process from this system
+   *
+   * @param processId The ID of the process to detach
+   */
+  detachProcess(processId: string): void;
+  
+  /**
+   * Checks if this system is blocked by active processes
+   *
+   * @returns Whether the system is blocked
+   */
+  isBlocked(): boolean;
+  
+  /**
+   * Subscribes to events with a callback
+   *
+   * @param eventType The event type to subscribe to
+   * @param filter Additional filter criteria
+   * @param callback The callback to execute when an event is received
+   * @returns A subscription ID that can be used to unsubscribe
+   */
+  subscribeToEvent(eventType: string, filter: any, callback: (event: any) => void): string;
+  
+  /**
+   * Unsubscribes from events
+   *
+   * @param subscriptionId The subscription ID to unsubscribe
+   */
+  unsubscribeFromEvent(subscriptionId: string): void;
+  
+  /**
+   * Publishes an event
+   *
+   * @param type The event type
+   * @param payload The event payload
+   * @param target The event target (optional)
+   * @returns The published event
+   */
+  publishEvent(type: string, payload: Record<string, any>, target?: string): any;
 }
 
 /**
  * Fiber interface
- * 
+ *
  * A fiber represents the execution context for a system.
- * It contains the system's state, hooks, and cleanup functions.
+ * It contains a reference to the system controller.
  */
 export interface Fiber {
   /**
-   * The ID of the system this fiber belongs to
+   * The system controller that manages this fiber
    */
-  systemId: string;
-  
-  /**
-   * The state of the system (must be serializable)
-   */
-  state: Record<string, any>;
-  
-  /**
-   * The hooks used by the system
-   */
-  hooks: Array<Hook>;
-  
-  /**
-   * The current hook index during execution
-   */
-  hookIndex: number;
-  
-  /**
-   * Cleanup functions to run when the system is unmounted
-   */
-  cleanup: Array<() => void>;
+  systemController: SystemController;
 }

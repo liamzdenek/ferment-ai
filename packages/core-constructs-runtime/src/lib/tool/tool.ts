@@ -1,13 +1,13 @@
 import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
 import { Journal, System } from '@ferment-ai/runtime-interfaces';
-import { 
-  useState, 
-  useEffect, 
-  useEventCallback, 
+import {
+  useState,
+  useEffect,
+  useEventCallback,
   useOnUnmountCallback,
-  useAttachProcess,
-  createEventType
+  createEventType,
+  useProcessManager
 } from '@ferment-ai/runtime-hooks';
 
 // Define event types
@@ -27,6 +27,9 @@ export const toolSystem: System = {
   id: 'tool-system',
   
   mount(journal: Journal) {
+    // Create a process manager
+    const pm = useProcessManager();
+    
     // State for active tools
     const [activeTools, setActiveTools] = useState<Record<string, { lastInput: any; timestamp: number }>>({});
     
@@ -60,7 +63,7 @@ export const toolSystem: System = {
         journal.createProcess(process);
         
         // Attach the process to this system
-        useAttachProcess(processId);
+        pm.attachProcess(processId);
         
         // Simulate tool execution with a delay
         setTimeout(() => {

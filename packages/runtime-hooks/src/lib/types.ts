@@ -1,3 +1,5 @@
+import { Fiber as BaseFiber, SystemController } from '@ferment-ai/runtime-interfaces';
+
 /**
  * Hook types
  */
@@ -64,37 +66,4 @@ export interface MemoHook<T = any> extends Hook {
 export interface RefHook<T = any> extends Hook {
   type: 'ref';
   current: T;
-}
-
-/**
- * Fiber interface
- * 
- * A fiber represents the execution context for a system.
- * It contains the system's state, hooks, and cleanup functions.
- */
-export interface Fiber {
-  /**
-   * The ID of the system this fiber belongs to
-   */
-  systemId: string;
-  
-  /**
-   * The state of the system (must be serializable)
-   */
-  state: Record<string, any>;
-  
-  /**
-   * The hooks used by the system
-   */
-  hooks: Array<Hook>;
-  
-  /**
-   * The current hook index during execution
-   */
-  hookIndex: number;
-  
-  /**
-   * Cleanup functions to run when the system is unmounted
-   */
-  cleanup: Array<() => void>;
 }

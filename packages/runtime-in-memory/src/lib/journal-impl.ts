@@ -16,9 +16,9 @@ import {
   ProcessId,
   ProcessResult,
   EventType,
-  System
+  System,
+  EventTypeDefinition
 } from '@ferment-ai/runtime-interfaces';
-import { EventTypeDefinition } from '@ferment-ai/runtime-hooks';
 
 // Import managers
 import { EventManager } from './journal/event-manager.js';
@@ -337,36 +337,6 @@ export class JournalImpl implements Journal {
    */
   getEntitiesWithComponent(componentType: ComponentType): EntityId[] {
     return this.componentManager.getEntitiesWithComponent(componentType);
-  }
-
-  /**
-   * Registers a system
-   * 
-   * @param system The system to register
-   */
-  registerSystem(system: System): void {
-    this.systemManager.registerSystem(system);
-    
-    // Update state
-    this.state$.next({
-      ...this.state$.value,
-      systems: this.systemManager.getAllSystems()
-    });
-  }
-
-  /**
-   * Unregisters a system
-   * 
-   * @param systemId The ID of the system to unregister
-   */
-  unregisterSystem(systemId: string): void {
-    this.systemManager.unregisterSystem(systemId);
-    
-    // Update state
-    this.state$.next({
-      ...this.state$.value,
-      systems: this.systemManager.getAllSystems()
-    });
   }
 
   /**
