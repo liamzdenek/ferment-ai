@@ -37,6 +37,7 @@
   "dependencies": {
     "@ferment-ai/runtime-interfaces": "*",
     "@ferment-ai/runtime-in-memory": "*",
+    "@ferment-ai/runtime-hooks": "*",
     "body-parser": "^2.2.0",
     "constructs": "^10.4.2",
     "cors": "^2.8.5",

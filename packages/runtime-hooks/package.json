@@ -1,5 +1,5 @@
 {
-  "name": "@ferment-ai/runtime-interfaces",
+  "name": "@ferment-ai/runtime-hooks",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -23,19 +23,23 @@
           "{options.outputPath}"
         ],
         "options": {
-          "outputPath": "packages/runtime-interfaces/dist",
-          "main": "packages/runtime-interfaces/src/index.ts",
-          "tsConfig": "packages/runtime-interfaces/tsconfig.lib.json",
+          "outputPath": "packages/runtime-hooks/dist",
+          "main": "packages/runtime-hooks/src/index.ts",
+          "tsConfig": "packages/runtime-hooks/tsconfig.lib.json",
           "format": [
             "esm"
           ],
-          "declarationRootDir": "packages/runtime-interfaces/src"
+          "declarationRootDir": "packages/runtime-hooks/src"
         }
       }
     }
   },
   "dependencies": {
-    "rxjs": "^7.8.1",
+    "@ferment-ai/runtime-interfaces": "*",
+    "uuid": "^9.0.1",
     "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/uuid": "^9.0.8"
   }
 }

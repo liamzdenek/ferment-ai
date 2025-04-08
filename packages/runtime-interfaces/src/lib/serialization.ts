@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { JournalState, JournalEvent, EventType } from './journal.js';
-import type { Entity, EntityId, Component, ComponentType, Process, ProcessId, System } from './ecs.js';
+import type { Entity, EntityId, Component, ComponentType, ProcessId } from './ecs.js';
+import { Process } from './process.js';
 
 /**
  * Schema version for serialization

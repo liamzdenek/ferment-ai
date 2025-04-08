@@ -1,5 +1,8 @@
 import type { Observable } from 'rxjs';
-import type { Entity, EntityId, Component, ComponentType, System, Process, ProcessId, ProcessResult, SystemStateContext, Event } from './ecs.js';
+import type { Entity, EntityId, Component, ComponentType, ProcessId, ProcessResult } from './ecs.js';
+import { Process } from './process.js';
+import { System } from './system.js';
+
 /**
  * Journal event type
  */
@@ -33,11 +36,36 @@ export enum EventType {
 /**
  * Journal event
  */
-export interface JournalEvent extends Event {
+export interface JournalEvent {
+  /**
+   * Event ID
+   */
+  id: string;
+  
   /**
    * Event type
    */
   type: EventType | string;
+  
+  /**
+   * Event source
+   */
+  source: string;
+  
+  /**
+   * Event target
+   */
+  target?: string;
+  
+  /**
+   * Event timestamp
+   */
+  timestamp: number;
+  
+  /**
+   * Event payload
+   */
+  payload: Record<string, any>;
 }
 
 /**
@@ -228,7 +256,7 @@ export interface Journal {
    * 
    * @param system The system to register
    */
-  registerSystem<T extends Record<string, any> = Record<string, any>, S = any>(system: System<T, S>): void;
+  registerSystem<T extends Record<string, any> = Record<string, any>, S = any>(system: System): void;
 
   /**
    * Unregisters a system
@@ -315,4 +343,65 @@ export interface Journal {
    * Clears all events from the journal
    */
   clear(): void;
+  
+  /**
+   * Attaches a process to a system
+   * 
+   * When a process is attached to a system, events for that system will be
+   * queued until the process completes.
+   * 
+   * @param processId The ID of the process to attach
+   * @param systemId The ID of the system to attach the process to
+   */
+  attachProcessToSystem(processId: string, systemId: string): void;
+  
+  /**
+   * Detaches a process from a system
+   * 
+   * @param processId The ID of the process to detach
+   * @param systemId The ID of the system to detach the process from
+   */
+  detachProcessFromSystem(processId: string, systemId: string): void;
+  
+  /**
+   * Checks if a system is blocked by active processes
+   * 
+   * @param systemId The ID of the system to check
+   * @returns Whether the system is blocked
+   */
+  isSystemBlocked(systemId: string): boolean;
+  
+  /**
+   * Queues an event for a system
+   * 
+   * If the system is blocked by active processes, the event will be queued
+   * until all processes complete.
+   * 
+   * @param event The event to queue
+   * @param systemId The ID of the system to queue the event for
+   */
+  queueEventForSystem(event: JournalEvent, systemId: string): void;
+  
+  /**
+   * Processes queued events for a system
+   * 
+   * This is called automatically when all processes attached to a system complete.
+   * 
+   * @param systemId The ID of the system to process queued events for
+   */
+  processQueuedEvents(systemId: string): void;
+  
+  /**
+   * Mounts a hook-based system
+   * 
+   * @param system The system to mount
+   */
+  mountSystem(system: System): void;
+  
+  /**
+   * Unmounts a system
+   * 
+   * @param systemId The ID of the system to unmount
+   */
+  unmountSystem(systemId: string): void;
 }

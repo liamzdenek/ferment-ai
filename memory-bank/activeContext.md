@@ -6,14 +6,11 @@ We are rearchitecting the Journal, Modules, and Runtime library using an event-o
 
 1. **Project Structure**: We have set up an Nx monorepo with the following packages:
    - `@ferment-ai/core-constructs-lib`: Core construct library
-   - `@ferment-ai/runtime-common`: Common interfaces and utilities for runtime packages
+   - `@ferment-ai/runtime-interfaces`: Common interfaces and utilities for runtime packages
+   - `@ferment-ai/runtime-hooks`: React-like hooks for system state management
+   - `@ferment-ai/runtime-in-memory`: In-memory implementation of the Journal
    - `@ferment-ai/core-constructs-runtime`: Runtime implementation for constructs
-   - `@ferment-ai/runtime`: Runtime implementation
-   - `@ferment-ai/journal`: Journal system
-   - `@ferment-ai/api`: API layer
-   - `@ferment-ai/tools`: Tool implementations
-   - `@ferment-ai/models`: Model integrations
-   - `@ferment-ai/testing`: Testing utilities
+   - `@ferment-ai/runtime-http`: HTTP server implementation
    - `@ferment-ai/demo`: Demo application
 
 2. **ECS Architecture Design**: We have designed a new architecture based on the Entity-Component-System pattern:
@@ -46,6 +43,12 @@ We are rearchitecting the Journal, Modules, and Runtime library using an event-o
 
 7. **Construct Binding Validation**: Modules must mark constructs as "bound" by calling a function on the journal, and a validation function will throw errors if there are any unbound constructs.
 
+8. **React-like Hooks for Systems**: Systems will use React-like hooks for state management and event handling, making them more declarative and easier to reason about.
+
+9. **Enhanced Event Contract**: Events now include more metadata such as event ID, event type, source construct name, source construct type, source system name, and parent event ID.
+
+10. **Process Attachment**: Processes can be attached to systems, which will queue events for that system until the process completes.
+
 ## Active Considerations
 
 1. **Journal Implementation**: The new Journal class will be the central component of the architecture, responsible for managing entities, components, systems, and processes. It will provide methods for creating and managing entities, adding and retrieving components, registering systems, creating and managing processes, publishing events, and serializing/deserializing the full state.
@@ -59,6 +62,10 @@ We are rearchitecting the Journal, Modules, and Runtime library using an event-o
 5. **Module Interface**: Modules will be objects with a unique ID, a version, and an initialize method that takes a RootConstruct and a Journal. The initialize method will traverse the construct tree recursively, create entities and components based on the constructs, register systems with the journal, and mark constructs as bound.
 
 6. **HttpApplication Integration**: The HttpApplication class will still extend RootConstruct but will use the new Journal implementation. It will provide an initialize method that creates a journal and initializes it with the modules, and a serve method that creates an Express app and configures routes for executing the journal and getting its state.
+
+7. **Hook-based System State Management**: Systems will use React-like hooks for state management, making it easier to manage complex state and side effects. This includes hooks like useState, useEffect, useEventCallback, and useAttachProcess.
+
+8. **Event Filtering**: The event filtering system has been enhanced to allow filtering on any attribute in the event, making it more flexible and powerful.
 
 ## Recent Changes
 
@@ -76,6 +83,18 @@ We are rearchitecting the Journal, Modules, and Runtime library using an event-o
    - Added detailed logging in the entrypoint system to show the received initialPayload
    - Added logging in the agent system to show the input received for each agent
    - Improved error handling and reporting throughout the system
+
+4. **Refactored Event Contract**:
+   - Enhanced the event interface to include more metadata
+   - Added event type definitions with Zod schemas for validation
+   - Implemented type guards for event types
+   - Added event registration with the journal
+
+5. **Implemented Hook-based Systems**:
+   - Created a React-like hook system for state management
+   - Implemented useState, useEffect, useEventCallback, and other hooks
+   - Refactored systems to use hooks for state management and event handling
+   - Added process attachment to systems for event queueing
 
 ## Next Steps
 
@@ -119,6 +138,16 @@ We are rearchitecting the Journal, Modules, and Runtime library using an event-o
    - Implement a plugin system for third-party modules
    - Create a registry for discovering available modules
 
+9. **Enhance Hook System**:
+   - Add more specialized hooks for common patterns
+   - Implement memoization hooks for performance optimization
+   - Create debugging tools for hook usage
+
+10. **Improve Event System**:
+    - Add support for event batching
+    - Implement event prioritization
+    - Create event replay capabilities for debugging
+
 ## Open Questions
 
 1. **Component Granularity**: How fine-grained should our components be? Should we have a single component for an agent, or should we break it down into smaller components like prompt, model, tools, etc.?
@@ -130,6 +159,10 @@ We are rearchitecting the Journal, Modules, and Runtime library using an event-o
 4. **Serialization Format**: What's the most efficient format for serializing the journal state? Should we use JSON, a binary format like Protocol Buffers or MessagePack, or something else?
 
 5. **Performance Optimization**: How can we optimize the performance of the system, especially for large journals with many entities and components?
+
+6. **Hook System Limitations**: What are the limitations of the hook-based approach for system state management? How can we address these limitations?
+
+7. **Event Contract Evolution**: How should we handle changes to the event contract over time? Should we version events, or should we have a more flexible schema?
 
 ## Commands
 

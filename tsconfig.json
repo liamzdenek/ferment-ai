@@ -38,6 +38,9 @@
     },
     {
       "path": "./packages/runtime-common",
+    },
+    {
+      "path": "./packages/runtime-hooks",
     }
   ]
 }

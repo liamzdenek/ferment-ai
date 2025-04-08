@@ -1,6 +1,8 @@
 /**
  * Entity-Component-System (ECS) interfaces for Ferment AI
  */
+import { Process } from './process.js';
+import { Event } from './events.js';
 
 /**
  * Entity ID type
@@ -66,78 +68,7 @@ export interface ProcessResult {
   error?: Error;
 }
 
-/**
- * Process interface
- * 
- * A Process represents an operation like an agent call or tool call.
- * It has a start invocation and either fails or succeeds with a single result.
- */
-export interface Process {
-  /**
-   * The unique identifier for this process
-   */
-  id: ProcessId;
 
-  /**
-   * The type of this process
-   */
-  type: string;
-
-  /**
-   * The status of this process
-   */
-  status: ProcessStatus;
-
-  /**
-   * The time this process was started
-   */
-  startTime: number;
-
-  /**
-   * The time this process ended (if completed or failed)
-   */
-  endTime?: number;
-
-  /**
-   * The result of this process (if completed or failed)
-   */
-  result?: ProcessResult;
-}
-
-/**
- * Generic event interface
- */
-export interface Event<T = any> {
-  /**
-   * The unique identifier for this event
-   */
-  id: string;
-
-  /**
-   * The type of this event
-   */
-  type: string;
-
-  /**
-   * The source of this event
-   */
-  source: string;
-
-  /**
-   * The target of this event (optional)
-   */
-  target?: string;
-
-  /**
-   * The timestamp of this event
-   */
-  timestamp: number;
-
-  /**
-   * The payload of this event
-   */
-  payload: T;
-}
 
 /**
  * System state context
@@ -152,41 +83,6 @@ export interface SystemStateContext<S = any> {
    * Sets the new state
    */
   setState(state: S): void;
-}
-
-/**
- * System interface
- * 
- * A System is an event-based callback that responds to journal events and creates Processes.
- */
-export interface System<T extends Record<string, any> = Record<string, any>, S = any> {
-  /**
-   * The unique identifier for this system
-   */
-  id: string;
-
-  /**
-   * The event types this system handles
-   */
-  eventTypes: string[];
-
-  /**
-   * The initial state for this system
-   */
-  initialState: S;
-
-  /**
-   * Executes this system in response to an event
-   * 
-   * @param journal The journal
-   * @param event The event
-   * @param stateContext The state context
-   */
-  execute<K extends keyof T>(
-    journal: any, 
-    event: Event<T[K]> & { type: K & string },
-    stateContext: SystemStateContext<S>
-  ): Promise<void>;
 }
 
 /**

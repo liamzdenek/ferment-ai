@@ -36,6 +36,7 @@
   },
   "dependencies": {
     "@ferment-ai/runtime-interfaces": "*",
+    "@ferment-ai/runtime-hooks": "*",
     "constructs": "^10.4.2",
     "rxjs": "^7.8.1",
     "uuid": "^9.0.1"

@@ -2,20 +2,17 @@
 
 ## Current Status
 
-The project is entering a **rearchitecting phase**. We have decided to adopt an Entity-Component-System (ECS) architecture for the Journal, Modules, and Runtime library. This architecture draws inspiration from game development but is tailored for a real-time, event-driven system where we want to avoid processing Agents that aren't doing work. We have created detailed design documents for the new architecture and are preparing to implement it.
+The project is entering a **rearchitecting phase**. We have decided to adopt an Entity-Component-System (ECS) architecture for the Journal, Modules, and Runtime library. This architecture draws inspiration from game development but is tailored for a real-time, event-driven system where we want to avoid processing Agents that aren't doing work. We have created detailed design documents for the new architecture and are implementing it.
 
 ## What Works
 
 1. **Project Structure**: We have set up an Nx monorepo with the following packages:
    - `@ferment-ai/core-constructs-lib`: Core construct library
-   - `@ferment-ai/runtime-common`: Common interfaces and utilities for runtime packages
+   - `@ferment-ai/runtime-interfaces`: Common interfaces and utilities for runtime packages
+   - `@ferment-ai/runtime-hooks`: React-like hooks for system state management
+   - `@ferment-ai/runtime-in-memory`: In-memory implementation of the Journal
    - `@ferment-ai/core-constructs-runtime`: Runtime implementation for constructs
-   - `@ferment-ai/runtime`: Runtime implementation
-   - `@ferment-ai/journal`: Journal system
-   - `@ferment-ai/api`: API layer
-   - `@ferment-ai/tools`: Tool implementations
-   - `@ferment-ai/models`: Model integrations
-   - `@ferment-ai/testing`: Testing utilities
+   - `@ferment-ai/runtime-http`: HTTP server implementation
    - `@ferment-ai/demo`: Demo application
 
 2. **Core Constructs**: We have implemented the core constructs for the system:
@@ -34,6 +31,7 @@ The project is entering a **rearchitecting phase**. We have decided to adopt an 
    - `constructs`: AWS CDK constructs library
    - `zod`: Schema validation library
    - `zod-to-json-schema`: Converts Zod schemas to JSON Schema
+   - `rxjs`: Reactive Extensions for JavaScript
 
 5. **ECS Architecture Design**: We have designed a new architecture based on the Entity-Component-System pattern:
    - **Journal**: The central "World" that stores all entities, components, systems, and processes
@@ -43,6 +41,23 @@ The project is entering a **rearchitecting phase**. We have decided to adopt an 
    - **Process**: Represents operations like agent calls and tool calls
    - **Module**: A function that converts constructs into entities, components, systems, etc.
    - **Entrypoint**: Defines how to start an execution of a journal
+
+6. **Hook-based System Implementation**: We have implemented a React-like hook system for state management in systems:
+   - **useState**: Creates a stateful value and a function to update it
+   - **useEffect**: Runs side effects after the system executes
+   - **useEventCallback**: Subscribes to events of a specific type and calls a callback
+   - **useAttachProcess**: Attaches a process to a system, queueing events until the process completes
+   - **useOnUnmountCallback**: Runs a callback when the system is unmounted
+
+7. **Enhanced Event Contract**: We have enhanced the event contract with more metadata:
+   - **Event ID**: Unique identifier for the event
+   - **Event Type**: Type of the event with Zod schema validation
+   - **Source Construct Name**: Name of the construct that generated the event
+   - **Source Construct Type**: Type of the construct that generated the event
+   - **Source System Name**: Name of the system that generated the event
+   - **Parent Event ID**: ID of the parent event for hierarchical events
+   - **Timestamp**: When the event was created
+   - **Payload**: Strongly typed payload for the event
 
 ## What's Left to Build
 
@@ -86,6 +101,7 @@ The project is entering a **rearchitecting phase**. We have decided to adopt an 
   - [x] Create AgentProcess
   - [x] Create ToolProcess
   - [x] Implement process lifecycle management
+
 ### Phase 3: Migration and Integration (Completed)
 
 - [x] **Construct to Entity Conversion**
@@ -99,12 +115,26 @@ The project is entering a **rearchitecting phase**. We have decided to adopt an 
   - [x] Update demo to use new ECS architecture
   - [x] Create examples of different entity/component configurations
   - [x] Demonstrate process creation and execution
+
 ### Phase 4: Refinement and Enhancement (In Progress)
 
 - [x] **Basic Implementation**
   - [x] Implement basic entity/component lookups
   - [x] Implement basic serialization
   - [x] Implement basic memory management
+
+- [x] **Hook-based System Implementation**
+  - [x] Implement useState hook
+  - [x] Implement useEffect hook
+  - [x] Implement useEventCallback hook
+  - [x] Implement useAttachProcess hook
+  - [x] Implement useOnUnmountCallback hook
+
+- [x] **Enhanced Event Contract**
+  - [x] Define event metadata interface
+  - [x] Implement event type definitions with Zod schemas
+  - [x] Create type guards for event types
+  - [x] Add event registration with the journal
 
 - [ ] **Documentation**
   - [x] Document ECS architecture
@@ -171,6 +201,18 @@ The project is entering a **rearchitecting phase**. We have decided to adopt an 
    - Improved error handling and reporting
    - Enhanced debugging capabilities throughout the system
 
+4. **Event Contract Refactoring**:
+   - Enhanced the event interface to include more metadata
+   - Added event type definitions with Zod schemas for validation
+   - Implemented type guards for event types
+   - Added event registration with the journal
+
+5. **Hook-based System Implementation**:
+   - Created a React-like hook system for state management
+   - Implemented useState, useEffect, useEventCallback, and other hooks
+   - Refactored systems to use hooks for state management and event handling
+   - Added process attachment to systems for event queueing
+
 ## Known Issues
 
 1. **Architecture Transition**: We need to carefully manage the transition from the current architecture to the new ECS architecture to avoid breaking existing functionality.
@@ -180,6 +222,8 @@ The project is entering a **rearchitecting phase**. We have decided to adopt an 
 3. **Compatibility**: We need to ensure that the new architecture is compatible with existing code that uses the current architecture.
 
 4. **Learning Curve**: The ECS architecture introduces new concepts that may require a learning curve for developers familiar with the current architecture.
+
+5. **Hook System Limitations**: The hook-based approach for system state management has some limitations, such as the need to follow the rules of hooks (call hooks at the top level, call hooks in the same order every time, etc.).
 
 ## Next Milestones
 
@@ -223,6 +267,16 @@ The project is entering a **rearchitecting phase**. We have decided to adopt an 
    - Implement a plugin system for third-party modules
    - Create a registry for discovering available modules
 
+9. **Enhance Hook System** (Target: Week 5)
+   - Add more specialized hooks for common patterns
+   - Implement memoization hooks for performance optimization
+   - Create debugging tools for hook usage
+
+10. **Improve Event System** (Target: Week 5)
+    - Add support for event batching
+    - Implement event prioritization
+    - Create event replay capabilities for debugging
+
 ## Demo Applications
 
 ### Main Demo
@@ -238,18 +292,18 @@ npx nx serve demo
 
 ### HTTP Application Demo
 
-An HTTP application demo has been created in 'packages/demo/src/http-app-example.ts' that shows how to use the HttpApplication class from the runtime package. It demonstrates how to create a virtual model and serve it over HTTP. This demo will be updated to use the new ECS architecture.
+An HTTP application demo has been created in 'packages/runtime-http/src/examples/http-server.ts' that shows how to use the HttpApplication class from the runtime package. It demonstrates how to create a virtual model and serve it over HTTP. This demo will be updated to use the new ECS architecture.
 
 To build and run the HTTP application demo:
 
 ```bash
-npx nx build demo
-node packages/demo/dist/http-app-example.js
+npx nx build runtime-http
+node packages/runtime-http/dist/examples/http-server.js
 ```
 
 We have also created examples for the Journal and HttpApplication components to demonstrate their usage:
 
-- `packages/journal/src/examples/journal-example.ts`: Shows how to use the Journal class for event publishing and subscription
-- `packages/runtime/src/examples/http-server.ts`: Shows how to use the HttpApplication class to create an HTTP API
+- `packages/runtime-in-memory/src/examples/journal-example.ts`: Shows how to use the Journal class for event publishing and subscription
+- `packages/runtime-http/src/examples/http-server.ts`: Shows how to use the HttpApplication class to create an HTTP API
 
 These examples will be updated to use the new ECS architecture.

@@ -19,8 +19,18 @@ import {
   EventType,
   System,
   SystemStateContext,
-  SystemStateComponent
+  SystemStateComponent,
+  Fiber,
+  SystemState,
+  EnhancedEvent,
+  SystemEventQueue
 } from '@ferment-ai/runtime-interfaces';
+import { 
+  createFiber, 
+  withFiberContext, 
+  resetFiberForExecution, 
+  runFiberCleanup 
+} from '@ferment-ai/runtime-hooks';
 
 /**
  * Implementation of the Journal interface using RxJS
@@ -42,96 +52,59 @@ export class JournalImpl implements Journal {
   private liveEvents$: Subject<JournalEvent>;
 
   /**
-   * Event listeners (legacy API)
+   * Map of subscription IDs to subscriptions
    */
-  private eventListeners: Map<string, { filter?: EventFilter; listener: EventListener }> = new Map();
+  private subscriptions: Map<string, Subscription>;
 
   /**
-   * RxJS subscriptions
+   * Map of system IDs to system state
    */
-  private subscriptions: Map<string, Subscription> = new Map();
+  private systems: Map<string, System>;
+  
+  /**
+   * Map of system IDs to hook-based system state
+   */
+  private hookSystems: Map<string, SystemState>;
+  
+  /**
+   * Map of system IDs to event queues
+   */
+  private systemEventQueues: Map<string, SystemEventQueue>;
 
   /**
-   * Internal subscriptions for the journal's own use
-   */
-  private internalSubscriptions: Subscription = new Subscription();
-
-  /**
-   * Whether compression is enabled
-   */
-  private readonly enableCompression: boolean;
-
-  /**
-   * Creates a new Journal
+   * Creates a new JournalImpl
    * 
-   * @param options The journal options
+   * @param options Options for the journal
    */
   constructor(options: JournalOptions = {}) {
-    // Initialize the state
-    const initialState = options.initialState || {
+    // Initialize state
+    this.state$ = new BehaviorSubject<JournalState>(options.initialState || {
       events: [],
       entities: new Map(),
       components: new Map(),
       systems: [],
       processes: new Map(),
       boundConstructs: new Set()
-    };
+    });
 
-    // Initialize RxJS streams
-    this.state$ = new BehaviorSubject<JournalState>(initialState);
+    // Initialize event streams
     this.allEvents$ = new ReplaySubject<JournalEvent>();
     this.liveEvents$ = new Subject<JournalEvent>();
+
+    // Initialize subscriptions
+    this.subscriptions = new Map();
+
+    // Initialize systems
+    this.systems = new Map();
     
-    // Set up internal subscriptions
-    this.connectLiveEventProcessing();
+    // Initialize hook-based systems
+    this.hookSystems = new Map();
     
-    // Prime the allEvents$ with historical events
-    if (initialState.events.length > 0) {
-      console.log(`Priming allEvents$ with ${initialState.events.length} historical events`);
-      for (const event of initialState.events) {
-        this.allEvents$.next(event);
-      }
-    }
-    
-    this.enableCompression = options.enableCompression ?? false;
-  }
-  
-  /**
-   * Connects the live event processing pipeline
-   */
-  private connectLiveEventProcessing(): void {
-    // Clean up any existing subscriptions
-    this.internalSubscriptions.unsubscribe();
-    this.internalSubscriptions = new Subscription();
-    
-    // 1. Feed live events to the replay subject
-    this.internalSubscriptions.add(
-      this.liveEvents$.subscribe((event: JournalEvent) => {
-        this.allEvents$.next(event);
-      })
-    );
-    
-    // 2. Update state based on live events
-    this.internalSubscriptions.add(
-      this.liveEvents$.pipe(
-        scan((state: JournalState, event: JournalEvent) => {
-          // Add the event to the state's events array
-          return {
-            ...state,
-            events: [...state.events, event]
-          };
-        }, this.state$.getValue())
-      ).subscribe((newState: JournalState) => {
-        this.state$.next(newState);
-      })
-    );
-    
-    // 3. Notify legacy event listeners
-    this.internalSubscriptions.add(
-      this.liveEvents$.subscribe((event: JournalEvent) => {
-        this.notifyListeners(event);
-      })
-    );
+    // Initialize system event queues
+    this.systemEventQueues = new Map();
+
+    // Pipe live events to all events
+    this.liveEvents$.subscribe(this.allEvents$);
   }
 
   /**
@@ -143,32 +116,31 @@ export class JournalImpl implements Journal {
    * @param target The event target
    * @returns The published event
    */
-  public publish(
+  publish(
     type: EventType | string,
     source: string,
     payload: Record<string, any>,
     target?: string
   ): JournalEvent {
-    console.log(`DEBUG - publish called with type: ${type}, source: ${source}, target: ${target}`);
-    
+    // Create the event
     const event: JournalEvent = {
       id: uuidv4(),
       type,
       source,
       target,
       timestamp: Date.now(),
-      payload,
+      payload
     };
 
-    console.log(`DEBUG - created event: ${JSON.stringify(event)}`);
-    
-    // Publish to the live events stream
-    // This will trigger:
-    // 1. Adding to allEvents$ via the internal subscription
-    // 2. Updating state$ via the internal subscription
-    // 3. Notifying legacy listeners via the internal subscription
+    // Update state
+    this.state$.next({
+      ...this.state$.value,
+      events: [...this.state$.value.events, event]
+    });
+
+    // Emit the event
     this.liveEvents$.next(event);
-    
+
     return event;
   }
 
@@ -179,20 +151,39 @@ export class JournalImpl implements Journal {
    * @param filter The event filter
    * @returns A subscription ID that can be used to unsubscribe
    */
-  public subscribe(listener: EventListener, filter?: EventFilter): string {
+  subscribe(listener: EventListener, filter?: EventFilter): string {
+    // Create a subscription ID
     const id = uuidv4();
-    
-    // Store in legacy event listeners map for backward compatibility
-    this.eventListeners.set(id, { listener, filter });
-    
-    // Create an RxJS subscription
-    const subscription = this.allEvents$.pipe(
-      rxFilter((event: JournalEvent) => !filter || this.eventMatchesFilter(event, filter))
-    ).subscribe(event => listener(event));
-    
+
+    // Create a filtered observable
+    const filtered$ = this.allEvents$.pipe(
+      rxFilter(event => {
+        if (!filter) {
+          return true;
+        }
+
+        if (filter.type && event.type !== filter.type) {
+          return false;
+        }
+
+        if (filter.source && event.source !== filter.source) {
+          return false;
+        }
+
+        if (filter.target && event.target !== filter.target) {
+          return false;
+        }
+
+        return true;
+      })
+    );
+
+    // Subscribe to the filtered observable
+    const subscription = filtered$.subscribe(listener);
+
     // Store the subscription
     this.subscriptions.set(id, subscription);
-    
+
     return id;
   }
 
@@ -201,14 +192,15 @@ export class JournalImpl implements Journal {
    * 
    * @param id The subscription ID
    */
-  public unsubscribe(id: string): void {
-    // Remove from legacy event listeners
-    this.eventListeners.delete(id);
-    
-    // Unsubscribe from RxJS subscription
+  unsubscribe(id: string): void {
+    // Get the subscription
     const subscription = this.subscriptions.get(id);
+
     if (subscription) {
+      // Unsubscribe
       subscription.unsubscribe();
+
+      // Remove the subscription
       this.subscriptions.delete(id);
     }
   }
@@ -218,8 +210,8 @@ export class JournalImpl implements Journal {
    * 
    * @returns All events in the journal
    */
-  public getEvents(): JournalEvent[] {
-    return [...this.state$.getValue().events];
+  getEvents(): JournalEvent[] {
+    return this.state$.value.events;
   }
 
   /**
@@ -228,12 +220,26 @@ export class JournalImpl implements Journal {
    * @param filter The event filter
    * @returns Events that match the filter
    */
-  public getFilteredEvents(filter?: EventFilter): JournalEvent[] {
+  getFilteredEvents(filter?: EventFilter): JournalEvent[] {
     if (!filter) {
       return this.getEvents();
     }
 
-    return this.state$.getValue().events.filter((event: JournalEvent) => this.eventMatchesFilter(event, filter));
+    return this.getEvents().filter(event => {
+      if (filter.type && event.type !== filter.type) {
+        return false;
+      }
+
+      if (filter.source && event.source !== filter.source) {
+        return false;
+      }
+
+      if (filter.target && event.target !== filter.target) {
+        return false;
+      }
+
+      return true;
+    });
   }
 
   /**
@@ -241,22 +247,19 @@ export class JournalImpl implements Journal {
    * 
    * @returns The ID of the created entity
    */
-  public createEntity(): EntityId {
+  createEntity(): EntityId {
+    // Create an entity ID
     const id = uuidv4();
-    const entity: Entity = { id };
-    
-    // Get current state
-    const currentState = this.state$.getValue();
-    
-    // Update entities map
-    currentState.entities.set(id, entity);
-    
-    // Update state
-    this.state$.next(currentState);
 
-    this.publish(EventType.ENTITY, 'journal', {
-      action: 'entity_created',
-      entityId: id,
+    // Create the entity
+    const entity: Entity = {
+      id
+    };
+
+    // Update state
+    this.state$.next({
+      ...this.state$.value,
+      entities: new Map(this.state$.value.entities).set(id, entity)
     });
 
     return id;
@@ -267,24 +270,21 @@ export class JournalImpl implements Journal {
    * 
    * @param id The ID of the entity to remove
    */
-  public removeEntity(id: EntityId): void {
-    // Get current state
-    const currentState = this.state$.getValue();
-    
-    // Remove the entity
-    currentState.entities.delete(id);
+  removeEntity(id: EntityId): void {
+    // Get the entity
+    const entity = this.state$.value.entities.get(id);
 
-    // Remove all components for this entity
-    for (const componentMap of currentState.components.values()) {
-      componentMap.delete(id);
+    if (!entity) {
+      return;
     }
-    
-    // Update state
-    this.state$.next(currentState);
 
-    this.publish(EventType.ENTITY, 'journal', {
-      action: 'entity_removed',
-      entityId: id,
+    // Update state
+    const entities = new Map(this.state$.value.entities);
+    entities.delete(id);
+
+    this.state$.next({
+      ...this.state$.value,
+      entities
     });
   }
 
@@ -294,8 +294,8 @@ export class JournalImpl implements Journal {
    * @param id The ID of the entity to get
    * @returns The entity, or undefined if not found
    */
-  public getEntity(id: EntityId): Entity | undefined {
-    return this.state$.getValue().entities.get(id);
+  getEntity(id: EntityId): Entity | undefined {
+    return this.state$.value.entities.get(id);
   }
 
   /**
@@ -305,32 +305,24 @@ export class JournalImpl implements Journal {
    * @param componentType The type of the component
    * @param component The component
    */
-  public addComponent<T extends Component>(entityId: EntityId, componentType: ComponentType, component: T): void {
-    // Get current state
-    const currentState = this.state$.getValue();
-    
-    // Ensure the entity exists
-    if (!currentState.entities.has(entityId)) {
-      throw new Error(`Entity ${entityId} does not exist`);
+  addComponent<T extends Component>(entityId: EntityId, componentType: ComponentType, component: T): void {
+    // Get the entity
+    const entity = this.state$.value.entities.get(entityId);
+
+    if (!entity) {
+      return;
     }
 
-    // Ensure the component map exists
-    if (!currentState.components.has(componentType)) {
-      currentState.components.set(componentType, new Map());
-    }
+    // Get the component map for this type
+    const componentMap = this.state$.value.components.get(componentType) || new Map();
 
-    // Add the component
-    const componentMap = currentState.components.get(componentType)!;
-    componentMap.set(entityId, component);
-    
     // Update state
-    this.state$.next(currentState);
+    const components = new Map(this.state$.value.components);
+    components.set(componentType, new Map(componentMap).set(entityId, component));
 
-    this.publish(EventType.COMPONENT, 'journal', {
-      action: 'component_added',
-      entityId,
-      componentType,
-      component,
+    this.state$.next({
+      ...this.state$.value,
+      components
     });
   }
 
@@ -340,26 +332,23 @@ export class JournalImpl implements Journal {
    * @param entityId The ID of the entity
    * @param componentType The type of the component
    */
-  public removeComponent(entityId: EntityId, componentType: ComponentType): void {
-    // Get current state
-    const currentState = this.state$.getValue();
-    
-    // Ensure the component map exists
-    if (!currentState.components.has(componentType)) {
+  removeComponent(entityId: EntityId, componentType: ComponentType): void {
+    // Get the component map for this type
+    const componentMap = this.state$.value.components.get(componentType);
+
+    if (!componentMap) {
       return;
     }
 
-    // Remove the component
-    const componentMap = currentState.components.get(componentType)!;
-    componentMap.delete(entityId);
-    
     // Update state
-    this.state$.next(currentState);
+    const components = new Map(this.state$.value.components);
+    const newComponentMap = new Map(componentMap);
+    newComponentMap.delete(entityId);
+    components.set(componentType, newComponentMap);
 
-    this.publish(EventType.COMPONENT, 'journal', {
-      action: 'component_removed',
-      entityId,
-      componentType,
+    this.state$.next({
+      ...this.state$.value,
+      components
     });
   }
 
@@ -370,18 +359,15 @@ export class JournalImpl implements Journal {
    * @param componentType The type of the component
    * @returns The component, or undefined if not found
    */
-  public getComponent<T extends Component>(entityId: EntityId, componentType: ComponentType): T | undefined {
-    // Get current state
-    const currentState = this.state$.getValue();
-    
-    // Ensure the component map exists
-    if (!currentState.components.has(componentType)) {
+  getComponent<T extends Component>(entityId: EntityId, componentType: ComponentType): T | undefined {
+    // Get the component map for this type
+    const componentMap = this.state$.value.components.get(componentType);
+
+    if (!componentMap) {
       return undefined;
     }
 
-    // Get the component
-    const componentMap = currentState.components.get(componentType)!;
-    return componentMap.get(entityId) as T | undefined;
+    return componentMap.get(entityId) as T;
   }
 
   /**
@@ -390,64 +376,31 @@ export class JournalImpl implements Journal {
    * @param componentType The type of the component
    * @returns The IDs of entities that have the component
    */
-  public getEntitiesWithComponent(componentType: ComponentType): EntityId[] {
-    // Get current state
-    const currentState = this.state$.getValue();
-    
-    // Ensure the component map exists
-    if (!currentState.components.has(componentType)) {
+  getEntitiesWithComponent(componentType: ComponentType): EntityId[] {
+    // Get the component map for this type
+    const componentMap = this.state$.value.components.get(componentType);
+
+    if (!componentMap) {
       return [];
     }
 
-    // Get the entities with this component
-    const componentMap = currentState.components.get(componentType)!;
     return Array.from(componentMap.keys());
   }
 
   /**
    * Registers a system
-   *
+   * 
    * @param system The system to register
    */
-  public registerSystem<T extends Record<string, any> = Record<string, any>, S = any>(system: System<T, S>): void {
-    // Get current state
-    const currentState = this.state$.getValue();
-    
-    // Add system to systems array
-    currentState.systems.push(system);
-    
+  registerSystem(system: System): void {
     // Update state
-    this.state$.next(currentState);
-
-    // Create an entity for the system's state
-    const entityId = this.createEntity();
-    
-    // Add a SystemStateComponent with the initial state
-    this.addComponent(entityId, 'SystemStateComponent', {
-      type: 'SystemStateComponent',
-      systemId: system.id,
-      state: system.initialState
+    this.state$.next({
+      ...this.state$.value,
+      systems: [...this.state$.value.systems, system]
     });
 
-    this.publish(EventType.SYSTEM, 'journal', {
-      action: 'system_registered',
-      systemId: system.id,
-      eventTypes: system.eventTypes,
-    });
-    
-    // Set up subscription for this system to listen to its events
-    const systemSubscription = this.liveEvents$.pipe(
-      rxFilter((event: JournalEvent) => system.eventTypes.includes(event.type))
-    ).subscribe(async (event: JournalEvent) => {
-      // Create state context for the system
-      const stateContext = this.createStateContext(system.id);
-      
-      // Execute the system with the state context
-      await system.execute(this, event, stateContext);
-    });
-    
-    // Add to internal subscriptions
-    this.internalSubscriptions.add(systemSubscription);
+    // Store the system
+    this.systems.set(system.id, system);
   }
 
   /**
@@ -455,20 +408,22 @@ export class JournalImpl implements Journal {
    * 
    * @param systemId The ID of the system to unregister
    */
-  public unregisterSystem(systemId: string): void {
-    // Get current state
-    const currentState = this.state$.getValue();
-    
-    // Remove system from systems array
-    currentState.systems = currentState.systems.filter((system: System) => system.id !== systemId);
-    
-    // Update state
-    this.state$.next(currentState);
+  unregisterSystem(systemId: string): void {
+    // Get the system
+    const system = this.systems.get(systemId);
 
-    this.publish(EventType.SYSTEM, 'journal', {
-      action: 'system_unregistered',
-      systemId,
+    if (!system) {
+      return;
+    }
+
+    // Update state
+    this.state$.next({
+      ...this.state$.value,
+      systems: this.state$.value.systems.filter(s => s.id !== systemId)
     });
+
+    // Remove the system
+    this.systems.delete(systemId);
   }
 
   /**
@@ -477,23 +432,23 @@ export class JournalImpl implements Journal {
    * @param process The process to create
    * @returns The ID of the created process
    */
-  public createProcess(process: Process): ProcessId {
-    // Get current state
-    const currentState = this.state$.getValue();
-    
-    // Add process to processes map
-    currentState.processes.set(process.id, process);
-    
-    // Update state
-    this.state$.next(currentState);
+  createProcess(process: Process): ProcessId {
+    // Get the process ID
+    const id = process.id || uuidv4();
 
-    this.publish(EventType.PROCESS, 'journal', {
-      action: 'process_created',
-      processId: process.id,
-      processType: process.type,
+    // Create the process
+    const fullProcess: Process = {
+      ...process,
+      id
+    };
+
+    // Update state
+    this.state$.next({
+      ...this.state$.value,
+      processes: new Map(this.state$.value.processes).set(id, fullProcess)
     });
 
-    return process.id;
+    return id;
   }
 
   /**
@@ -502,27 +457,32 @@ export class JournalImpl implements Journal {
    * @param processId The ID of the process to complete
    * @param result The result of the process
    */
-  public completeProcess(processId: ProcessId, result: ProcessResult): void {
-    // Get current state
-    const currentState = this.state$.getValue();
-    
-    const process = currentState.processes.get(processId);
+  completeProcess(processId: ProcessId, result: ProcessResult): void {
+    // Get the process
+    const process = this.state$.value.processes.get(processId);
+
     if (!process) {
-      throw new Error(`Process ${processId} does not exist`);
+      return;
     }
 
-    process.status = 'completed';
-    process.endTime = Date.now();
-    process.result = result;
-    
-    // Update state
-    this.state$.next(currentState);
+    // Update the process
+    const updatedProcess: Process = {
+      ...process,
+      status: 'completed',
+      endTime: Date.now(),
+      result
+    };
 
-    this.publish(EventType.PROCESS, 'journal', {
-      action: 'process_completed',
-      processId,
-      result,
+    // Update state
+    this.state$.next({
+      ...this.state$.value,
+      processes: new Map(this.state$.value.processes).set(processId, updatedProcess)
     });
+    
+    // If the process was attached to a system, process queued events
+    if (process.attachedSystemId) {
+      this.processQueuedEvents(process.attachedSystemId);
+    }
   }
 
   /**
@@ -531,30 +491,35 @@ export class JournalImpl implements Journal {
    * @param processId The ID of the process to fail
    * @param error The error that caused the process to fail
    */
-  public failProcess(processId: ProcessId, error: Error): void {
-    // Get current state
-    const currentState = this.state$.getValue();
-    
-    const process = currentState.processes.get(processId);
+  failProcess(processId: ProcessId, error: Error): void {
+    // Get the process
+    const process = this.state$.value.processes.get(processId);
+
     if (!process) {
-      throw new Error(`Process ${processId} does not exist`);
+      return;
     }
 
-    process.status = 'failed';
-    process.endTime = Date.now();
-    process.result = {
-      success: false,
-      error,
+    // Update the process
+    const updatedProcess: Process = {
+      ...process,
+      status: 'failed',
+      endTime: Date.now(),
+      result: {
+        success: false,
+        error: new Error(error.message)
+      }
     };
-    
-    // Update state
-    this.state$.next(currentState);
 
-    this.publish(EventType.PROCESS, 'journal', {
-      action: 'process_failed',
-      processId,
-      error: error.message,
+    // Update state
+    this.state$.next({
+      ...this.state$.value,
+      processes: new Map(this.state$.value.processes).set(processId, updatedProcess)
     });
+    
+    // If the process was attached to a system, process queued events
+    if (process.attachedSystemId) {
+      this.processQueuedEvents(process.attachedSystemId);
+    }
   }
 
   /**
@@ -563,8 +528,8 @@ export class JournalImpl implements Journal {
    * @param processId The ID of the process to get
    * @returns The process, or undefined if not found
    */
-  public getProcess(processId: ProcessId): Process | undefined {
-    return this.state$.getValue().processes.get(processId);
+  getProcess(processId: ProcessId): Process | undefined {
+    return this.state$.value.processes.get(processId);
   }
   
   /**
@@ -572,8 +537,8 @@ export class JournalImpl implements Journal {
    *
    * @returns A map of process IDs to processes
    */
-  public getProcesses(): Map<ProcessId, Process> {
-    return this.state$.getValue().processes;
+  getProcesses(): Map<ProcessId, Process> {
+    return this.state$.value.processes;
   }
 
   /**
@@ -581,19 +546,11 @@ export class JournalImpl implements Journal {
    * 
    * @param constructId The ID of the construct to mark as bound
    */
-  public markConstructAsBound(constructId: string): void {
-    // Get current state
-    const currentState = this.state$.getValue();
-    
-    // Add construct to boundConstructs set
-    currentState.boundConstructs.add(constructId);
-    
+  markConstructAsBound(constructId: string): void {
     // Update state
-    this.state$.next(currentState);
-
-    this.publish(EventType.SYSTEM, 'journal', {
-      action: 'construct_bound',
-      constructId,
+    this.state$.next({
+      ...this.state$.value,
+      boundConstructs: new Set(this.state$.value.boundConstructs).add(constructId)
     });
   }
 
@@ -602,36 +559,25 @@ export class JournalImpl implements Journal {
    * 
    * @param rootConstruct The root construct
    */
-  public validateAllConstructsBound(rootConstruct: RootConstruct): void {
-    // Get current state
-    const currentState = this.state$.getValue();
-    
-    console.log('Validating all constructs are bound...');
-    console.log('Bound constructs:', Array.from(currentState.boundConstructs));
-    
-    const unboundConstructs = this.findUnboundConstructs(rootConstruct);
-    console.log('Unbound constructs:', unboundConstructs);
-    
-    // Filter out undefined constructs
-    const validUnboundConstructs = unboundConstructs.filter(id => id !== undefined && id !== 'undefined');
-    
-    if (validUnboundConstructs.length > 0) {
-      throw new Error(`The following ${validUnboundConstructs.length} constructs are not bound: ${validUnboundConstructs}`);
+  validateAllConstructsBound(rootConstruct: any): void {
+    // Get all constructs
+    const constructs = this.getAllConstructs(rootConstruct);
+
+    // Check if all constructs are bound
+    for (const construct of constructs) {
+      if (!this.state$.value.boundConstructs.has(construct.node.id)) {
+        throw new Error(`Construct ${construct.node.id} is not bound`);
+      }
     }
   }
 
   /**
    * Executes the journal, processing events until there are no more active processes
    *
-   * @returns An Observable of journal events
+   * @returns An Observable stream of all journal events (historical and live)
    */
-  public execute(): Observable<JournalEvent> {
-    console.log(`Execute method called - returning allEvents$ observable`);
-    
-    // Return the allEvents$ ReplaySubject as an Observable
-    // This will immediately emit all historical events to new subscribers
-    // and then emit any new events as they occur
-    return this.allEvents$.asObservable();
+  execute(): Observable<JournalEvent> {
+    return this.allEvents$;
   }
 
   /**
@@ -639,30 +585,21 @@ export class JournalImpl implements Journal {
    * 
    * @returns The serialized journal
    */
-  public serialize(): string {
-    // Get the current state
-    const currentState = this.state$.getValue();
-    
-    // Convert Maps and Sets to plain objects and arrays
-    const serialized = {
-      schemaVersion: '1.0.0',
-      timestamp: Date.now(),
-      events: currentState.events,
-      entities: Object.fromEntries(currentState.entities.entries()),
-      components: Object.fromEntries(
-        Array.from(currentState.components.entries()).map((entry) => {
-          const [type, map] = entry as [string, Map<EntityId, Component>];
-          return [
-            type,
-            Object.fromEntries(map.entries()),
-          ];
-        })
-      ),
-      processes: Object.fromEntries(currentState.processes.entries()),
-      boundConstructs: Array.from(currentState.boundConstructs),
+  serialize(): string {
+    // Get the state
+    const state = this.state$.value;
+
+    // Convert maps to arrays
+    const serializedState = {
+      events: state.events,
+      entities: Array.from(state.entities.entries()),
+      components: Array.from(state.components.entries()).map(([type, map]) => [type, Array.from(map.entries())]),
+      systems: state.systems,
+      processes: Array.from(state.processes.entries()),
+      boundConstructs: Array.from(state.boundConstructs)
     };
-    
-    return JSON.stringify(serialized);
+
+    return JSON.stringify(serializedState);
   }
 
   /**
@@ -670,250 +607,279 @@ export class JournalImpl implements Journal {
    * 
    * @param data The serialized journal
    */
-  public deserialize(data: string): void {
-    console.log(`Deserializing journal state`);
-    const parsed = JSON.parse(data);
-    
-    // Convert plain objects and arrays back to Maps and Sets
-    const newState: JournalState = {
-      events: parsed.events || [],
-      entities: new Map(),
-      components: new Map(),
-      systems: [], // Systems are not serialized, they will be reloaded
-      processes: new Map(),
-      boundConstructs: new Set(parsed.boundConstructs || []),
+  deserialize(data: string): void {
+    // Parse the data
+    const serializedState = JSON.parse(data);
+
+    // Convert arrays to maps
+    const state: JournalState = {
+      events: serializedState.events,
+      entities: new Map(serializedState.entities),
+      components: new Map(serializedState.components.map(([type, entries]: [string, any[]]) => [type, new Map(entries)])),
+      systems: serializedState.systems,
+      processes: new Map(serializedState.processes),
+      boundConstructs: new Set(serializedState.boundConstructs)
     };
-    
-    // Convert entities
-    if (parsed.entities) {
-      for (const [id, entity] of Object.entries(parsed.entities)) {
-        newState.entities.set(id, entity as Entity);
-      }
-    }
-    
-    // Convert components
-    if (parsed.components) {
-      for (const [type, entities] of Object.entries(parsed.components)) {
-        const entityMap = new Map<EntityId, Component>();
-        for (const [entityId, component] of Object.entries(entities as Record<string, any>)) {
-          entityMap.set(entityId, component as Component);
-        }
-        newState.components.set(type, entityMap);
-      }
-    }
-    
-    // Convert processes
-    if (parsed.processes) {
-      for (const [id, process] of Object.entries(parsed.processes)) {
-        newState.processes.set(id, process as Process);
-      }
-    }
-    
-    // Update the state
-    this.state$.next(newState);
-    
-    // Clean up existing subscriptions
-    this.internalSubscriptions.unsubscribe();
-    this.subscriptions.forEach(sub => sub.unsubscribe());
-    this.subscriptions.clear();
-    
-    // Reinitialize RxJS streams
-    this.allEvents$ = new ReplaySubject<JournalEvent>();
-    this.liveEvents$ = new Subject<JournalEvent>();
-    
-    // Set up internal subscriptions
-    this.connectLiveEventProcessing();
-    
-    // Prime the allEvents$ with historical events
-    if (newState.events.length > 0) {
-      console.log(`Priming allEvents$ with ${newState.events.length} historical events`);
-      for (const event of newState.events) {
-        this.allEvents$.next(event);
-      }
+
+    // Update state
+    this.state$.next(state);
+
+    // Emit all events
+    for (const event of state.events) {
+      this.allEvents$.next(event);
     }
   }
 
   /**
    * Clears all events from the journal
    */
-  public clear(): void {
-    const emptyState: JournalState = {
+  clear(): void {
+    // Update state
+    this.state$.next({
       events: [],
       entities: new Map(),
       components: new Map(),
       systems: [],
       processes: new Map(),
-      boundConstructs: new Set(),
+      boundConstructs: new Set()
+    });
+  }
+  
+  /**
+   * Attaches a process to a system
+   * 
+   * When a process is attached to a system, events for that system will be
+   * queued until the process completes.
+   * 
+   * @param processId The ID of the process to attach
+   * @param systemId The ID of the system to attach the process to
+   */
+  attachProcessToSystem(processId: string, systemId: string): void {
+    // Get the process
+    const process = this.state$.value.processes.get(processId);
+    
+    if (!process) {
+      return;
+    }
+    
+    // Update the process
+    const updatedProcess: Process = {
+      ...process,
+      attachedSystemId: systemId
     };
     
-    // Update the state
-    this.state$.next(emptyState);
+    // Update state
+    this.state$.next({
+      ...this.state$.value,
+      processes: new Map(this.state$.value.processes).set(processId, updatedProcess)
+    });
     
-    // Clean up existing subscriptions
-    this.internalSubscriptions.unsubscribe();
-    this.subscriptions.forEach(sub => sub.unsubscribe());
-    this.subscriptions.clear();
+    // Get or create the system event queue
+    let queue = this.systemEventQueues.get(systemId);
     
-    // Reinitialize RxJS streams
-    this.allEvents$ = new ReplaySubject<JournalEvent>();
-    this.liveEvents$ = new Subject<JournalEvent>();
+    if (!queue) {
+      queue = {
+        systemId,
+        activeProcesses: new Set(),
+        queuedEvents: []
+      };
+      this.systemEventQueues.set(systemId, queue);
+    }
     
-    // Set up internal subscriptions
-    this.connectLiveEventProcessing();
+    // Add the process to the queue
+    queue.activeProcesses.add(processId);
   }
-
+  
   /**
-   * Notifies all listeners of an event
+   * Detaches a process from a system
    * 
-   * @param event The event to notify listeners of
+   * @param processId The ID of the process to detach
+   * @param systemId The ID of the system to detach the process from
    */
-  private notifyListeners(event: JournalEvent): void {
-    console.log(`DEBUG - notifyListeners called for event: ${JSON.stringify(event)}`);
-    console.log(`DEBUG - Current listeners count: ${this.eventListeners.size}`);
+  detachProcessFromSystem(processId: string, systemId: string): void {
+    // Get the process
+    const process = this.state$.value.processes.get(processId);
     
-    let hasListeners = false;
-    for (const [id, { listener, filter }] of this.eventListeners.entries()) {
-      console.log(`DEBUG - Checking listener ${id} with filter: ${JSON.stringify(filter)}`);
-      
-      if (!filter || this.eventMatchesFilter(event, filter)) {
-        console.log(`DEBUG - Listener ${id} matches event`);
-        hasListeners = true;
-        listener(event);
-      } else {
-        console.log(`DEBUG - Listener ${id} does not match event`);
-      }
+    if (!process) {
+      return;
     }
-
-    if(!hasListeners) {
-      console.warn(`No listeners for event:`, event);
-      
-      // Add a warning to the journal, but only if it's not a warning event itself
-      // to prevent infinite recursion
-      if (event.type !== 'warning') {
-        console.log(`DEBUG - Publishing warning event for unhandled event: ${event.type}`);
-        
-        const warningEvent = this.publish('warning', 'journal', {
-          message: `No listeners for event of type: ${event.type} ${event.payload?.action}`,
-          eventId: event.id,
-          eventType: event.type,
-          eventSource: event.source,
-        });
-        
-        console.log(`DEBUG - Warning event published: ${JSON.stringify(warningEvent)}`);
-      } else {
-        console.log(`DEBUG - Not publishing warning for warning event to prevent recursion`);
-      }
-    }
-  }
-
-  /**
-   * Checks if an event matches a filter
-   * 
-   * @param event The event to check
-   * @param filter The filter to check against
-   * @returns Whether the event matches the filter
-   */
-  private eventMatchesFilter(event: JournalEvent, filter?: EventFilter): boolean {
-    if (!filter) {
-      return true;
-    }
-
-    if (filter.type && event.type !== filter.type) {
-      return false;
-    }
-
-    if (filter.source && event.source !== filter.source) {
-      return false;
-    }
-
-    if (filter.target && event.target !== filter.target) {
-      return false;
-    }
-
-    return true;
-  }
-
-  /**
-   * Finds all constructs that are not bound
-   * 
-   * @param construct The construct to check
-   * @returns The IDs of constructs that are not bound
-   */
-  private findUnboundConstructs(construct: RootConstruct): string[] {
-    const unboundConstructs: string[] = [];
-    const currentState = this.state$.getValue();
     
-    const traverse = (node: any): void => {
-      if (!node) {
-        return;
-      }
-      
-      // Check if this node is bound
-      const nodeId = node.node?.id;
-      if (nodeId && !currentState.boundConstructs.has(nodeId)) {
-        // Skip the root construct
-        if (node !== construct) {
-          unboundConstructs.push(nodeId);
-        }
-      }
-      
-      // Traverse children
-      const children = node.node?.children || [];
-      for (const child of children) {
-        traverse(child);
-      }
+    // Update the process
+    const updatedProcess: Process = {
+      ...process,
+      attachedSystemId: undefined
     };
     
-    traverse(construct);
+    // Update state
+    this.state$.next({
+      ...this.state$.value,
+      processes: new Map(this.state$.value.processes).set(processId, updatedProcess)
+    });
     
-    return unboundConstructs;
+    // Get the system event queue
+    const queue = this.systemEventQueues.get(systemId);
+    
+    if (!queue) {
+      return;
+    }
+    
+    // Remove the process from the queue
+    queue.activeProcesses.delete(processId);
+    
+    // If there are no more active processes, process queued events
+    if (queue.activeProcesses.size === 0) {
+      this.processQueuedEvents(systemId);
+    }
+  }
+  
+  /**
+   * Checks if a system is blocked by active processes
+   * 
+   * @param systemId The ID of the system to check
+   * @returns Whether the system is blocked
+   */
+  isSystemBlocked(systemId: string): boolean {
+    // Get the system event queue
+    const queue = this.systemEventQueues.get(systemId);
+    
+    if (!queue) {
+      return false;
+    }
+    
+    return queue.activeProcesses.size > 0;
+  }
+  
+  /**
+   * Queues an event for a system
+   *
+   * If the system is blocked by active processes, the event will be queued
+   * until all processes complete.
+   *
+   * @param event The event to queue
+   * @param systemId The ID of the system to queue the event for
+   */
+  queueEventForSystem(event: JournalEvent, systemId: string): void {
+    // Get or create the system event queue
+    let queue = this.systemEventQueues.get(systemId);
+    
+    if (!queue) {
+      queue = {
+        systemId,
+        activeProcesses: new Set(),
+        queuedEvents: []
+      };
+      this.systemEventQueues.set(systemId, queue);
+    }
+    
+    // If the system is blocked, queue the event
+    if (queue.activeProcesses.size > 0) {
+      // Convert JournalEvent to EnhancedEvent
+      const enhancedEvent: EnhancedEvent<any> = {
+        id: event.id,
+        type: event.type,
+        sourceConstructName: event.source,
+        sourceConstructType: 'unknown',
+        sourceSystemName: event.source,
+        timestamp: event.timestamp,
+        payload: event.payload
+      };
+      
+      queue.queuedEvents.push(enhancedEvent);
+    } else {
+      // Otherwise, publish the event
+      this.publish(event.type, event.source, event.payload, event.target);
+    }
+  }
+  
+  /**
+   * Processes queued events for a system
+   *
+   * This is called automatically when all processes attached to a system complete.
+   *
+   * @param systemId The ID of the system to process queued events for
+   */
+  processQueuedEvents(systemId: string): void {
+    // Get the system event queue
+    const queue = this.systemEventQueues.get(systemId);
+    
+    if (!queue) {
+      return;
+    }
+    
+    // If there are no more active processes, process queued events
+    if (queue.activeProcesses.size === 0) {
+      // Process all queued events
+      for (const event of queue.queuedEvents) {
+        this.publish(event.type, event.sourceConstructName, event.payload);
+      }
+      
+      // Clear the queue
+      queue.queuedEvents = [];
+    }
+  }
+  
+  /**
+   * Mounts a hook-based system
+   * 
+   * @param system The system to mount
+   */
+  mountSystem(system: System): void {
+    // Create a fiber for the system
+    const fiber = createFiber(system.id);
+    
+    // Create system state
+    const systemState: SystemState = {
+      fiber,
+      eventSubscriptions: new Map()
+    };
+    
+    // Store the system state
+    this.hookSystems.set(system.id, systemState);
+    
+    // Mount the system
+    withFiberContext(fiber, () => {
+      system.mount(this);
+    });
+  }
+  
+  /**
+   * Unmounts a system
+   * 
+   * @param systemId The ID of the system to unmount
+   */
+  unmountSystem(systemId: string): void {
+    // Get the system state
+    const systemState = this.hookSystems.get(systemId);
+    
+    if (!systemState) {
+      return;
+    }
+    
+    // Unsubscribe from all events
+    for (const subscriptionId of systemState.eventSubscriptions.values()) {
+      this.unsubscribe(subscriptionId);
+    }
+    
+    // Run cleanup functions
+    runFiberCleanup(systemState.fiber);
+    
+    // Remove the system state
+    this.hookSystems.delete(systemId);
   }
 
   /**
-   * Creates a state context for a system
+   * Gets all constructs in a construct tree
    * 
-   * @param systemId The ID of the system
-   * @returns The state context
+   * @param construct The root construct
+   * @returns All constructs in the tree
    */
-  private createStateContext<S = any>(systemId: string): SystemStateContext<S> {
-    return {
-      getState: () => {
-        // Find the system state component
-        const entities = this.getEntitiesWithComponent('SystemStateComponent');
-        for (const entityId of entities) {
-          const component = this.getComponent<SystemStateComponent>(entityId, 'SystemStateComponent');
-          if (component && component.systemId === systemId) {
-            return component.state as S;
-          }
-        }
-        
-        // If no state found, find the system and return its initial state
-        const currentState = this.state$.getValue();
-        const system = currentState.systems.find((s: System) => s.id === systemId);
-        return system?.initialState as S;
-      },
-      setState: (newState: S) => {
-        // Find and update the system state component
-        const entities = this.getEntitiesWithComponent('SystemStateComponent');
-        for (const entityId of entities) {
-          const component = this.getComponent<SystemStateComponent>(entityId, 'SystemStateComponent');
-          if (component && component.systemId === systemId) {
-            this.addComponent(entityId, 'SystemStateComponent', {
-              ...component,
-              state: newState
-            });
-            return;
-          }
-        }
-        
-        // If no state component found, create one
-        const entityId = this.createEntity();
-        this.addComponent(entityId, 'SystemStateComponent', {
-          type: 'SystemStateComponent',
-          systemId,
-          state: newState
-        });
-      }
-    };
+  private getAllConstructs(construct: any): any[] {
+    const constructs = [construct];
+
+    for (const child of construct.node.children) {
+      constructs.push(...this.getAllConstructs(child));
+    }
+
+    return constructs;
   }
 }
