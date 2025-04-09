@@ -21,10 +21,9 @@ export class SystemControllerImpl implements SystemController {
   /**
    * Internal fiber state
    */
-  private hooks: Array<any> = [];
   private hookIndex: number = 0;
-  private cleanup: Array<() => void> = [];
-  private state: Record<string, any> = {};
+  private hookCleanup: Map<number, Array<() => void>> = new Map();
+  private hookState: Map<number, any> = new Map();
 
   /**
    * Event subscriptions for this system
@@ -82,7 +81,8 @@ export class SystemControllerImpl implements SystemController {
     });
     
     // Publish an event
-    this.publishEvent('system', {
+    // Use a system hook index of 0 for system events
+    this.publishEvent(0, 'system', {
       systemId: this.systemId,
       action: 'mount'
     });
@@ -108,7 +108,8 @@ export class SystemControllerImpl implements SystemController {
     this.system = null;
     
     // Publish an event
-    this.publishEvent('system', {
+    // Use a system hook index of 0 for system events
+    this.publishEvent(0, 'system', {
       systemId: this.systemId,
       action: 'unmount'
     });
@@ -136,41 +137,19 @@ export class SystemControllerImpl implements SystemController {
    * Runs cleanup functions for the system
    */
   public runCleanup(): void {
-    for (const cleanup of this.cleanup) {
-      try {
-        cleanup();
-      } catch (error) {
-        console.error(`Error in fiber cleanup for system ${this.systemId}:`, error);
+    // Run all cleanup functions for all hooks
+    for (const [hookIndex, cleanupFunctions] of this.hookCleanup.entries()) {
+      for (const cleanup of cleanupFunctions) {
+        try {
+          cleanup();
+        } catch (error) {
+          console.error(`Error in fiber cleanup for hook ${hookIndex} in system ${this.systemId}:`, error);
+        }
       }
     }
-    this.cleanup = [];
-  }
-
-  /**
-   * Attaches a process to this system
-   * 
-   * @param processId The ID of the process to attach
-   */
-  public attachProcess(processId: string): void {
-    this.journal.attachProcessToSystem(processId, this.systemId);
-  }
-
-  /**
-   * Detaches a process from this system
-   * 
-   * @param processId The ID of the process to detach
-   */
-  public detachProcess(processId: string): void {
-    this.journal.detachProcessFromSystem(processId, this.systemId);
-  }
-
-  /**
-   * Checks if this system is blocked by active processes
-   * 
-   * @returns Whether the system is blocked
-   */
-  public isBlocked(): boolean {
-    return this.journal.isSystemBlocked(this.systemId);
+    
+    // Clear all cleanup functions
+    this.hookCleanup.clear();
   }
 
   /**
@@ -181,7 +160,7 @@ export class SystemControllerImpl implements SystemController {
    * @param callback The callback to execute when an event is received
    * @returns A subscription ID that can be used to unsubscribe
    */
-  public subscribeToEvent(eventType: string, filter: any, callback: (event: any) => void): string {
+  public subscribeToEvent(hookIndex: number, eventType: string, filter: any, callback: (event: any) => void): string {
     // Create a wrapper that ensures the callback runs in the correct fiber context
     const wrappedCallback = (event: any) => {
       this.withFiberContext(() => {
@@ -198,8 +177,8 @@ export class SystemControllerImpl implements SystemController {
     // Subscribe to the event
     const subscriptionId = this.journal.subscribe(wrappedCallback, fullFilter);
     
-    // Store the subscription ID
-    this.eventSubscriptions.set(eventType, subscriptionId);
+    // Store the subscription ID with the hook index
+    this.eventSubscriptions.set(`${hookIndex}:${eventType}`, subscriptionId);
     
     return subscriptionId;
   }
@@ -209,13 +188,13 @@ export class SystemControllerImpl implements SystemController {
    * 
    * @param subscriptionId The subscription ID to unsubscribe
    */
-  public unsubscribeFromEvent(subscriptionId: string): void {
+  public unsubscribeFromEvent(hookIndex: number, subscriptionId: string): void {
     this.journal.unsubscribe(subscriptionId);
     
     // Remove the subscription ID from the map
-    for (const [eventType, id] of this.eventSubscriptions.entries()) {
-      if (id === subscriptionId) {
-        this.eventSubscriptions.delete(eventType);
+    for (const [key, id] of this.eventSubscriptions.entries()) {
+      if (id === subscriptionId && key.startsWith(`${hookIndex}:`)) {
+        this.eventSubscriptions.delete(key);
         break;
       }
     }
@@ -229,8 +208,27 @@ export class SystemControllerImpl implements SystemController {
    * @param target The event target (optional)
    * @returns The published event
    */
-  public publishEvent(type: string, payload: Record<string, any>, target?: string): any {
-    return this.journal.publish(type, this.systemId, payload, target);
+  public publishEvent(hookIndex: number, type: string, payload: Record<string, any>, target?: string): any {
+    // Add the hook index to the payload for tracking
+    const enhancedPayload = {
+      ...payload,
+      _hookIndex: hookIndex
+    };
+    
+    return this.journal.publish(type, this.systemId, enhancedPayload, target);
+  }
+
+
+  /**
+   * Registers a hook with the system controller
+   *
+   * @returns The index of the registered hook
+   */
+  public registerHook(): number {
+    const index = this.incrementHookIndex();
+    // Initialize empty arrays for hook cleanup functions
+    this.hookCleanup.set(index, []);
+    return index;
   }
 
   /**
@@ -257,37 +255,34 @@ export class SystemControllerImpl implements SystemController {
   }
 
   /**
-   * Gets the hooks array
+   * Adds a cleanup function for a specific hook
+   *
+   * @param hookIndex The index of the hook
+   * @param cleanup The cleanup function
    */
-  public getHooks(): Array<any> {
-    return this.hooks;
+  public addCleanup(hookIndex: number, cleanup: () => void): void {
+    const cleanupFunctions = this.hookCleanup.get(hookIndex) || [];
+    cleanupFunctions.push(cleanup);
+    this.hookCleanup.set(hookIndex, cleanupFunctions);
   }
 
   /**
-   * Sets a hook at a specific index
+   * Gets the state for a specific hook
+   *
+   * @param hookIndex The index of the hook
+   * @returns The hook's state
    */
-  public setHook(index: number, hook: any): void {
-    this.hooks[index] = hook;
+  public getHookState(hookIndex: number): any {
+    return this.hookState.get(hookIndex);
   }
 
   /**
-   * Adds a cleanup function
+   * Sets the state for a specific hook
+   *
+   * @param hookIndex The index of the hook
+   * @param state The new state
    */
-  public addCleanup(cleanup: () => void): void {
-    this.cleanup.push(cleanup);
-  }
-
-  /**
-   * Gets the state
-   */
-  public getState(): Record<string, any> {
-    return this.state;
-  }
-
-  /**
-   * Sets a state value
-   */
-  public setState(key: string, value: any): void {
-    this.state[key] = value;
+  public setHookState(hookIndex: number, state: any): void {
+    this.hookState.set(hookIndex, state);
   }
 }

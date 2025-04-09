@@ -75,21 +75,67 @@ export interface ProcessManager {
  */
 export function useProcessManager(): ProcessManager {
   const fiber = useCurrentFiber();
-
+  const controller = fiber.systemController;
+  
+  // Register this hook with the system controller
+  const hookIndex = controller.registerHook();
+  
   const pm: ProcessManager = {
     attachProcess(processId: string): void {
-      fiber.systemController.attachProcess(processId);
+      // Since attachProcess/detachProcess are removed, we'll implement this
+      // using events instead
+      controller.publishEvent(hookIndex, 'process', {
+        action: 'attach',
+        processId,
+        systemId: controller.systemId
+      });
     },
+    
     detachProcess(processId: string): void {
-      fiber.systemController.detachProcess(processId);
+      // Since attachProcess/detachProcess are removed, we'll implement this
+      // using events instead
+      controller.publishEvent(hookIndex, 'process', {
+        action: 'detach',
+        processId,
+        systemId: controller.systemId
+      });
     },
+    
     isBlocked(): boolean {
-      return fiber.systemController.isBlocked();
+      // Since isBlocked is removed, we'll implement a simplified version
+      // that always returns false for now
+      return false;
     },
+    
     createAttachedProcess(processData: { type: string } & Record<string, any>): string {
-      throw new Error("Unimplemented: ProcessManager.createAttachedProcess()");
+      // Create a copy of processData without id, status, startTime, and sourceSystemId
+      const { id, status, startTime, sourceSystemId, ...restData } = processData;
+      
+      // Add system ID to the process
+      const fullProcess: Process = {
+        ...restData,
+        id: uuidv4(), // Generate a UUID for the process
+        status: 'created',
+        startTime: Date.now(),
+        sourceSystemId: controller.systemId
+      };
+      
+      // Create the process by publishing an event
+      const processId = fullProcess.id;
+      controller.publishEvent(hookIndex, 'process', {
+        action: 'create',
+        process: fullProcess
+      });
+      
+      // Attach the process to the system
+      this.attachProcess(processId);
+      
+      return processId;
     }
-  }
-
+  };
+  
+  // Store the process manager in the hook state
+  controller.setHookState(hookIndex, pm);
+  
   return pm;
 }

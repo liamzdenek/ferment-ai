@@ -11,7 +11,26 @@ import { useCurrentFiber } from './fiber.js';
  */
 export function useState<T>(initialState: T | (() => T)): [T, (newState: T) => void] {
   const fiber = useCurrentFiber();
-  throw new Error("Unimplemented: useState()");
+  const controller = fiber.systemController;
+  
+  // Register this hook with the system controller
+  const hookIndex = controller.registerHook();
+  
+  // Get or initialize the hook's state
+  let state = controller.getHookState(hookIndex);
+  if (state === undefined) {
+    state = typeof initialState === 'function' ? (initialState as () => T)() : initialState;
+    controller.setHookState(hookIndex, state);
+  }
+  
+  // Return the state and a function to update it
+  return [
+    state,
+    (newState: T) => {
+      const nextState = typeof newState === 'function' ? (newState as () => T)() : newState;
+      controller.setHookState(hookIndex, nextState);
+    }
+  ];
 }
 
 /**
@@ -24,7 +43,44 @@ export function useState<T>(initialState: T | (() => T)): [T, (newState: T) => v
  */
 export function useEffect(effect: () => void | (() => void), deps?: any[]): void {
   const fiber = useCurrentFiber();
-  throw new Error("Unimplemented: useEffect()");
+  const controller = fiber.systemController;
+  
+  // Register this hook with the system controller
+  const hookIndex = controller.registerHook();
+  
+  // Get the previous state of this hook
+  const prevState = controller.getHookState(hookIndex) as EffectHook | undefined;
+  
+  // Check if deps have changed
+  const depsChanged = !prevState || !deps || !prevState.deps ||
+    deps.length !== prevState.deps.length ||
+    deps.some((dep, i) => dep !== prevState.deps![i]);
+  
+  if (depsChanged) {
+    // Run cleanup from previous effect if it exists
+    if (prevState && prevState.cleanup) {
+      try {
+        prevState.cleanup();
+      } catch (error) {
+        console.error('Error in effect cleanup:', error);
+      }
+    }
+    
+    // Run the effect and store any cleanup function
+    const cleanup = effect();
+    
+    // Store the new state
+    controller.setHookState(hookIndex, {
+      type: 'effect',
+      deps,
+      cleanup: typeof cleanup === 'function' ? cleanup : null
+    } as EffectHook);
+    
+    // Register cleanup with the controller
+    if (typeof cleanup === 'function') {
+      controller.addCleanup(hookIndex, cleanup);
+    }
+  }
 }
 
 /**
@@ -36,5 +92,17 @@ export function useEffect(effect: () => void | (() => void), deps?: any[]): void
  */
 export function useOnUnmountCallback(callback: () => void): void {
   const fiber = useCurrentFiber();
-  throw new Error("Unimplemented: useOnUnmountCallback()");
+  const controller = fiber.systemController;
+  
+  // Register this hook with the system controller
+  const hookIndex = controller.registerHook();
+  
+  // Register the callback as a cleanup function
+  controller.addCleanup(hookIndex, callback);
+  
+  // Store the hook state
+  controller.setHookState(hookIndex, {
+    type: 'unmount',
+    callback
+  } as UnmountHook);
 }

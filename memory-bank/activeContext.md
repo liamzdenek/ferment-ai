@@ -120,6 +120,16 @@ We are rearchitecting the Journal, Modules, and Runtime library using an event-o
    - Refactored systems to use hooks for state management and event handling
    - Added process attachment to systems for event queueing
 
+## Current Implementation Focus
+
+1. **Hook Registration System**:
+   - Implementing a `.registerHook()` function in the system controller that returns an index
+   - Using this index in all other hook-related calls to identify the originating hook
+   - Updating the SystemController interface to match the implementation
+   - Implementing the minimal subset of strictly needed functions for all hooks
+   - Updating all hooks to use these new functions in the controller
+   - Removing attachProcess/detachProcess functions for now
+
 ## Next Steps
 
 1. **Implement Real Agent Execution**:
@@ -163,9 +173,11 @@ We are rearchitecting the Journal, Modules, and Runtime library using an event-o
    - Create a registry for discovering available modules
 
 9. **Enhance Hook System**:
-   - Add more specialized hooks for common patterns
-   - Implement memoization hooks for performance optimization
-   - Create debugging tools for hook usage
+    - Implement the hook registration system as outlined in hook-registration-architecture.md
+    - Add more specialized hooks for common patterns
+    - Implement memoization hooks for performance optimization
+    - Create debugging tools for hook usage
+    - Ensure hooks properly identify their origin using the hook index
 
 10. **Improve Event System**:
     - Add support for event batching
@@ -184,9 +196,11 @@ We are rearchitecting the Journal, Modules, and Runtime library using an event-o
 
 5. **Performance Optimization**: How can we optimize the performance of the system, especially for large journals with many entities and components?
 
-6. **Hook System Limitations**: What are the limitations of the hook-based approach for system state management? How can we address these limitations?
+6. **Hook System Limitations**: What are the limitations of the hook-based approach for system state management? How can we address these limitations? How can we ensure hooks properly identify their origin?
 
-7. **Event Contract Evolution**: How should we handle changes to the event contract over time? Should we version events, or should we have a more flexible schema?
+7. **Hook Registration**: What's the best way to register hooks with the system controller? Should we use a simple index-based approach or something more sophisticated?
+
+8. **Event Contract Evolution**: How should we handle changes to the event contract over time? Should we version events, or should we have a more flexible schema?
 
 ## Commands
 
