@@ -1,5 +1,6 @@
 import { Journal } from './journal.js';
 import { Fiber } from './fiber.js';
+import { HookFn, BoundHookFn } from './hookFn.js'
 
 /**
  * Hook-based system interface
@@ -22,22 +23,11 @@ export interface System {
    * 
    * @param journal The journal
    */
-  mount: (journal: Journal) => void;
+  mount: (props: SystemMountProps) => void;
 }
 
-/**
- * System state interface
- * 
- * This is used internally by the journal to track system state.
- */
-export interface SystemState {
-  /**
-   * The fiber for this system
-   */
-  fiber: Fiber;
-  
-  /**
-   * Event subscriptions for this system
-   */
-  eventSubscriptions: Map<string, string>; // eventType -> subscriptionId
+export type GetHookFn = <I extends any[],O>(hookFn: HookFn<I,O>) => BoundHookFn<I,O>;
+
+export interface SystemMountProps {
+  getHook: GetHookFn
 }

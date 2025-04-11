@@ -15,16 +15,6 @@ export interface Event<T = any> {
   type: string;
 
   /**
-   * The source of this event
-   */
-  source: string;
-
-  /**
-   * The target of this event (optional)
-   */
-  target?: string;
-
-  /**
    * The timestamp of this event
    */
   timestamp: number;
@@ -33,6 +23,8 @@ export interface Event<T = any> {
    * The payload of this event
    */
   payload: T;
+
+  metadata: EventMetadata
 }
 
 /**
@@ -43,11 +35,6 @@ export interface EventMetadata {
    * Unique identifier for the event
    */
   id: string;
-  
-  /**
-   * Event type identifier
-   */
-  type: string;
   
   /**
    * Name of the source construct
@@ -76,16 +63,6 @@ export interface EventMetadata {
 }
 
 /**
- * Enhanced event interface with strongly typed payload
- */
-export interface EnhancedEvent<T = unknown> extends EventMetadata {
-  /**
-   * Strongly typed payload
-   */
-  payload: T;
-}
-
-/**
  * Event type definition interface
  */
 export interface EventTypeDefinition<T = unknown> {
@@ -102,10 +79,36 @@ export interface EventTypeDefinition<T = unknown> {
   /**
    * Type guard function
    */
-  isType: (event: EnhancedEvent<any>) => event is EnhancedEvent<T>;
+  isType: (event: Event<any>) => event is Event<T>;
   
   /**
    * Factory function to create events of this type
    */
-  create: (metadata: Omit<EventMetadata, 'type'>, payload: T) => EnhancedEvent<T>;
+  create: (metadata: Omit<EventMetadata, 'type'>, payload: T) => Event<T>;
+}
+
+/**
+ * Creates an event type definition
+ * 
+ * @param type The event type
+ * @param schema The Zod schema for the event payload
+ * @returns An event type definition
+ */
+export function createEventType<T extends z.ZodTypeAny>(type: string, schema: T): EventTypeDefinition<T> {
+  return {
+    type,
+    schema,
+    isType: (event: Event<any>): event is Event<z.infer<T>> => {
+      return event.type === type && schema.safeParse(event.payload).success;
+    },
+    create: (metadata: Omit<EventMetadata, 'type'>, payload: T): Event<T> => {
+      return {
+        id: metadata.id,
+        metadata,
+        type,
+        payload,
+        timestamp: new Date().getTime(),
+      };
+    }
+  };
 }

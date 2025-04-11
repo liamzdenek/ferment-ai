@@ -1,4 +1,4 @@
-import { EnhancedEvent } from './events.js';
+import { Event } from './events.js';
 
 /**
  * Filter predicate type
@@ -48,4 +48,4 @@ export interface EnhancedEventFilter {
 /**
  * Event filter result type
  */
-export type EventFilterFn = (event: EnhancedEvent<any>) => boolean;
+export type EventFilterFn = (event: Event<any>) => boolean;

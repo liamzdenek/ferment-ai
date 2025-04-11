@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { createEventType } from '@ferment-ai/runtime-hooks';
+import { createEventType } from '@ferment-ai/runtime-interfaces';
 import { EventType } from '@ferment-ai/runtime-interfaces';
 
 /**

@@ -3,7 +3,6 @@ export * from './entity-manager.js';
 export * from './component-manager.js';
 export * from './event-manager.js';
 export * from './event-type-manager.js';
-export * from './process-manager.js';
 export * from './system-manager.js';
 export * from './serialization-manager.js';
 

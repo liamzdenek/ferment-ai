@@ -26,7 +26,6 @@ import { EventTypeManager } from './journal/event-type-manager.js';
 import { EntityManager } from './journal/entity-manager.js';
 import { ComponentManager } from './journal/component-manager.js';
 import { SystemManager } from './journal/system-manager.js';
-import { ProcessManager } from './journal/process-manager.js';
 import { SerializationManager } from './journal/serialization-manager.js';
 
 /**
@@ -64,11 +63,6 @@ export class JournalImpl implements Journal {
   private systemManager: SystemManager;
 
   /**
-   * Process manager
-   */
-  private processManager: ProcessManager;
-
-  /**
    * Serialization manager
    */
   private serializationManager: SerializationManager;
@@ -95,7 +89,6 @@ export class JournalImpl implements Journal {
     this.entityManager = new EntityManager(this, options.initialState?.entities);
     this.componentManager = new ComponentManager(this, options.initialState?.components);
     this.systemManager = new SystemManager(this, options.initialState?.systems || []);
-    this.processManager = new ProcessManager(this, options.initialState?.processes);
     this.serializationManager = new SerializationManager(this, options.enableCompression);
   }
 
@@ -142,15 +135,6 @@ export class JournalImpl implements Journal {
    */
   getSystemManager(): SystemManager {
     return this.systemManager;
-  }
-
-  /**
-   * Gets the process manager
-   * 
-   * @returns The process manager
-   */
-  getProcessManager(): ProcessManager {
-    return this.processManager;
   }
 
   /**
@@ -339,74 +323,6 @@ export class JournalImpl implements Journal {
     return this.componentManager.getEntitiesWithComponent(componentType);
   }
 
-  /**
-   * Creates a process
-   * 
-   * @param process The process to create
-   * @returns The ID of the created process
-   */
-  createProcess(process: Process): ProcessId {
-    const id = this.processManager.createProcess(process);
-    
-    // Update state
-    this.state$.next({
-      ...this.state$.value,
-      processes: this.processManager.getProcesses()
-    });
-    
-    return id;
-  }
-
-  /**
-   * Completes a process
-   * 
-   * @param processId The ID of the process to complete
-   * @param result The result of the process
-   */
-  completeProcess(processId: ProcessId, result: ProcessResult): void {
-    this.processManager.completeProcess(processId, result);
-    
-    // Update state
-    this.state$.next({
-      ...this.state$.value,
-      processes: this.processManager.getProcesses()
-    });
-  }
-
-  /**
-   * Fails a process
-   * 
-   * @param processId The ID of the process to fail
-   * @param error The error that caused the process to fail
-   */
-  failProcess(processId: ProcessId, error: Error): void {
-    this.processManager.failProcess(processId, error);
-    
-    // Update state
-    this.state$.next({
-      ...this.state$.value,
-      processes: this.processManager.getProcesses()
-    });
-  }
-
-  /**
-   * Gets a process
-   * 
-   * @param processId The ID of the process to get
-   * @returns The process, or undefined if not found
-   */
-  getProcess(processId: ProcessId): Process | undefined {
-    return this.processManager.getProcess(processId);
-  }
-
-  /**
-   * Gets all processes in the journal
-   * 
-   * @returns A map of process IDs to processes
-   */
-  getProcesses(): Map<ProcessId, Process> {
-    return this.processManager.getProcesses();
-  }
 
   /**
    * Marks a construct as bound
@@ -472,98 +388,6 @@ export class JournalImpl implements Journal {
     this.entityManager = new EntityManager(this, state.entities);
     this.componentManager = new ComponentManager(this, state.components);
     this.systemManager = new SystemManager(this, state.systems);
-    this.processManager = new ProcessManager(this, state.processes);
-  }
-
-  /**
-   * Clears all events from the journal
-   */
-  clear(): void {
-    // Clear managers
-    this.eventManager.clear();
-    this.entityManager.clear();
-    this.componentManager.clear();
-    this.systemManager.clear();
-    this.processManager.clear();
-    
-    // Update state
-    this.state$.next({
-      events: [],
-      entities: new Map(),
-      components: new Map(),
-      systems: [],
-      processes: new Map(),
-      boundConstructs: new Set()
-    });
-  }
-
-  /**
-   * Attaches a process to a system
-   * 
-   * When a process is attached to a system, events for that system will be
-   * queued until the process completes.
-   * 
-   * @param processId The ID of the process to attach
-   * @param systemId The ID of the system to attach the process to
-   */
-  attachProcessToSystem(processId: string, systemId: string): void {
-    this.processManager.attachProcessToSystem(processId, systemId);
-    
-    // Update state
-    this.state$.next({
-      ...this.state$.value,
-      processes: this.processManager.getProcesses()
-    });
-  }
-
-  /**
-   * Detaches a process from a system
-   * 
-   * @param processId The ID of the process to detach
-   * @param systemId The ID of the system to detach the process from
-   */
-  detachProcessFromSystem(processId: string, systemId: string): void {
-    this.processManager.detachProcessFromSystem(processId, systemId);
-    
-    // Update state
-    this.state$.next({
-      ...this.state$.value,
-      processes: this.processManager.getProcesses()
-    });
-  }
-
-  /**
-   * Checks if a system is blocked by active processes
-   * 
-   * @param systemId The ID of the system to check
-   * @returns Whether the system is blocked
-   */
-  isSystemBlocked(systemId: string): boolean {
-    return this.processManager.isSystemBlocked(systemId);
-  }
-
-  /**
-   * Queues an event for a system
-   * 
-   * If the system is blocked by active processes, the event will be queued
-   * until all processes complete.
-   * 
-   * @param event The event to queue
-   * @param systemId The ID of the system to queue the event for
-   */
-  queueEventForSystem(event: JournalEvent, systemId: string): void {
-    this.processManager.queueEventForSystem(event, systemId);
-  }
-
-  /**
-   * Processes queued events for a system
-   * 
-   * This is called automatically when all processes attached to a system complete.
-   * 
-   * @param systemId The ID of the system to process queued events for
-   */
-  processQueuedEvents(systemId: string): void {
-    this.processManager.processQueuedEvents(systemId);
   }
 
   /**
