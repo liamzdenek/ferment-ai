@@ -8,6 +8,15 @@
     },
     {
       "path": "./packages/core-constructs-lib"
+    },
+    {
+      "path": "./packages/runtime-common"
+    },
+    {
+      "path": "./packages/runtime-in-memory"
+    },
+    {
+      "path": "./packages/core-constructs-runtime"
     }
   ]
 }
