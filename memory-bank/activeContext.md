@@ -2,138 +2,105 @@
 
 ## Current Focus
 
-We are rearchitecting the Journal, Modules, and Runtime library using an event-oriented variant of the Entity-Component-System (ECS) pattern. This architecture draws inspiration from game development but is tailored for a real-time, event-driven system where we want to avoid processing Agents that aren't doing work.
+We are implementing a workflow-based architecture for the Ferment AI system. This architecture allows for defining workflows as sequences of tasks with clear relationships, enabling modular and composable agent systems.
 
 1. **Project Structure**: We have set up an Nx monorepo with the following packages:
    - `@ferment-ai/core-constructs-lib`: Core construct library
-   - `@ferment-ai/runtime-interfaces`: Common interfaces and utilities for runtime packages
-   - `@ferment-ai/runtime-hooks`: React-like hooks for system state management
+   - `@ferment-ai/runtime-common`: Common interfaces and utilities for runtime packages
    - `@ferment-ai/runtime-in-memory`: In-memory implementation of the Journal
    - `@ferment-ai/core-constructs-runtime`: Runtime implementation for constructs
    - `@ferment-ai/runtime-http`: HTTP server implementation
    - `@ferment-ai/demo`: Demo application
 
-2. **ECS Architecture Design**: We have designed a new architecture based on the Entity-Component-System pattern:
-   - **Journal**: The central "World" that stores all entities, components, systems, and processes
-   - **Entity**: A unique identifier with associated components
-   - **Component**: Pure data objects attached to entities
-   - **System**: Event-based callbacks that respond to journal events and create Processes
-   - **Process**: Represents operations like agent calls and tool calls
-   - **Module**: A function that converts constructs into entities, components, systems, etc.
-   - **Entrypoint**: Defines how to start an execution of a journal
+2. **Workflow Architecture Design**: We have designed a new architecture based on workflows and tasks:
+   - **Journal**: The central executor that runs workflows and maintains state
+   - **Workflow**: A sequence of tasks with defined relationships
+   - **Task**: A unit of work in a workflow
+   - **Module**: A function that maps constructs to task functions
+   - **Compiler**: A function that extracts workflows from the construct tree
 
-3. **Implementation Approach**: We have created detailed implementation plans for the new architecture:
-   - `ecs-architecture-proposal.md`: High-level overview of the new architecture
-   - `ecs-implementation-approach.md`: Detailed implementation approach for each component
-   - `ecs-migration-guide.md`: Strategy for migrating from the old architecture to the new one
-
-4. **Journal Modularization**: We have modularized the Journal implementation into specialized manager classes:
-   - **EventManager**: Handles event publication and subscription
-   - **EventTypeManager**: Manages event type registration and validation
-   - **EntityManager**: Handles entity creation and management
-   - **ComponentManager**: Manages components attached to entities
-   - **SystemManager**: Handles system registration and lifecycle
-   - **ProcessManager**: Manages process creation and lifecycle
-   - **SerializationManager**: Handles serialization and deserialization
+3. **Implementation Approach**: We have created a detailed implementation of the new architecture:
+   - `Workflow` class: Represents a sequence of tasks
+   - `Task` class: Represents a unit of work in a workflow
+   - `Journal` class: Executes workflows and maintains state
+   - `Module` interface: Maps constructs to task functions
+   - `compileWorkflows` function: Extracts workflows from the construct tree
 
 ## Recent Decisions
 
-1. **Entity-Component-System Pattern**: We've decided to adopt the ECS pattern for our architecture, where entities are just identifiers, components are pure data, and systems contain the logic.
+1. **Workflow-Based Architecture**: We've decided to adopt a workflow-based architecture where workflows are composed of tasks with defined relationships.
 
-2. **Journal as World**: The Journal will now represent the "World" within the ECS pattern, storing all entities, components, systems, and processes.
+2. **Journal as Central Executor**: The Journal will now be the central executor for workflows, maintaining state and providing serialization/deserialization.
 
-3. **Process-Based Execution**: Agent calls, tool calls, etc. will be represented as processes with a clear lifecycle (created, running, completed, failed).
+3. **Task-Based Execution**: Agent calls, tool calls, etc. will be represented as tasks with defined relationships, allowing for better tracking and management of operations.
 
-4. **Module-Based Initialization**: Constructs will be converted to entities, components, and systems by modules during initialization.
+4. **Module-Based Mapping**: Constructs will be mapped to task functions by modules, allowing for modular and extensible system configuration.
 
-5. **Async Iterable Execution**: The Journal's execute method will be an async iterable that yields events as they happen, allowing for real-time streaming.
+5. **Async Iterable Execution**: The Journal's executeWorkflow method will be an async iterable that yields events as they happen, allowing for real-time streaming.
 
-6. **Full State Serialization**: The Journal will serialize not just events but also the state of entities, components, systems, and processes.
+6. **Full State Serialization**: The Journal will serialize its state, including workflows and task functions, allowing for stateful execution.
 
-7. **Construct Binding Validation**: Modules must mark constructs as "bound" by calling a function on the journal, and a validation function will throw errors if there are any unbound constructs.
-
-8. **React-like Hooks for Systems**: Systems will use React-like hooks for state management and event handling, making them more declarative and easier to reason about.
-
-9. **Enhanced Event Contract**: Events now include more metadata such as event ID, event type, source construct name, source construct type, source system name, and parent event ID.
-
-10. **Process Attachment**: Processes can be attached to systems, which will queue events for that system until the process completes.
-
-11. **Modular Journal Implementation**: The Journal implementation has been modularized into specialized manager classes, each with a single responsibility, making the code more maintainable, testable, and extensible.
+7. **Construct Tree Compilation**: The system will extract workflows from the construct tree during initialization, allowing for declarative workflow definition.
 
 ## Active Considerations
 
-1. **Journal Implementation**: The Journal class has been modularized into specialized manager classes, each with a single responsibility. This makes the code more maintainable, testable, and extensible. The JournalImpl class now delegates operations to these managers while maintaining the central state.
+1. **Journal Implementation**: The Journal class is responsible for executing workflows and maintaining state. It uses modules to map constructs to task functions and a compiler to extract workflows from the construct tree.
 
-2. **Entity and Component Design**: Entities will be simple objects with just an ID, and components will be pure data objects with a type field and additional fields specific to the component type. Components will not have methods; instead, functions will operate on component data.
+2. **Workflow and Task Design**: Workflows are composed of tasks with defined relationships. Tasks can call other tasks and return to the caller, or they can call other tasks and not return (like a directed acyclic graph).
 
-3. **System Implementation**: Systems will be objects with a unique ID, an array of event types they handle, and an execute method that takes the journal and an event. Systems will query the journal for entities with specific components and create processes as needed.
+3. **Module Interface**: Modules map constructs to task functions, allowing for extensibility. Each module is responsible for a specific type of construct, such as agents, models, or tools.
 
-4. **Process Lifecycle**: Processes will be objects with a unique ID, a type, a status, start and end timestamps, and a result object when completed. Processes will be independent with no direct dependencies and will communicate through journal events.
+4. **Compiler Implementation**: The compiler extracts workflows from the construct tree by finding workflow constructs and their tasks, or by creating workflows from entrypoints if no workflow constructs are found.
 
-5. **Module Interface**: Modules will be objects with a unique ID, a version, and an initialize method that takes a RootConstruct and a Journal. The initialize method will traverse the construct tree recursively, create entities and components based on the constructs, register systems with the journal, and mark constructs as bound.
-
-6. **HttpApplication Integration**: The HttpApplication class will still extend RootConstruct but will use the new Journal implementation. It will provide an initialize method that creates a journal and initializes it with the modules, and a serve method that creates an Express app and configures routes for executing the journal and getting its state.
-
-7. **Hook-based System State Management**: Systems will use React-like hooks for state management, making it easier to manage complex state and side effects. This includes hooks like useState, useEffect, useEventCallback, and useAttachProcess.
-
-8. **Event Filtering**: The event filtering system has been enhanced to allow filtering on any attribute in the event, making it more flexible and powerful.
-
-9. **Event Type Validation**: Events now have their types validated against registered schemas, ensuring that events conform to their expected structure. This helps catch errors early and provides better type safety.
+5. **HttpApplication Integration**: The HttpApplication class will use the new Journal implementation, providing an API for executing workflows and getting their state.
 
 ## Recent Changes
 
-1. **Journal Modularization**:
-   - Modularized the Journal implementation into specialized manager classes
-   - Created EventManager for event publication and subscription
-   - Created EventTypeManager for event type registration and validation
-   - Created EntityManager for entity creation and management
-   - Created ComponentManager for component management
-   - Created SystemManager for system registration and lifecycle
-   - Created ProcessManager for process creation and lifecycle
-   - Created SerializationManager for serialization and deserialization
-   - Updated JournalImpl to delegate operations to these managers
+1. **Implemented Workflow and Task Classes**:
+   - Created the Workflow class to represent a sequence of tasks
+   - Created the Task class to represent a unit of work in a workflow
+   - Added methods for defining task relationships (canCall, canCallAndReturn)
+   - Implemented serialization of workflows to workflow definitions
 
-2. **Fixed HTTP Application Initialization**:
-   - Added proper conversion of initialState from plain objects to Maps and Sets in the HTTP application
-   - Enhanced error logging in the HTTP application to better diagnose issues
-   - Fixed the "Cannot read properties of undefined (reading 'set')" error
+2. **Implemented Journal Class**:
+   - Created the Journal class to execute workflows and maintain state
+   - Added methods for executing workflows and serializing/deserializing state
+   - Implemented module-based initialization
 
-3. **Improved Entrypoint Payload Handling**:
-   - Updated the Journal interface to accept an initialPayload parameter in the execute method
-   - Modified the JournalImpl to use the provided initialPayload when executing an entrypoint
-   - Added logging throughout the execution flow to track payload propagation
+3. **Implemented Module Interface**:
+   - Created the Module interface for mapping constructs to task functions
+   - Implemented the core-constructs-runtime module for mapping core constructs
 
-4. **Enhanced System Logging**:
-   - Added detailed logging in the entrypoint system to show the received initialPayload
-   - Added logging in the agent system to show the input received for each agent
-   - Improved error handling and reporting throughout the system
+4. **Implemented Compiler**:
+   - Created the compileWorkflows function to extract workflows from the construct tree
+   - Added support for finding workflow constructs and their tasks
+   - Implemented fallback to create workflows from entrypoints
 
-5. **Refactored Event Contract**:
-   - Enhanced the event interface to include more metadata
-   - Added event type definitions with Zod schemas for validation
-   - Implemented type guards for event types
-   - Added event registration with the journal
-
-6. **Implemented Hook-based Systems**:
-   - Created a React-like hook system for state management
-   - Implemented useState, useEffect, useEventCallback, and other hooks
-   - Refactored systems to use hooks for state management and event handling
-   - Added process attachment to systems for event queueing
+5. **Updated AgentContext Class**:
+   - Added the newPromptTask method to create workflow tasks for agents
+   - Implemented the sendEmailTool method to create communication tools
 
 ## Current Implementation Focus
 
-1. **Hook Registration System**:
-   - Implementing a `.registerHook()` function in the system controller that returns an index
-   - Using this index in all other hook-related calls to identify the originating hook
-   - Updating the SystemController interface to match the implementation
-   - Implementing the minimal subset of strictly needed functions for all hooks
-   - Updating all hooks to use these new functions in the controller
-   - Removing attachProcess/detachProcess functions for now
+1. **Task Function Implementation**:
+   - Implementing task functions for different construct types
+   - Adding support for agent execution, tool execution, etc.
+   - Ensuring proper error handling and result propagation
+
+2. **Workflow Execution**:
+   - Implementing the workflow executor to run tasks in the correct order
+   - Adding support for task relationships and tool calls
+   - Ensuring proper event generation during execution
+
+3. **State Management**:
+   - Implementing serialization and deserialization of the journal state
+   - Adding support for saving and loading workflows
+   - Ensuring proper state propagation between tasks
 
 ## Next Steps
 
 1. **Implement Real Agent Execution**:
-   - Connect the agent system to actual LLM API calls
+   - Connect task functions to actual LLM API calls
    - Implement proper handling of agent responses
    - Add support for streaming responses from agents
 
@@ -142,65 +109,51 @@ We are rearchitecting the Journal, Modules, and Runtime library using an event-o
    - Add support for tool parameters validation
    - Create a mechanism for tools to return results to agents
 
-3. **Add Support for More Component Types**:
-   - Create MemoryComponent for agent memory
-   - Implement ContextComponent for managing context windows
-   - Develop CapabilityComponent for defining what an entity can do
+3. **Add Support for More Task Types**:
+   - Create specialized task types for common operations
+   - Implement task composition for complex workflows
+   - Develop a library of reusable tasks
 
-4. **Implement System for Managing Entity Relationships**:
+4. **Implement System for Managing Task Relationships**:
    - Create a relationship registry in the Journal
-   - Add methods for querying related entities
-   - Implement visualization tools for entity relationships
+   - Add methods for querying related tasks
+   - Implement visualization tools for task relationships
 
 5. **Add Serialization Optimizations**:
-   - Implement actual compression for large journals
-   - Add support for partial serialization (only changed components)
-   - Create a more efficient binary format for serialization
+   - Implement compression for large journal states
+   - Add support for partial serialization (only changed state)
+   - Create a more efficient format for serialization
 
 6. **Improve Error Handling and Recovery**:
-   - Add more robust error handling in systems and processes
-   - Implement recovery mechanisms for failed processes
+   - Add more robust error handling in task functions
+   - Implement recovery mechanisms for failed tasks
    - Create a transaction-like system for atomic operations
 
 7. **Add Monitoring and Debugging Tools**:
-   - Implement a visualization tool for the journal state
+   - Implement a visualization tool for workflows
    - Add metrics collection for performance analysis
-   - Create a debugging interface for inspecting entities and components
+   - Create a debugging interface for inspecting tasks and their state
 
 8. **Extend Module System**:
    - Add support for module dependencies and loading order
    - Implement a plugin system for third-party modules
    - Create a registry for discovering available modules
 
-9. **Enhance Hook System**:
-    - Implement the hook registration system as outlined in hook-registration-architecture.md
-    - Add more specialized hooks for common patterns
-    - Implement memoization hooks for performance optimization
-    - Create debugging tools for hook usage
-    - Ensure hooks properly identify their origin using the hook index
-
-10. **Improve Event System**:
-    - Add support for event batching
-    - Implement event prioritization
-    - Create event replay capabilities for debugging
-
 ## Open Questions
 
-1. **Component Granularity**: How fine-grained should our components be? Should we have a single component for an agent, or should we break it down into smaller components like prompt, model, tools, etc.?
+1. **Task Granularity**: How fine-grained should our tasks be? Should we have a single task for an agent, or should we break it down into smaller tasks?
 
-2. **System Triggering**: What's the best way to trigger systems? Should they register for specific event types, or should we have a more generic event system with filtering?
+2. **Task Relationships**: What's the best way to represent complex task relationships? Should we have more advanced constructs like conditional execution or loops?
 
-3. **Process Dependencies**: How should we handle dependencies between processes? Should we have explicit dependencies, or should we rely on the event system?
+3. **State Management**: How should we handle state that needs to be shared between tasks? Should we have a global state, or should we pass state explicitly between tasks?
 
-4. **Serialization Format**: What's the most efficient format for serializing the journal state? Should we use JSON, a binary format like Protocol Buffers or MessagePack, or something else?
+4. **Serialization Format**: What's the most efficient format for serializing the journal state? Should we use JSON, a binary format, or something else?
 
-5. **Performance Optimization**: How can we optimize the performance of the system, especially for large journals with many entities and components?
+5. **Performance Optimization**: How can we optimize the performance of the system, especially for large workflows with many tasks?
 
-6. **Hook System Limitations**: What are the limitations of the hook-based approach for system state management? How can we address these limitations? How can we ensure hooks properly identify their origin?
+6. **Error Handling**: How should we handle errors in task execution? Should we have retry mechanisms, fallback tasks, or other error recovery strategies?
 
-7. **Hook Registration**: What's the best way to register hooks with the system controller? Should we use a simple index-based approach or something more sophisticated?
-
-8. **Event Contract Evolution**: How should we handle changes to the event contract over time? Should we version events, or should we have a more flexible schema?
+7. **Workflow Versioning**: How should we handle changes to workflow definitions over time? Should we version workflows, or should we have a more flexible approach?
 
 ## Commands
 

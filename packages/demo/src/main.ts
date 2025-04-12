@@ -23,8 +23,8 @@ class TwoAgentModel extends VirtualModel {
         })
 
         // Create workflow tasks
-        const seniorEngineerTask = new Workflow.Task(this, 'SeniorEngineerTask');
-        const juniorEngineerTask = new Workflow.Task(this, 'JuniorEngineerTask');
+        const seniorEngineerTask = seniorEngineer.newPromptTask(this, 'SeniorEngineerTask');
+        const juniorEngineerTask = juniorEngineer.newPromptTask(this, 'JuniorEngineerTask');
         const endTask = new Workflow.EndTask(this, 'EndTask');
 
         // Set up task relationships
@@ -43,6 +43,7 @@ const rootConstruct = new RootConstruct('RootConstruct');
 
 // Create the virtual model
 new TwoAgentModel(rootConstruct, 'TwoAgentModel');
+
 // Create the journal
 const journal = new Journal([createCoreConstructsModule()], {
     enableCompression: false,
@@ -54,8 +55,13 @@ async function runWorkflow() {
     console.log('Executing workflow...');
     
     try {
+        // Get all available workflows
+        const state = journal.toSavedState();
+        console.log('Available workflows:', Object.keys(state.workflows));
+        
         // Get the workflow name from the TwoAgentModel
-        const workflowName = 'TwoAgentModel-TwoAgentWorkflow';
+        const workflowName = Object.keys(state.workflows)[0];
+        console.log('Using workflow:', workflowName);
         
         for await (const event of journal.executeWorkflow(workflowName, { message: 'Hello, world!' })) {
             console.log('Event:', event);

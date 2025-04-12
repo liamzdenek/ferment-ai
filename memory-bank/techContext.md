@@ -18,15 +18,9 @@
    - Schema validation for runtime type safety
    - Used for tool input/output validation
    - Generates JSON Schema for API documentation
-   - Used for event type validation in the journal
+   - Used for workflow and task schema validation
 
-4. **RxJS**
-   - Reactive Extensions for JavaScript
-   - Used for event streams and subscriptions
-   - Provides powerful operators for event processing
-   - Foundation for the journal's event system
-
-5. **Jest**
+4. **Jest**
    - Testing framework for unit and integration tests
    - Mocking capabilities for testing components in isolation
    - Snapshot testing for configuration validation
@@ -114,52 +108,44 @@
 2. **zod** (^3.0.0)
    - Schema validation library
    - Used for tool input/output validation
-   - Used for event type validation in the journal
+   - Used for workflow and task schema validation
 
 3. **zod-to-json-schema** (^3.0.0)
    - Converts Zod schemas to JSON Schema
    - Used for API documentation
 
-4. **rxjs** (^7.0.0)
-   - Reactive Extensions for JavaScript
-   - Used for event streams and subscriptions
-   - Foundation for the journal's event system
-
-5. **express** (^4.0.0)
+4. **express** (^4.0.0)
    - Web framework for Node.js
    - Used for the API server
 
-6. **cors** (^2.0.0)
+5. **cors** (^2.0.0)
    - Cross-Origin Resource Sharing middleware
    - Used for API security
 
-7. **body-parser** (^1.0.0)
+6. **body-parser** (^1.0.0)
    - Request body parsing middleware
    - Used for API request handling
 
-8. **uuid** (^9.0.0)
+7. **uuid** (^9.0.0)
    - UUID generation library
-   - Used for creating unique identifiers for entities, events, and processes
+   - Used for creating unique identifiers for tasks and workflows
 
-9. **@ferment-ai/core-constructs-lib**
+8. **@ferment-ai/core-constructs-lib**
    - Core construct library
-   - Renamed from @ferment/constructs
+   - Defines the relationship between agents and what they have access to
+
+9. **@ferment-ai/runtime-common**
+   - Common interfaces and utilities for runtime packages
+   - Defines the Journal interface and related types
+   - Contains workflow and task definitions
 
 10. **@ferment-ai/core-constructs-runtime**
     - Runtime implementation for constructs
-    - New package for runtime-specific functionality
+    - Maps constructs to task functions
 
-11. **@ferment-ai/runtime-interfaces**
-    - Common interfaces and utilities for runtime packages
-    - Defines the Journal interface and related types
-
-12. **@ferment-ai/runtime-hooks**
-    - React-like hooks for system state management
-    - Used for managing state in systems
-
-13. **@ferment-ai/runtime-in-memory**
+11. **@ferment-ai/runtime-in-memory**
     - In-memory implementation of the Journal
-    - Includes the modular journal implementation
+    - Executes workflows and maintains state
 
 ### Development Dependencies
 
@@ -189,19 +175,19 @@
 ### Performance Constraints
 
 1. **Memory Usage**
-   - Journal size may grow large for complex interactions
+   - Journal state may grow large for complex workflows
    - Need to implement efficient serialization/deserialization
-   - Consider compression for large journals
+   - Consider compression for large journal states
 
 2. **Latency**
    - Real-time streaming requires low-latency processing
    - Tool execution may introduce variable latency
-   - Event processing should be optimized
+   - Task execution should be optimized
 
 3. **Concurrency**
-   - Multiple agent contexts may run concurrently
+   - Multiple workflows may run concurrently
    - Need to manage resource contention
-   - Event queuing for blocked systems
+   - Task queuing for complex workflows
 
 ### Security Constraints
 
@@ -213,7 +199,7 @@
 2. **API Security**
    - Need to implement authentication/authorization
    - Protect against common web vulnerabilities
-   - Validate event types and payloads
+   - Validate workflow and task definitions
 
 ### Compatibility Constraints
 
@@ -257,52 +243,37 @@
 
 ## Architecture
 
-### Journal Architecture
+### Workflow Architecture
 
-The Journal implementation has been modularized into specialized manager classes, each with a single responsibility:
+The system now implements a workflow-based architecture:
 
-1. **EventManager**
-   - Handles event publication and subscription
-   - Manages event filtering and querying
-   - Provides methods for event stream access
-   - Maintains the event history
+1. **Journal**
+   - Central executor for workflows
+   - Maintains state and provides serialization/deserialization
+   - Uses modules to map constructs to task functions
+   - Compiles workflows from the construct tree
 
-2. **EventTypeManager**
-   - Manages event type registration and validation
-   - Validates event payloads against registered schemas
-   - Provides type guards for event types
-   - Registers built-in event types
+2. **Workflow**
+   - Represents a sequence of tasks with defined relationships
+   - Contains an entry point task
+   - Can be serialized to a workflow definition
+   - Extracted from the construct tree during initialization
 
-3. **EntityManager**
-   - Handles entity creation, retrieval, and deletion
-   - Manages entity lifecycle
-   - Publishes entity-related events
+3. **Task**
+   - Represents a unit of work in a workflow
+   - Can call other tasks and return to the caller
+   - Can call other tasks and not return (like a directed acyclic graph)
+   - Executed by task functions mapped from constructs
 
-4. **ComponentManager**
-   - Manages component attachment to entities
-   - Provides component querying capabilities
-   - Handles component lifecycle
-   - Publishes component-related events
+4. **Module**
+   - Maps constructs to task functions
+   - Each module is responsible for a specific type of construct
+   - Allows for extensibility through additional modules
 
-5. **SystemManager**
-   - Registers and manages systems
-   - Handles system mounting and unmounting
-   - Manages system event subscriptions
-   - Publishes system-related events
-
-6. **ProcessManager**
-   - Creates and manages processes
-   - Handles process lifecycle (creation, completion, failure)
-   - Manages process attachment to systems
-   - Handles event queuing for blocked systems
-   - Publishes process-related events
-
-7. **SerializationManager**
-   - Handles journal serialization and deserialization
-   - Provides compression capabilities
-   - Converts between different data formats
-
-The JournalImpl class delegates operations to these managers while maintaining the central state. This modular approach makes the code more maintainable, testable, and extensible.
+5. **Compiler**
+   - Extracts workflows from the construct tree
+   - Finds workflow constructs and their tasks
+   - Creates workflows from entrypoints if no workflow constructs are found
 
 ## Deployment Considerations
 
@@ -316,7 +287,7 @@ The JournalImpl class delegates operations to these managers while maintaining t
 2. **Testing Environment**
    - Mock LLMs for deterministic testing
    - Simulated tool execution
-   - Unit tests for individual managers
+   - Unit tests for workflows and tasks
 
 ### Production Deployment
 
@@ -331,11 +302,11 @@ The JournalImpl class delegates operations to these managers while maintaining t
 3. **Monitoring**
    - Logging for debugging
    - Metrics for performance monitoring
-   - Event tracking for system behavior
+   - Event tracking for workflow execution
 
 ## Demo Application
 
-A barebones demo application has been created in 'packages/demo/src/main.ts' that shows how the app will be initialized and navigated. It demonstrates a two-agent model with a junior engineer and senior engineer that can communicate with each other.
+A demo application has been created in 'packages/demo/src/main.ts' that shows how the app will be initialized and navigated. It demonstrates a two-agent model with a junior engineer and senior engineer that can communicate with each other.
 
 To build and run the demo application:
 
@@ -350,6 +321,7 @@ npx nx serve demo
 The demo application showcases:
 1. Creating a VirtualModel
 2. Setting up agent contexts with different models
-3. Configuring communication between agents
-4. Defining an entrypoint for the system
-5. Using the modular journal implementation
+3. Creating workflow tasks for agents
+4. Defining task relationships
+5. Creating a workflow with an entry point task
+6. Using the Journal to execute the workflow

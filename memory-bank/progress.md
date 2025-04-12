@@ -2,14 +2,13 @@
 
 ## Current Status
 
-The project is entering a **rearchitecting phase**. We have decided to adopt an Entity-Component-System (ECS) architecture for the Journal, Modules, and Runtime library. This architecture draws inspiration from game development but is tailored for a real-time, event-driven system where we want to avoid processing Agents that aren't doing work. We have created detailed design documents for the new architecture and are implementing it.
+The project is entering a **rearchitecting phase**. We have decided to adopt a workflow-based architecture for the Journal, Modules, and Runtime library. This architecture allows for defining workflows as sequences of tasks with clear relationships, enabling modular and composable agent systems. We have created detailed implementation of the new architecture and are continuing to refine it.
 
 ## What Works
 
 1. **Project Structure**: We have set up an Nx monorepo with the following packages:
    - `@ferment-ai/core-constructs-lib`: Core construct library
-   - `@ferment-ai/runtime-interfaces`: Common interfaces and utilities for runtime packages
-   - `@ferment-ai/runtime-hooks`: React-like hooks for system state management
+   - `@ferment-ai/runtime-common`: Common interfaces and utilities for runtime packages
    - `@ferment-ai/runtime-in-memory`: In-memory implementation of the Journal
    - `@ferment-ai/core-constructs-runtime`: Runtime implementation for constructs
    - `@ferment-ai/runtime-http`: HTTP server implementation
@@ -31,287 +30,202 @@ The project is entering a **rearchitecting phase**. We have decided to adopt an 
    - `constructs`: AWS CDK constructs library
    - `zod`: Schema validation library
    - `zod-to-json-schema`: Converts Zod schemas to JSON Schema
-   - `rxjs`: Reactive Extensions for JavaScript
 
-5. **ECS Architecture Design**: We have designed a new architecture based on the Entity-Component-System pattern:
-   - **Journal**: The central "World" that stores all entities, components, systems, and processes
-   - **Entity**: A unique identifier with associated components
-   - **Component**: Pure data objects attached to entities
-   - **System**: Event-based callbacks that respond to journal events and create Processes
-   - **Process**: Represents operations like agent calls and tool calls
-   - **Module**: A function that converts constructs into entities, components, systems, etc.
-   - **Entrypoint**: Defines how to start an execution of a journal
+5. **Workflow Architecture Design**: We have designed a new architecture based on workflows and tasks:
+   - **Journal**: The central executor that runs workflows and maintains state
+   - **Workflow**: A sequence of tasks with defined relationships
+   - **Task**: A unit of work in a workflow
+   - **Module**: A function that maps constructs to task functions
+   - **Compiler**: A function that extracts workflows from the construct tree
 
-6. **Hook-based System Implementation**: We have implemented a React-like hook system for state management in systems:
-   - **useState**: Creates a stateful value and a function to update it
-   - **useEffect**: Runs side effects after the system executes
-   - **useEventCallback**: Subscribes to events of a specific type and calls a callback
-   - **useAttachProcess**: Attaches a process to a system, queueing events until the process completes
-   - **useOnUnmountCallback**: Runs a callback when the system is unmounted
+6. **Workflow and Task Implementation**: We have implemented the core classes for the workflow architecture:
+   - **Workflow**: A class that represents a sequence of tasks
+   - **Task**: A class that represents a unit of work in a workflow
+   - **EndTask**: A specialized task that represents the end of a workflow
+   - **WorkflowDefinition**: An interface for serializable workflow definitions
+   - **TaskDefinition**: An interface for serializable task definitions
 
-7. **Enhanced Event Contract**: We have enhanced the event contract with more metadata:
-   - **Event ID**: Unique identifier for the event
-   - **Event Type**: Type of the event with Zod schema validation
-   - **Source Construct Name**: Name of the construct that generated the event
-   - **Source Construct Type**: Type of the construct that generated the event
-   - **Source System Name**: Name of the system that generated the event
-   - **Parent Event ID**: ID of the parent event for hierarchical events
-   - **Timestamp**: When the event was created
-   - **Payload**: Strongly typed payload for the event
+7. **Journal Implementation**: We have implemented the Journal class that executes workflows and maintains state:
+   - **executeWorkflow**: A method that executes a workflow and yields events
+   - **toSavedState**: A method that serializes the journal state
+   - **fromSavedState**: A method that deserializes the journal state
+   - **addModule**: A method that adds a module to the journal
 
-8. **Journal Modularization**: We have modularized the Journal implementation into specialized manager classes:
-   - **EventManager**: Handles event publication and subscription
-   - **EventTypeManager**: Manages event type registration and validation
-   - **EntityManager**: Handles entity creation and management
-   - **ComponentManager**: Manages components attached to entities
-   - **SystemManager**: Handles system registration and lifecycle
-   - **ProcessManager**: Manages process creation and lifecycle
-   - **SerializationManager**: Handles serialization and deserialization
+8. **Module System**: We have implemented a module system that maps constructs to task functions:
+   - **Module**: An interface for modules that map constructs to task functions
+   - **createCoreConstructsModule**: A function that creates a module for core constructs
+   - **TaskFunction**: A type for functions that execute tasks
+
+9. **Compiler Implementation**: We have implemented a compiler that extracts workflows from the construct tree:
+   - **compileWorkflows**: A function that extracts workflows from the construct tree
+   - **findWorkflows**: A function that finds workflow constructs in the construct tree
+   - **findWorkflowConstructs**: A function that finds workflow constructs in the construct tree
+   - **findEntrypoints**: A function that finds entrypoint constructs in the construct tree
 
 ## What's Left to Build
 
-### Phase 1: ECS Foundation (Completed)
+### Phase 1: Workflow Foundation (Completed)
 
 - [x] **New Journal Implementation**
-  - [x] Create Journal class with ECS support
-  - [x] Implement entity management
-  - [x] Implement component management
-  - [x] Implement system management
-  - [x] Implement process management
-  - [x] Implement event handling
-  - [x] Implement serialization/deserialization
+  - [x] Create Journal class with workflow support
+  - [x] Implement workflow execution
+  - [x] Implement task execution
+  - [x] Implement state serialization/deserialization
+  - [x] Implement module system
+
+- [x] **Workflow and Task Classes**
+  - [x] Create Workflow class
+  - [x] Create Task class
+  - [x] Create EndTask class
+  - [x] Implement task relationships
+  - [x] Implement workflow serialization
 
 - [x] **Module System**
   - [x] Create Module interface
-  - [x] Implement initializeJournal function
+  - [x] Implement mapping of constructs to task functions
   - [x] Create CoreConstructsModule
 
-- [x] **HttpApplication Updates**
-  - [x] Update HttpApplication to use new Journal
-  - [x] Implement execute endpoint with async iterable
-  - [x] Update state endpoint for full serialization
+- [x] **Compiler Implementation**
+  - [x] Create compileWorkflows function
+  - [x] Implement workflow extraction from construct tree
+  - [x] Implement fallback to create workflows from entrypoints
 
-### Phase 2: Component and System Implementation (Completed)
+### Phase 2: Integration with Core Constructs (In Progress)
 
-- [x] **Core Components**
-  - [x] Create AgentComponent
-  - [x] Create ModelComponent
-  - [x] Create ToolComponent
-  - [x] Create EntrypointComponent
-  - [x] Create ExitPointComponent
+- [x] **AgentContext Integration**
+  - [x] Add newPromptTask method to AgentContext
+  - [x] Implement sendEmailTool method
+  - [ ] Add support for other agent operations
 
-- [x] **Core Systems**
-  - [x] Create AgentSystem
-  - [x] Create ToolSystem
-  - [x] Create EntrypointSystem
-  - [x] Create ExitPointSystem
+- [ ] **Task Function Implementation**
+  - [x] Create task functions for agent contexts
+  - [x] Create task functions for models
+  - [ ] Create task functions for tools
+  - [ ] Create task functions for entrypoints and exit points
 
-- [x] **Process Implementation**
-  - [x] Create AgentProcess
-  - [x] Create ToolProcess
-  - [x] Implement process lifecycle management
+- [ ] **Workflow Execution**
+  - [x] Implement basic workflow execution
+  - [ ] Add support for complex task relationships
+  - [ ] Implement error handling and recovery
+  - [ ] Add support for streaming responses
 
-### Phase 3: Migration and Integration (Completed)
-
-- [x] **Construct to Entity Conversion**
-  - [x] Implement conversion of AgentContext to entities/components
-  - [x] Implement conversion of Model to entities/components
-  - [x] Implement conversion of Tool to entities/components
-  - [x] Implement conversion of Entrypoint to entities/components
-  - [x] Implement conversion of ExitPoint to entities/components
-
-- [x] **Demo Application Updates**
-  - [x] Update demo to use new ECS architecture
-  - [x] Create examples of different entity/component configurations
-  - [x] Demonstrate process creation and execution
-
-### Phase 4: Refinement and Enhancement (In Progress)
-
-- [x] **Basic Implementation**
-  - [x] Implement basic entity/component lookups
-  - [x] Implement basic serialization
-  - [x] Implement basic memory management
-
-- [x] **Hook-based System Implementation**
-  - [x] Implement useState hook
-  - [x] Implement useEffect hook
-  - [x] Implement useEventCallback hook
-  - [x] Implement useAttachProcess hook
-  - [x] Implement useOnUnmountCallback hook
-
-- [x] **Enhanced Event Contract**
-  - [x] Define event metadata interface
-  - [x] Implement event type definitions with Zod schemas
-  - [x] Create type guards for event types
-  - [x] Add event registration with the journal
-
-- [x] **Journal Modularization**
-  - [x] Create EventManager for event publication and subscription
-  - [x] Create EventTypeManager for event type registration and validation
-  - [x] Create EntityManager for entity creation and management
-  - [x] Create ComponentManager for component management
-  - [x] Create SystemManager for system registration and lifecycle
-  - [x] Create ProcessManager for process creation and lifecycle
-  - [x] Create SerializationManager for serialization and deserialization
-  - [x] Update JournalImpl to delegate operations to these managers
-
-- [ ] **Documentation**
-  - [x] Document ECS architecture
-  - [ ] Create API references
-  - [ ] Write usage examples
-  - [ ] Develop tutorials
-
-- [ ] **Testing**
-  - [x] Create basic unit tests
-  - [ ] Develop comprehensive integration tests
-  - [ ] Implement performance tests
-
-### Phase 5: Advanced Features (Planned)
+### Phase 3: Advanced Features (Planned)
 
 - [ ] **Real Agent Execution**
-  - [ ] Connect to actual LLM API calls
+  - [ ] Connect task functions to actual LLM API calls
   - [ ] Implement proper handling of agent responses
-  - [ ] Add support for streaming responses
+  - [ ] Add support for streaming responses from agents
 
 - [ ] **Enhanced Tool System**
   - [ ] Implement actual tool execution logic
   - [ ] Add support for tool parameters validation
-  - [ ] Create mechanism for tools to return results to agents
+  - [ ] Create a mechanism for tools to return results to agents
 
-- [ ] **Additional Component Types**
-  - [ ] Create MemoryComponent for agent memory
-  - [ ] Implement ContextComponent for managing context windows
-  - [ ] Develop CapabilityComponent for defining entity capabilities
+- [ ] **Additional Task Types**
+  - [ ] Create specialized task types for common operations
+  - [ ] Implement task composition for complex workflows
+  - [ ] Develop a library of reusable tasks
 
-### Phase 6: Performance and Reliability (Planned)
+### Phase 4: Performance and Reliability (Planned)
 
 - [ ] **Performance Optimization**
-  - [ ] Optimize entity/component lookups
+  - [ ] Optimize workflow execution
   - [ ] Implement efficient serialization
   - [ ] Reduce memory usage
 
 - [ ] **Error Handling and Recovery**
-  - [ ] Add robust error handling in systems and processes
-  - [ ] Implement recovery mechanisms for failed processes
-  - [ ] Create transaction-like system for atomic operations
+  - [ ] Add robust error handling in task functions
+  - [ ] Implement recovery mechanisms for failed tasks
+  - [ ] Create a transaction-like system for atomic operations
 
 - [ ] **Monitoring and Debugging**
-  - [ ] Implement visualization tool for journal state
+  - [ ] Implement a visualization tool for workflows
   - [ ] Add metrics collection for performance analysis
-  - [ ] Create debugging interface for inspecting entities and components
-  - [ ] Implement performance tests
+  - [ ] Create a debugging interface for inspecting tasks and their state
 
 ## Recent Improvements
 
-1. **Journal Modularization**:
-   - Modularized the Journal implementation into specialized manager classes
-   - Created EventManager for event publication and subscription
-   - Created EventTypeManager for event type registration and validation
-   - Created EntityManager for entity creation and management
-   - Created ComponentManager for component management
-   - Created SystemManager for system registration and lifecycle
-   - Created ProcessManager for process creation and lifecycle
-   - Created SerializationManager for serialization and deserialization
-   - Updated JournalImpl to delegate operations to these managers
+1. **Implemented Workflow and Task Classes**:
+   - Created the Workflow class to represent a sequence of tasks
+   - Created the Task class to represent a unit of work in a workflow
+   - Added methods for defining task relationships (canCall, canCallAndReturn)
+   - Implemented serialization of workflows to workflow definitions
 
-2. **HTTP Application Initialization**:
-   - Fixed issue with initialState conversion in the HTTP application
-   - Added proper conversion of plain objects to Maps and Sets
-   - Enhanced error logging for better diagnostics
-   - Resolved "Cannot read properties of undefined (reading 'set')" error
+2. **Implemented Journal Class**:
+   - Created the Journal class to execute workflows and maintain state
+   - Added methods for executing workflows and serializing/deserializing state
+   - Implemented module-based initialization
 
-3. **Entrypoint Payload Handling**:
-   - Updated Journal interface to accept initialPayload parameter
-   - Modified JournalImpl to use provided initialPayload
-   - Added logging throughout execution flow
-   - Improved payload propagation from HTTP request to agent
+3. **Implemented Module Interface**:
+   - Created the Module interface for mapping constructs to task functions
+   - Implemented the core-constructs-runtime module for mapping core constructs
 
-4. **System Logging and Debugging**:
-   - Added detailed logging in entrypoint and agent systems
-   - Improved error handling and reporting
-   - Enhanced debugging capabilities throughout the system
+4. **Implemented Compiler**:
+   - Created the compileWorkflows function to extract workflows from the construct tree
+   - Added support for finding workflow constructs and their tasks
+   - Implemented fallback to create workflows from entrypoints
 
-5. **Event Contract Refactoring**:
-   - Enhanced the event interface to include more metadata
-   - Added event type definitions with Zod schemas for validation
-   - Implemented type guards for event types
-   - Added event registration with the journal
-
-6. **Hook-based System Implementation**:
-   - Created a React-like hook system for state management
-   - Implemented useState, useEffect, useEventCallback, and other hooks
-   - Refactored systems to use hooks for state management and event handling
-   - Added process attachment to systems for event queueing
+5. **Updated AgentContext Class**:
+   - Added the newPromptTask method to create workflow tasks for agents
+   - Implemented the sendEmailTool method to create communication tools
 
 ## Known Issues
 
-1. **Architecture Transition**: We need to carefully manage the transition from the current architecture to the new ECS architecture to avoid breaking existing functionality.
+1. **Architecture Transition**: We need to carefully manage the transition from the current architecture to the new workflow-based architecture to avoid breaking existing functionality.
 
-2. **Performance Concerns**: The ECS architecture may introduce performance overhead, especially for serialization/deserialization of the full state.
+2. **Performance Concerns**: The workflow-based architecture may introduce performance overhead, especially for complex workflows with many tasks.
 
 3. **Compatibility**: We need to ensure that the new architecture is compatible with existing code that uses the current architecture.
 
-4. **Learning Curve**: The ECS architecture introduces new concepts that may require a learning curve for developers familiar with the current architecture.
-
-5. **Hook System Limitations**: The hook-based approach for system state management has some limitations, such as the need to follow the rules of hooks (call hooks at the top level, call hooks in the same order every time, etc.).
+4. **Learning Curve**: The workflow-based architecture introduces new concepts that may require a learning curve for developers familiar with the current architecture.
 
 ## Next Milestones
 
-1. **Implement Real Agent Execution** (Target: Week 1)
-   - Connect the agent system to actual LLM API calls
+1. **Complete Task Function Implementation** (Target: Week 1)
+   - Create task functions for all construct types
+   - Implement proper execution of tasks
+   - Add support for error handling and recovery
+
+2. **Enhance Workflow Execution** (Target: Week 1)
+   - Implement support for complex task relationships
+   - Add support for conditional execution
+   - Create a mechanism for sharing state between tasks
+
+3. **Implement Real Agent Execution** (Target: Week 2)
+   - Connect task functions to actual LLM API calls
    - Implement proper handling of agent responses
    - Add support for streaming responses from agents
 
-2. **Enhance Tool System** (Target: Week 1)
+4. **Enhance Tool System** (Target: Week 2)
    - Implement actual tool execution logic
    - Add support for tool parameters validation
    - Create a mechanism for tools to return results to agents
 
-3. **Add Support for More Component Types** (Target: Week 2)
-   - Create MemoryComponent for agent memory
-   - Implement ContextComponent for managing context windows
-   - Develop CapabilityComponent for defining what an entity can do
+5. **Add Support for More Task Types** (Target: Week 3)
+   - Create specialized task types for common operations
+   - Implement task composition for complex workflows
+   - Develop a library of reusable tasks
 
-4. **Implement System for Managing Entity Relationships** (Target: Week 2)
+6. **Implement System for Managing Task Relationships** (Target: Week 3)
    - Create a relationship registry in the Journal
-   - Add methods for querying related entities
-   - Implement visualization tools for entity relationships
+   - Add methods for querying related tasks
+   - Implement visualization tools for task relationships
 
-5. **Add Serialization Optimizations** (Target: Week 3)
-   - Implement actual compression for large journals
-   - Add support for partial serialization (only changed components)
-   - Create a more efficient binary format for serialization
+7. **Add Serialization Optimizations** (Target: Week 4)
+   - Implement compression for large journal states
+   - Add support for partial serialization (only changed state)
+   - Create a more efficient format for serialization
 
-6. **Improve Error Handling and Recovery** (Target: Week 3)
-   - Add more robust error handling in systems and processes
-   - Implement recovery mechanisms for failed processes
+8. **Improve Error Handling and Recovery** (Target: Week 4)
+   - Add more robust error handling in task functions
+   - Implement recovery mechanisms for failed tasks
    - Create a transaction-like system for atomic operations
-
-7. **Add Monitoring and Debugging Tools** (Target: Week 4)
-   - Implement a visualization tool for the journal state
-   - Add metrics collection for performance analysis
-   - Create a debugging interface for inspecting entities and components
-
-8. **Extend Module System** (Target: Week 4)
-   - Add support for module dependencies and loading order
-   - Implement a plugin system for third-party modules
-   - Create a registry for discovering available modules
-
-9. **Enhance Hook System** (Target: Week 5)
-   - Add more specialized hooks for common patterns
-   - Implement memoization hooks for performance optimization
-   - Create debugging tools for hook usage
-
-10. **Improve Event System** (Target: Week 5)
-    - Add support for event batching
-    - Implement event prioritization
-    - Create event replay capabilities for debugging
 
 ## Demo Applications
 
 ### Main Demo
 
-A barebones demo application has been created in 'packages/demo/src/main.ts' that shows how the app will be initialized and navigated. It demonstrates a two-agent model with a junior engineer and senior engineer that can communicate with each other. This demo will be updated to use the new ECS architecture.
+A demo application has been created in 'packages/demo/src/main.ts' that shows how the app will be initialized and navigated. It demonstrates a two-agent model with a junior engineer and senior engineer that can communicate with each other. This demo uses the new workflow-based architecture.
 
 To build and run the main demo application:
 
@@ -322,18 +236,10 @@ npx nx serve demo
 
 ### HTTP Application Demo
 
-An HTTP application demo has been created in 'packages/runtime-http/src/examples/http-server.ts' that shows how to use the HttpApplication class from the runtime package. It demonstrates how to create a virtual model and serve it over HTTP. This demo will be updated to use the new ECS architecture.
+An HTTP application demo has been created in 'packages/runtime-http/src/examples/http-server.ts' that shows how to use the HttpApplication class from the runtime package. It demonstrates how to create a virtual model and serve it over HTTP. This demo will be updated to use the new workflow-based architecture.
 
 To build and run the HTTP application demo:
 
 ```bash
 npx nx build runtime-http
 node packages/runtime-http/dist/examples/http-server.js
-```
-
-We have also created examples for the Journal and HttpApplication components to demonstrate their usage:
-
-- `packages/runtime-in-memory/src/examples/journal-example.ts`: Shows how to use the Journal class for event publishing and subscription
-- `packages/runtime-http/src/examples/http-server.ts`: Shows how to use the HttpApplication class to create an HTTP API
-
-These examples will be updated to use the new ECS architecture.

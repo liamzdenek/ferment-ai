@@ -87,6 +87,82 @@ export interface ReconcilerCallbacks {
 }
 
 /**
+ * Workflow class
+ */
+export class Workflow extends Construct {
+  /**
+   * The entry point task for the workflow
+   */
+  private readonly definition: Workflow.Task;
+
+  /**
+   * Creates a new workflow
+   *
+   * @param scope The scope in which to define this construct
+   * @param id The scoped ID of the construct
+   * @param options The options for the workflow
+   */
+  constructor(
+    scope: Construct,
+    id: string,
+    private readonly options: WorkflowOptions
+  ) {
+    super(scope, id);
+    this.definition = options.definition;
+  }
+
+  /**
+   * Gets the workflow definition
+   *
+   * @returns The workflow definition
+   */
+  getDefinition(): WorkflowDefinition {
+    const tasks: Record<string, TaskDefinition> = {};
+    const entryPoints: Record<string, string> = {
+      'default': this.definition.node.id
+    };
+
+    // Add the entry point task
+    tasks[this.definition.node.id] = this.definition.getDefinition();
+
+    // Add all tasks reachable from the entry point
+    this.addReachableTasks(this.definition, tasks);
+
+    return {
+      id: this.node.id,
+      name: this.node.id,
+      description: this.options.description,
+      tasks,
+      entryPoints
+    };
+  }
+
+  /**
+   * Adds all tasks reachable from a task to the tasks map
+   *
+   * @param task The task to start from
+   * @param tasks The tasks map to add to
+   */
+  private addReachableTasks(task: Workflow.Task, tasks: Record<string, TaskDefinition>): void {
+    // Add next tasks
+    for (const nextTask of task.getNextTasks()) {
+      if (!tasks[nextTask.node.id]) {
+        tasks[nextTask.node.id] = nextTask.getDefinition();
+        this.addReachableTasks(nextTask, tasks);
+      }
+    }
+
+    // Add tools
+    for (const [, tool] of Object.entries(task.getTools())) {
+      if (!tasks[tool.node.id]) {
+        tasks[tool.node.id] = tool.getDefinition();
+        this.addReachableTasks(tool, tasks);
+      }
+    }
+  }
+}
+
+/**
  * Workflow namespace for task-related classes
  */
 export namespace Workflow {
@@ -254,82 +330,6 @@ export interface WorkflowOptions {
 }
 
 /**
- * A workflow
- */
-export class Workflow extends Construct {
-  /**
-   * The entry point task for the workflow
-   */
-  private readonly definition: Workflow.Task;
-
-  /**
-   * Creates a new workflow
-   *
-   * @param scope The scope in which to define this construct
-   * @param id The scoped ID of the construct
-   * @param options The options for the workflow
-   */
-  constructor(
-    scope: Construct,
-    id: string,
-    private readonly options: WorkflowOptions
-  ) {
-    super(scope, id);
-    this.definition = options.definition;
-  }
-
-  /**
-   * Gets the workflow definition
-   *
-   * @returns The workflow definition
-   */
-  getDefinition(): WorkflowDefinition {
-    const tasks: Record<string, TaskDefinition> = {};
-    const entryPoints: Record<string, string> = {
-      'default': this.definition.node.id
-    };
-
-    // Add the entry point task
-    tasks[this.definition.node.id] = this.definition.getDefinition();
-
-    // Add all tasks reachable from the entry point
-    this.addReachableTasks(this.definition, tasks);
-
-    return {
-      id: this.node.id,
-      name: this.node.id,
-      description: this.options.description,
-      tasks,
-      entryPoints
-    };
-  }
-
-  /**
-   * Adds all tasks reachable from a task to the tasks map
-   *
-   * @param task The task to start from
-   * @param tasks The tasks map to add to
-   */
-  private addReachableTasks(task: Workflow.Task, tasks: Record<string, TaskDefinition>): void {
-    // Add next tasks
-    for (const nextTask of task.getNextTasks()) {
-      if (!tasks[nextTask.node.id]) {
-        tasks[nextTask.node.id] = nextTask.getDefinition();
-        this.addReachableTasks(nextTask, tasks);
-      }
-    }
-
-    // Add tools
-    for (const [toolId, tool] of Object.entries(task.getTools())) {
-      if (!tasks[tool.node.id]) {
-        tasks[tool.node.id] = tool.getDefinition();
-        this.addReachableTasks(tool, tasks);
-      }
-    }
-  }
-}
-
-/**
  * Compiles a workflow definition into an executor function
  *
  * @param workflowDef The workflow definition to compile
@@ -355,8 +355,7 @@ export function compileWorkflow(workflowDef: WorkflowDefinition, taskFunctions: 
       throw new Error(`Entry point not found: ${options.entryPoint}`);
     }
 
-    // Get the task definition and function
-    const taskDefinition = workflowDef.tasks[entryPointTaskId];
+    // Get the task function
     const taskFunction = taskFunctions[entryPointTaskId];
 
     // Start the workflow

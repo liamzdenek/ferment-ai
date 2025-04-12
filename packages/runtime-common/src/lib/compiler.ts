@@ -87,7 +87,7 @@ function findWorkflows(construct: Construct): Record<string, WorkflowDefinition>
   const workflowConstructs = findWorkflowConstructs(construct);
   
   // Create a workflow definition for each workflow construct
-  for (const [workflowId, workflowConstruct] of Object.entries(workflowConstructs)) {
+  for (const [, workflowConstruct] of Object.entries(workflowConstructs)) {
     if (workflowConstruct instanceof Workflow) {
       const workflowName = workflowConstruct.node.path.replace(/\//g, '-');
       const workflowDef = workflowConstruct.getDefinition();
@@ -101,7 +101,7 @@ function findWorkflows(construct: Construct): Record<string, WorkflowDefinition>
     const entrypoints = findEntrypoints(construct);
     
     // Create a workflow for each entrypoint
-    for (const [entrypointId, entrypoint] of Object.entries(entrypoints)) {
+    for (const [, entrypoint] of Object.entries(entrypoints)) {
       const workflowName = entrypoint.node.path.replace(/\//g, '-');
       
       // Create a task for the entrypoint

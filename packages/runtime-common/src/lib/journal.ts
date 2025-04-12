@@ -1,4 +1,4 @@
-import { Workflow, WorkflowExecutionOptions, WorkflowLogEvent } from './workflow.js';
+import { WorkflowLogEvent } from './workflow.js';
 
 /**
  * A journal that executes workflows and maintains a log of events

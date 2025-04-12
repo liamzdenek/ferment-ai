@@ -1,6 +1,7 @@
 import { Construct } from 'constructs';
 import { FermentConstruct, FermentConstructProps } from './base-construct.js';
 import { SendEmailTool } from './send-email-tool.js';
+import { Workflow } from '@ferment-ai/runtime-common';
 
 /**
  * Properties for the AgentContext construct
@@ -112,5 +113,17 @@ export class AgentContext extends FermentConstruct {
       description: `Send a message to the ${this.node.id} agent`,
       targetAgent: this,
     });
+  }
+
+  /**
+   * Creates a new prompt task for this agent
+   *
+   * @param scope The scope in which to define the task
+   * @param id The task's identifier
+   * @param options The task options
+   * @returns A new workflow task
+   */
+  public newPromptTask(scope: Construct, id: string, options: Workflow.TaskOptions = {}): Workflow.Task {
+    return new Workflow.Task(scope, id, options);
   }
 }

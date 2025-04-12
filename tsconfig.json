@@ -17,6 +17,12 @@
     },
     {
       "path": "./packages/core-constructs-runtime"
+    },
+    {
+      "path": "./packages/demo"
+    },
+    {
+      "path": "./packages/demo"
     }
   ]
 }

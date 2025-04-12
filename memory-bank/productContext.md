@@ -22,64 +22,64 @@ Ferment AI addresses these problems by providing:
 
 1. **Declarative Configuration**: Using the AWS CDK constructs library to create a declarative, composable configuration system that clearly expresses intent.
 
-2. **Journal-Centric Architecture**: A central journal that serves as the source of truth for all system state, simplifying state management and enabling features like pausing and resuming.
+2. **Workflow-Based Architecture**: A central journal that executes workflows composed of tasks with defined relationships, simplifying state management and enabling features like pausing and resuming.
 
 3. **Real-Time Visibility**: Streaming all agent interactions to end users, providing transparency into the system's operation.
 
 4. **Loose Coupling**: Well-defined interfaces between components, allowing for easy extension and customization.
 
-5. **Standardized Patterns**: Consistent patterns for defining agents, tools, and their interactions.
+5. **Standardized Patterns**: Consistent patterns for defining agents, tools, and their interactions as workflows and tasks.
 
-6. **Modular Architecture**: A modular architecture with clear separation of concerns, making the system easier to maintain, test, and extend. The journal implementation, for example, is modularized into specialized manager classes, each with a single responsibility.
+6. **Modular Architecture**: A modular architecture with clear separation of concerns, making the system easier to maintain, test, and extend. The journal implementation, for example, uses modules to map constructs to task functions and a compiler to extract workflows from the construct tree.
 
 ## User Experience Goals
 
 ### For Developers
 
-1. **Intuitive Configuration**: Developers should be able to express complex agent systems clearly and concisely.
+1. **Intuitive Configuration**: Developers should be able to express complex agent systems clearly and concisely using workflows and tasks.
 
-2. **Extensibility**: The system should be easily extensible with custom agents, tools, and models.
+2. **Extensibility**: The system should be easily extensible with custom agents, tools, and models through the module system.
 
-3. **Debuggability**: Developers should have clear visibility into what's happening in the system.
+3. **Debuggability**: Developers should have clear visibility into workflow execution and task relationships.
 
-4. **Reliability**: The system should handle errors gracefully and provide clear feedback.
+4. **Reliability**: The system should handle errors gracefully and provide clear feedback during workflow execution.
 
-5. **Flexibility**: Support for various use cases and deployment scenarios.
+5. **Flexibility**: Support for various use cases and deployment scenarios through modular workflows.
 
 6. **Maintainability**: The system should be easy to maintain, with clear separation of concerns and modular components.
 
 ### For End Users
 
-1. **Transparency**: Users should be able to see what agents are doing in real-time.
+1. **Transparency**: Users should be able to see what agents are doing in real-time during workflow execution.
 
-2. **Control**: Users should be able to pause, cancel, or resume agent operations.
+2. **Control**: Users should be able to pause, cancel, or resume workflow execution.
 
-3. **Responsiveness**: The system should provide immediate feedback and updates.
+3. **Responsiveness**: The system should provide immediate feedback and updates during workflow execution.
 
-4. **Reliability**: The system should handle errors gracefully and recover when possible.
+4. **Reliability**: The system should handle errors gracefully and recover when possible during workflow execution.
 
 ## Use Cases
 
-1. **Collaborative Problem Solving**: Multiple agents working together to solve complex problems.
+1. **Collaborative Problem Solving**: Multiple agents working together in a workflow to solve complex problems.
 
-2. **Workflow Automation**: Agents handling different steps in a business process.
+2. **Workflow Automation**: Agents handling different tasks in a business process workflow.
 
-3. **Interactive Assistants**: Systems that combine multiple specialized agents to provide comprehensive assistance.
+3. **Interactive Assistants**: Systems that combine multiple specialized agents in a workflow to provide comprehensive assistance.
 
-4. **Simulation and Training**: Creating environments where multiple agents interact for simulation or training purposes.
+4. **Simulation and Training**: Creating environments where multiple agents interact in a workflow for simulation or training purposes.
 
-5. **Content Creation**: Collaborative content creation involving multiple specialized agents.
+5. **Content Creation**: Collaborative content creation involving multiple specialized agents in a workflow.
 
 ## Success Metrics
 
 1. **Developer Adoption**: Number of developers using the framework for their projects.
 
-2. **Configuration Complexity**: Ability to express complex agent systems concisely.
+2. **Configuration Complexity**: Ability to express complex agent systems concisely using workflows and tasks.
 
-3. **Extension Ecosystem**: Growth of custom components built on top of the framework.
+3. **Extension Ecosystem**: Growth of custom components and modules built on top of the framework.
 
-4. **User Satisfaction**: Feedback from end users on the transparency and control provided.
+4. **User Satisfaction**: Feedback from end users on the transparency and control provided during workflow execution.
 
-5. **Reliability**: Error rates and recovery metrics in production systems.
+5. **Reliability**: Error rates and recovery metrics in production workflow executions.
 
 6. **Maintainability**: Ease of maintaining and extending the system, measured by developer feedback and code quality metrics.

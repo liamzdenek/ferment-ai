@@ -1,7 +1,7 @@
 # Project Brief: Ferment AI
 
 ## Project Overview
-Ferment AI is a framework and runtime for configuring and executing multi-agent systems. It provides a declarative configuration language where agents, tools, conversations, MCPs, and other components can be configured in a single static configuration file, and then executed.
+Ferment AI is a framework and runtime for configuring and executing multi-agent systems. It provides a declarative configuration language where agents, tools, workflows, tasks, and other components can be configured in a single static configuration file, and then executed.
 
 ## Core Requirements
 
@@ -20,31 +20,32 @@ Ferment AI is a framework and runtime for configuring and executing multi-agent 
    - Provide ability to see each context separately
 
 4. **Journal System**
-   - Maintain a central journal of all processes (tools, agent invocations, etc.)
+   - Maintain a central journal that executes workflows and maintains state
    - Journal is the authoritative source of data for everything
    - Agent contexts derive their context from this journal
-   - Journal operates on a pub-sub model
-   - Journal is append-only during execution
+   - Journal executes workflows composed of tasks with defined relationships
+   - Journal provides serialization/deserialization of state
 
 5. **Stateless Operation**
    - System has no persistence
    - Relies on a stateless API
-   - End user stores the entire journal
-   - Journal is passed to API to resume paused/canceled prompts
+   - End user stores the entire journal state
+   - Journal state is passed to API to resume paused/canceled workflows
 
 6. **Tool System**
-   - Tools publish results to central message journal
+   - Tools are represented as tasks in workflows
    - Tool errors surfaced to the agent that invoked the tool
    - Tools have access to full execution context
    - No runtime sandboxing for tools
 
-7. **Messaging System**
-   - Messages are generic events in the journal
-   - Asynchronous delivery (no cancellation of in-flight operations)
-   - Support for inter-agent communication
+7. **Workflow System**
+   - Workflows are composed of tasks with defined relationships
+   - Tasks can call other tasks and return to the caller
+   - Tasks can call other tasks and not return (like a directed acyclic graph)
+   - Workflows are extracted from the construct tree during initialization
 
 8. **Human Intervention**
-   - Allow humans to cancel processes at any point
+   - Allow humans to cancel workflows at any point
    - Return current state of journal when canceled
    - Support resuming from any point with journal state
 
@@ -69,4 +70,4 @@ Ferment AI is a framework and runtime for configuring and executing multi-agent 
 2. The system correctly executes these configurations with proper agent interactions
 3. End users can observe real-time agent operations
 4. The journal system correctly maintains and reconstructs state
-5. The system supports pausing, canceling, and resuming operations
+5. The system supports pausing, canceling, and resuming workflow operations

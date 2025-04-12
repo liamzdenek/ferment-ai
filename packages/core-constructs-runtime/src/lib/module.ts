@@ -1,9 +1,7 @@
 import { Construct } from 'constructs';
 import {
   AgentContext,
-  Entrypoint,
-  OpenAIModel,
-  VirtualModel
+  Entrypoint
 } from '@ferment-ai/core-constructs-lib';
 import { Module, TaskFunction, Workflow } from '@ferment-ai/runtime-common';
 

@@ -5,7 +5,8 @@
     "types": [
       "jest",
       "node"
-    ]
+    ],
+    "forceConsistentCasingInFileNames": true
   },
   "include": [
     "jest.config.ts",
@@ -15,7 +16,7 @@
   ],
   "references": [
     {
-      "path": "./tsconfig.app.json"
+      "path": "./tsconfig.lib.json"
     }
   ]
 }

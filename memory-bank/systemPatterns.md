@@ -31,80 +31,44 @@ This pattern enables:
 - Type-safe configuration
 - Hierarchical organization of complex systems
 
-### 2. Entity-Component-System (ECS) Architecture
+### 2. Workflow-Based Architecture
 
-The journal now implements an event-oriented variant of the Entity-Component-System pattern:
+The system now implements a workflow-based architecture:
 
 ```mermaid
 graph TD
-    Journal[Journal/World] --> Entities[Entities]
-    Journal --> Components[Components]
-    Journal --> Systems[Systems]
-    Journal --> Processes[Processes]
-    Journal --> Events[Events]
+    Journal[Journal] --> Workflows[Workflows]
+    Journal --> Tasks[Tasks]
+    Journal --> TaskFunctions[Task Functions]
     
-    Systems -->|Create| Processes
-    Events -->|Trigger| Systems
-    Components -->|Attach to| Entities
+    Workflows -->|Contain| Tasks
+    Tasks -->|Executed by| TaskFunctions
+    Journal -->|Executes| Workflows
 ```
 
 This pattern enables:
-- Clear separation of data (components) from behavior (systems)
-- Efficient processing of only active entities
-- Event-driven architecture that avoids polling
-- Flexible composition of entity capabilities
-- Stateless server operation with complete state reconstruction
-- Pause/resume capabilities with full serialization
-- Clear audit trail of all operations
+- Clear definition of task sequences and relationships
+- Modular and composable workflows
+- Stateful execution with serialization/deserialization
+- Audit trail of all operations
 
-### 3. Pub-Sub Messaging
+### 3. Module-Based Extensibility
 
-Components communicate through a pub-sub pattern:
+Components communicate through a module-based pattern:
 
 ```mermaid
 graph TD
-    Publisher[Publisher] -->|Publish event| Journal[Journal]
-    Journal -->|Notify| Subscriber1[Subscriber 1]
-    Journal -->|Notify| Subscriber2[Subscriber 2]
-    Journal -->|Notify| SubscriberN[Subscriber N]
+    Module[Module] -->|Maps constructs to| TaskFunction[Task Functions]
+    Journal[Journal] -->|Uses| Module
+    Compiler[Compiler] -->|Uses| Module
+    Compiler -->|Extracts| Workflow[Workflows]
+    Journal -->|Executes| Workflow
 ```
 
 This pattern enables:
 - Loose coupling between components
-- Asynchronous operation
-- Scalability
-- Extensibility
-
-### 4. Manager-Based Modularization
-
-The Journal implementation has been modularized into specialized manager classes:
-
-```mermaid
-graph TD
-    JournalImpl[Journal Implementation] --> EventManager[Event Manager]
-    JournalImpl --> EventTypeManager[Event Type Manager]
-    JournalImpl --> EntityManager[Entity Manager]
-    JournalImpl --> ComponentManager[Component Manager]
-    JournalImpl --> SystemManager[System Manager]
-    JournalImpl --> ProcessManager[Process Manager]
-    JournalImpl --> SerializationManager[Serialization Manager]
-    
-    EventManager -->|Publishes| Events[Events]
-    EventTypeManager -->|Validates| Events
-    EntityManager -->|Manages| Entities[Entities]
-    ComponentManager -->|Manages| Components[Components]
-    SystemManager -->|Manages| Systems[Systems]
-    ProcessManager -->|Manages| Processes[Processes]
-    SerializationManager -->|Serializes| JournalState[Journal State]
-```
-
-This pattern enables:
-- Single responsibility for each manager
-- Improved maintainability and testability
-- Enhanced extensibility
-- Better separation of concerns
-- Clearer code organization
-- Easier debugging and troubleshooting
+- Extensibility through additional modules
+- Clear separation of concerns
 
 ## Implementation Patterns
 
@@ -207,8 +171,16 @@ export class AgentContext extends FermentConstruct {
     return [...this._tools];
   }
 
+  public newPromptTask(scope: Construct, id: string, options = {}): Workflow.Task {
+    return new Workflow.Task(scope, id, options);
+  }
+
   public sendEmailTool(): Construct {
-    return new Construct(this, `${this.node.id}SendEmailTool`);
+    return new SendEmailTool(this, `${this.node.id}SendEmailTool`, {
+      name: `Send Email to ${this.node.id}`,
+      description: `Send a message to the ${this.node.id} agent`,
+      targetAgent: this,
+    });
   }
 }
 ```
@@ -216,7 +188,7 @@ export class AgentContext extends FermentConstruct {
 This pattern provides:
 - A container for agent-specific configuration
 - Management of tools available to the agent
-- Creation of communication tools
+- Creation of workflow tasks and communication tools
 
 ### 4. Model Pattern
 
@@ -280,53 +252,100 @@ This pattern provides:
 - Conversion to JSON Schema for documentation
 - Specific implementations for different tool types (File, Command)
 
-### 6. Manager Pattern
+### 6. Workflow Pattern
 
-The Journal implementation has been modularized into specialized manager classes, each with a single responsibility:
+The `Workflow` class represents a sequence of tasks:
 
 ```typescript
-export class EventManager {
-  constructor(journal: JournalImpl, initialEvents: JournalEvent[] = []) {
-    // Initialize event management
+export class Workflow extends Construct {
+  private readonly definition: Workflow.Task;
+
+  constructor(scope: Construct, id: string, options: WorkflowOptions) {
+    super(scope, id);
+    this.definition = options.definition;
   }
 
-  publish(type: EventType | string, source: string, payload: Record<string, any>, target?: string): JournalEvent {
-    // Publish an event
-  }
+  getDefinition(): WorkflowDefinition {
+    const tasks: Record<string, TaskDefinition> = {};
+    const entryPoints: Record<string, string> = {
+      'default': this.definition.node.id
+    };
 
-  subscribe(listener: EventListener, filter?: EventFilter): string {
-    // Subscribe to events
-  }
+    // Add the entry point task
+    tasks[this.definition.node.id] = this.definition.getDefinition();
 
-  // Other event-related methods
+    // Add all tasks reachable from the entry point
+    this.addReachableTasks(this.definition, tasks);
+
+    return {
+      id: this.node.id,
+      name: this.node.id,
+      description: this.options.description,
+      tasks,
+      entryPoints
+    };
+  }
 }
-
-export class EntityManager {
-  constructor(journal: JournalImpl, initialEntities: Map<EntityId, Entity> = new Map()) {
-    // Initialize entity management
-  }
-
-  createEntity(): EntityId {
-    // Create an entity
-  }
-
-  removeEntity(id: EntityId): void {
-    // Remove an entity
-  }
-
-  // Other entity-related methods
-}
-
-// Other manager classes
 ```
 
 This pattern provides:
-- Single responsibility for each manager
-- Clear separation of concerns
-- Improved maintainability and testability
-- Enhanced extensibility
-- Better code organization
-- Easier debugging and troubleshooting
+- A container for tasks
+- Definition of task relationships
+- Conversion to a serializable workflow definition
+
+### 7. Task Pattern
+
+The `Task` class represents a unit of work in a workflow:
+
+```typescript
+export class Task extends Construct {
+  private readonly nextTasks: Task[] = [];
+  private readonly tools: Record<string, Task> = {};
+
+  constructor(scope: Construct, id: string, options = {}) {
+    super(scope, id);
+  }
+
+  canCall(task: Task): this {
+    this.nextTasks.push(task);
+    return this;
+  }
+
+  canCallAndReturn(tool: Task): this {
+    const toolId = tool.node.id;
+    this.tools[toolId] = tool;
+    return this;
+  }
+
+  sendEmailTool(): Task {
+    const tool = new Task(this, `${this.node.id}SendEmailTool`, {
+      description: `Send an email to ${this.node.id}`
+    });
+    return tool;
+  }
+
+  getDefinition(): TaskDefinition {
+    return {
+      id: this.node.id,
+      name: this.node.id,
+      description: this.options.description,
+      inputSchema: this.options.inputSchema || {
+        type: 'object',
+        schema: {}
+      },
+      outputSchema: this.options.outputSchema || {
+        type: 'object',
+        schema: {}
+      }
+    };
+  }
+}
+```
+
+This pattern provides:
+- A unit of work in a workflow
+- Definition of task relationships
+- Creation of tools for communication
 
 ## Package Structure and Responsibilities
 
@@ -349,68 +368,45 @@ Key components:
 This package defines interfaces and utilities that both core-constructs-runtime and runtime will implement. It serves as a contract between the definition and runtime layers.
 
 Key components:
-- `RuntimeModule`: Interface for runtime modules with a single initialize function
+- `Module`: Interface for modules that map constructs to task functions
+- `Workflow`: Interface for workflows
+- `Task`: Interface for tasks
 - `Journal`: Interface for the journal system
-- `BindingClass`: Interface for classes that bind constructs to the journal
-- `createStandardRuntimeModule`: Helper function to create a standard runtime module
+- `WorkflowDefinition`: Interface for workflow definitions
+- `TaskDefinition`: Interface for task definitions
+- `compileWorkflow`: Function to compile a workflow into an executor
 
 ### 3. Core Constructs Runtime (`@ferment-ai/core-constructs-runtime`)
 
-This package defines how to run the constructs at runtime by binding to the Journal. It has a 1-to-1 relationship with core-constructs-lib. For example, if an agent is defined in core-constructs-lib, core-constructs-runtime figures out how to send the request to make that agent work.
+This package defines how to run the constructs at runtime by mapping them to task functions. It has a 1-to-1 relationship with core-constructs-lib.
 
 Key components:
-- `createCoreConstructsRuntimeModule`: Function that creates a runtime module for core constructs
-- Binding classes for each construct type (Model, AgentContext, Tool)
-- `DefaultBindingClassFactory`: Factory for creating binding classes
+- `createCoreConstructsModule`: Function that creates a module for core constructs
+- Task functions for each construct type (Model, AgentContext, Tool)
 
-### 4. Journal (`@ferment-ai/runtime-interfaces` and `@ferment-ai/runtime-in-memory`)
+### 4. Runtime In-Memory (`@ferment-ai/runtime-in-memory`)
 
-These packages define the journal as the central "World" in the ECS architecture, providing functionality to manage entities, components, systems, and processes. They implement the event-driven architecture and provide serialization/deserialization of the full state.
-
-Key components:
-- `Journal`: Interface defining the central source of truth for the system
-- `JournalImpl`: Implementation of the Journal interface
-- `EventManager`: Manages event publication and subscription
-- `EventTypeManager`: Manages event type registration and validation
-- `EntityManager`: Manages entity creation and lifecycle
-- `ComponentManager`: Manages components attached to entities
-- `SystemManager`: Manages system registration and lifecycle
-- `ProcessManager`: Manages process creation and lifecycle
-- `SerializationManager`: Handles serialization and deserialization
-- `EventType`: Types of events that can be published to the journal
-- `EventFilter`: Filtering mechanism for journal events
-- `JournalState`: Interface defining the state of the journal
-- `Entity`, `Component`, `System`, `Process`: Core ECS elements
-
-### 5. Runtime (`@ferment-ai/runtime`)
-
-This package contains logic related to running the application as a whole. It sets up the journal, strings everything together, and allows the user to define what they want out of the agents (e.g., HTTP API, chatbot, etc.).
+This package implements the journal interface with an in-memory implementation.
 
 Key components:
-- `HttpApplication`: HTTP API for the system
-- Concrete implementations of runtime modules
-
-### 5. Specialized Packages
-
-These packages contain specific implementations for different providers or functionalities:
-- `@ferment-ai/models`: Implementations of the Model interface for different LLM providers
-- `@ferment-ai/tools`: Implementations of the Tool interface for different tool types
-- `@ferment-ai/api`: API layer for the system
-- `@ferment-ai/testing`: Testing utilities
+- `Journal`: Implementation of the journal interface
+- Workflow execution
+- State management
+- Serialization/deserialization
 
 ## Key Technical Decisions
 
-1. **Entity-Component-System Architecture**: We've implemented an event-oriented variant of the ECS pattern, where entities are just identifiers, components are pure data, and systems contain the logic.
+1. **Workflow-Based Architecture**: We've implemented a workflow-based architecture where workflows are composed of tasks with defined relationships.
 
 2. **Using AWS CDK Constructs**: We're using the actual "constructs" npm package from AWS CDK as the foundation for our configuration system.
 
-3. **Journal as ECS World**: The journal is the central "World" in the ECS architecture, containing all entities, components, systems, and processes needed to reconstruct the full state and continue execution.
+3. **Journal as Central Executor**: The journal is the central executor for workflows, maintaining state and providing serialization/deserialization.
 
-4. **Module-Based Initialization**: We've implemented a module system that converts constructs to ECS elements during initialization, allowing for modular and extensible system configuration.
+4. **Module-Based Mapping**: We've implemented a module system that maps constructs to task functions, allowing for modular and extensible system configuration.
 
 5. **Stateless API Design**: The system has no persistence and relies on a stateless API, where each request creates a new journal instance that runs until completion and returns the results.
 
-6. **Process-Based Execution**: Agent calls, tool calls, etc. are represented as processes with a clear lifecycle (created, running, completed, failed), allowing for better tracking and management of long-running operations.
+6. **Task-Based Execution**: Agent calls, tool calls, etc. are represented as tasks with defined relationships, allowing for better tracking and management of operations.
 
 7. **Package Structure**: We've organized the codebase into multiple packages to maintain separation of concerns and enable modular development, with clear interfaces between the definition and runtime layers.
 
@@ -418,244 +414,4 @@ These packages contain specific implementations for different providers or funct
 
 9. **TypeScript Configuration**: We've configured TypeScript to use the appropriate module resolution strategy and other compiler options.
 
-10. **Testing with Jest**: We're using Jest for testing, with comprehensive tests for the ECS architecture components.
-
-11. **Payload Propagation**: We've implemented a mechanism to propagate payloads from HTTP requests to entrypoints and then to agents, allowing for dynamic input to the system.
-
-12. **Error Handling and Logging**: We've added comprehensive error handling and logging throughout the system to aid in debugging and troubleshooting.
-
-13. **State Conversion**: We've implemented proper conversion of plain objects to Maps and Sets when deserializing journal state from HTTP requests.
-
-14. **Manager-Based Modularization**: We've modularized the Journal implementation into specialized manager classes, each with a single responsibility, making the code more maintainable, testable, and extensible.
-
-## Implemented Patterns
-
-### 1. Module Pattern
-
-The `Module` interface defines how to convert constructs to ECS elements:
-
-```typescript
-export interface Module {
-  /**
-   * The ID of this module
-   */
-  readonly id: string;
-
-  /**
-   * The version of this module
-   */
-  readonly version: string;
-
-  /**
-   * The dependencies of this module
-   */
-  readonly dependencies: string[];
-
-  /**
-   * Initializes this module
-   *
-   * @param rootConstruct The root construct
-   * @param journal The journal
-   */
-  initialize(rootConstruct: RootConstruct, journal: Journal): Promise<void>;
-}
-```
-
-This pattern provides:
-- A way to convert constructs to entities, components, and systems
-- Modular initialization of the journal
-- Support for third-party modules
-- Clear separation of concerns
-
-### 2. HttpApplication Pattern
-
-The `HttpApplication` class is implemented in the runtime-http package with ECS support:
-
-```typescript
-export class HttpApplication extends RootConstruct {
-  private modules: Module[] = [];
-  private server?: http.Server;
-
-  constructor(id: string, options: HttpApplicationOptions = {}) {
-    super(id);
-    
-    // Initialize modules if provided
-    if (options.modules) {
-      this.modules = [...options.modules];
-    }
-  }
-
-  /**
-   * Adds a module to the application
-   *
-   * @param module The module to add
-   */
-  public addModule(module: Module): void {
-    this.modules.push(module);
-  }
-
-  /**
-   * Initializes the application
-   *
-   * @param options The initialization options
-   * @returns The initialized journal
-   */
-  public async initialize(options: JournalOptions = {}): Promise<Journal> {
-    // Add the HTTP application module
-    const allModules = [...this.modules, createHttpApplicationModule()];
-    
-    // Initialize the journal with all modules
-    return await initializeJournal(this, allModules, options);
-  }
-
-  /**
-   * Serves the application over HTTP
-   *
-   * @param options The serve options
-   * @returns A promise that resolves when the server is started
-   */
-  public async serve(options: ServeOptions = {}): Promise<void> {
-    // Initialize the journal
-    const journal = await this.initialize(options.journalOptions);
-
-    // Create the Express app
-    const app = express();
-
-    // Configure middleware
-    app.use(cors());
-    app.use(bodyParser.json());
-
-    // Configure routes
-    this.configureRoutes(app, journal);
-
-    // Start the server
-    const port = options.port || 3000;
-    const host = options.host || 'localhost';
-
-    return new Promise<void>((resolve, reject) => {
-      this.server = app.listen(port, host, () => {
-        console.log(`Server listening on http://${host}:${port}`);
-        resolve();
-      });
-    });
-  }
-}
-```
-
-This pattern provides:
-- A way to serve the constructs over HTTP
-- Configuration for the HTTP server
-- Integration with the ECS-based journal system
-- Real-time streaming of events via SSE
-- Stateless API design with full state serialization
-- Support for multiple modules
-- Proper handling of initialState with Maps and Sets conversion
-- Enhanced error logging and debugging capabilities
-- Dynamic payload propagation from HTTP requests to entrypoints
-
-### 3. Entity-Component Pattern
-
-The ECS architecture uses entities and components to represent the system state:
-
-```typescript
-// Entity is just a unique identifier
-export type EntityId = string;
-
-export interface Entity {
-  id: EntityId;
-}
-
-// Component is a pure data object
-export interface Component {
-  type: string;
-  [key: string]: any;
-}
-```
-
-This pattern provides:
-- Clear separation of data from behavior
-- Flexible composition of entity capabilities
-- Type-safe component access
-- Efficient component lookups
-
-### 4. System Pattern
-
-Systems in the ECS architecture respond to events and create processes:
-
-```typescript
-export interface System {
-  id: string;
-  eventTypes: string[];
-  execute(journal: Journal, event: JournalEvent): Promise<void>;
-}
-```
-
-This pattern provides:
-- Event-driven architecture
-- Clear separation of concerns
-- Modular system implementation
-- Flexible event handling
-
-### 5. Process Pattern
-
-Processes in the ECS architecture represent long-running operations:
-
-```typescript
-export interface Process {
-  id: string;
-  type: string;
-  status: 'created' | 'running' | 'completed' | 'failed';
-  startTime: number;
-  endTime?: number;
-  result?: ProcessResult;
-  attachedSystemId?: string;
-}
-```
-
-This pattern provides:
-- Clear lifecycle for operations
-- Status tracking
-- Result handling
-- System attachment for event queueing
-
-### 6. Manager Pattern
-
-The Journal implementation has been modularized into specialized manager classes:
-
-```typescript
-export class JournalImpl implements Journal {
-  private eventManager: EventManager;
-  private eventTypeManager: EventTypeManager;
-  private entityManager: EntityManager;
-  private componentManager: ComponentManager;
-  private systemManager: SystemManager;
-  private processManager: ProcessManager;
-  private serializationManager: SerializationManager;
-
-  constructor(options: JournalOptions = {}) {
-    // Initialize managers
-    this.eventTypeManager = new EventTypeManager(this);
-    this.eventManager = new EventManager(this, options.initialState?.events || []);
-    this.entityManager = new EntityManager(this, options.initialState?.entities);
-    this.componentManager = new ComponentManager(this, options.initialState?.components);
-    this.systemManager = new SystemManager(this, options.initialState?.systems || []);
-    this.processManager = new ProcessManager(this, options.initialState?.processes);
-    this.serializationManager = new SerializationManager(this, options.enableCompression);
-  }
-
-  // Delegate methods to the appropriate managers
-  publish(...args): JournalEvent {
-    return this.eventManager.publish(...args);
-  }
-
-  // Other delegated methods
-}
-```
-
-This pattern provides:
-- Single responsibility for each manager
-- Clear separation of concerns
-- Improved maintainability and testability
-- Enhanced extensibility
-- Better code organization
-- Easier debugging and troubleshooting
+10. **Testing with Jest**: We're using Jest for testing, with comprehensive tests for the workflow architecture components.

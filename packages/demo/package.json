@@ -2,70 +2,50 @@
   "name": "@ferment-ai/demo",
   "version": "0.0.1",
   "private": true,
+  "type": "module",
+  "main": "./dist/src/main.js",
+  "module": "./dist/src/main.js",
+  "types": "./dist/src/main.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "development": "./src/main.ts",
+      "types": "./dist/src/main.d.ts",
+      "import": "./dist/src/main.js",
+      "default": "./dist/src/main.js"
+    }
+  },
   "nx": {
-    "name": "demo",
+    "sourceRoot": "packages/demo/src",
     "targets": {
       "build": {
-        "executor": "@nx/esbuild:esbuild",
+        "executor": "@nx/js:swc",
         "outputs": [
           "{options.outputPath}"
         ],
-        "defaultConfiguration": "production",
         "options": {
-          "platform": "node",
           "outputPath": "packages/demo/dist",
-          "format": [
-            "cjs"
-          ],
-          "bundle": false,
           "main": "packages/demo/src/main.ts",
-          "tsConfig": "packages/demo/tsconfig.app.json",
-          "assets": [
-            "packages/demo/src/assets"
-          ],
-          "esbuildOptions": {
-            "sourcemap": true,
-            "outExtension": {
-              ".js": ".js"
-            }
-          }
-        },
-        "configurations": {
-          "development": {},
-          "production": {
-            "esbuildOptions": {
-              "sourcemap": false,
-              "outExtension": {
-                ".js": ".js"
-              }
-            }
-          }
+          "tsConfig": "packages/demo/tsconfig.lib.json",
+          "skipTypeCheck": true,
+          "stripLeadingPaths": false
         }
       },
       "serve": {
         "executor": "@nx/js:node",
-        "defaultConfiguration": "development",
-        "dependsOn": [
-          "build"
-        ],
         "options": {
-          "buildTarget": "ferment-ai:build",
-          "runBuildTargetDependencies": false
-        },
-        "configurations": {
-          "development": {
-            "buildTarget": "ferment-ai:build:development"
-          },
-          "production": {
-            "buildTarget": "ferment-ai:build:production"
-          }
-        }
-      },
-      "test": {
-        "options": {
-          "passWithNoTests": true
+          "buildTarget": "@ferment-ai/demo:build",
+          "watch": false
         }
       }
     }
+  },
+  "dependencies": {
+    "@swc/helpers": "~0.5.11",
+    "@ferment-ai/core-constructs-lib": "*",
+    "@ferment-ai/core-constructs-runtime": "*",
+    "@ferment-ai/runtime-common": "*",
+    "@ferment-ai/runtime-in-memory": "*",
+    "constructs": "^10.0.0"
   }
 }
