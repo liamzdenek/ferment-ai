@@ -1,1 +1,1 @@
-export * from './lib/runtime-in-memory.js';
+export * from './lib/journal.js';

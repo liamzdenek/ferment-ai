@@ -1,13 +1,12 @@
 import { AgentContext, Entrypoint, OpenAIModel, VirtualModel } from '@ferment-ai/core-constructs-lib';
-import { HttpApplication } from '@ferment-ai/runtime-http';
 import { Construct, RootConstruct } from 'constructs';
 import { createCoreConstructsModule } from '@ferment-ai/core-constructs-runtime';
+import { Journal } from '@ferment-ai/runtime-in-memory';
+import { Workflow } from '@ferment-ai/runtime-common';
 
 class TwoAgentModel extends VirtualModel {
     constructor(scope: Construct, id: string) {
         super(scope, id);
-
-        //const editor = new VsCodeEditor(this, 'Editor', {}); // should integrate with the language server so when a file is modified, it pulls the errors from that file before returning the results
 
         const juniorEngineerModel = new OpenAIModel(this, 'JuniorEngineerModel', { model: "o1-mini-2024-09-12" })
 
@@ -16,12 +15,6 @@ class TwoAgentModel extends VirtualModel {
             prompt: "You are a junior engineer, you are ruthlessly working to solve a problem but if you get stuck, you ask the senior engineer for help. You finish by informing the senior engineer of your results."
         })
 
-        /*
-        juniorEngineer.addTool(editor.saveFileTool())
-        juniorEngineer.addTool(editor.grepTool());
-        juniorEngineer.addTool(editor.runCommandTool());
-        */
-
         const seniorEngineerModel = new OpenAIModel(this, 'SeniorEngineerModel', { model: "o1-mini-2024-09-12" })
 
         const seniorEngineer = new AgentContext(this, 'SeniorEngineerAgent', {
@@ -29,45 +22,54 @@ class TwoAgentModel extends VirtualModel {
             prompt: "You are a senior engineer. You received a problem from your Senior Manager, and you are responsible for delegating reasonable units of work to the junior engineer. You help keep the junior engineer on task by answering their questions, and you finish by summarizing the results."
         })
 
+        // Create workflow tasks
+        const seniorEngineerTask = new Workflow.Task(this, 'SeniorEngineerTask');
+        const juniorEngineerTask = new Workflow.Task(this, 'JuniorEngineerTask');
+        const endTask = new Workflow.EndTask(this, 'EndTask');
 
-        juniorEngineer.addTool(seniorEngineer.sendEmailTool());
-        seniorEngineer.addTool(juniorEngineer.sendEmailTool());
+        // Set up task relationships
+        seniorEngineerTask.canCallAndReturn(juniorEngineerTask.sendEmailTool());
+        seniorEngineerTask.canCall(endTask);
 
-        new Entrypoint(this, 'Entrypoint', {
-            promptAgent: seniorEngineer
+        // Create the workflow
+        const workflow = new Workflow(this, 'TwoAgentWorkflow', {
+            definition: seniorEngineerTask
         });
-
-        //seniorEngineer.addTool(this.exitPoint!.finishWorkingTool());
     }
 }
 
-// Create the HTTP application
-const app = new HttpApplication('EcsHttpApp', {
-  journalOptions: {
-    enableCompression: false
-  }
-});
+// Create a root construct
+const rootConstruct = new RootConstruct('RootConstruct');
 
 // Create the virtual model
-new TwoAgentModel(app, 'TwoAgentModel');
-
-// Add the core constructs module
-app.addModule(createCoreConstructsModule());
-
-// Serve the application
-app.serve().then(() => {
-  console.log('ECS demo application is running on http://localhost:3000');
-  console.log('To execute the virtual model, send a POST request to /execute with:');
-  console.log(JSON.stringify({
-    entrypointId: 'Entrypoint',
-    initialState: null,
-  }, null, 2));
-}).catch((error: Error) => {
-  console.error('Error running demo:', error);
-  process.exit(1);
+new TwoAgentModel(rootConstruct, 'TwoAgentModel');
+// Create the journal
+const journal = new Journal([createCoreConstructsModule()], {
+    enableCompression: false,
+    rootConstruct
 });
 
-/*
-console.log('node', app.node);
-console.log('children', app.node.findAll());
-*/
+// Execute the workflow
+async function runWorkflow() {
+    console.log('Executing workflow...');
+    
+    try {
+        // Get the workflow name from the TwoAgentModel
+        const workflowName = 'TwoAgentModel-TwoAgentWorkflow';
+        
+        for await (const event of journal.executeWorkflow(workflowName, { message: 'Hello, world!' })) {
+            console.log('Event:', event);
+        }
+        
+        console.log('Workflow execution complete');
+        console.log('Journal state:', journal.toSavedState());
+    } catch (error) {
+        console.error('Error executing workflow:', error);
+    }
+}
+
+// Run the workflow
+runWorkflow().catch((error) => {
+    console.error('Error running workflow:', error);
+    process.exit(1);
+});

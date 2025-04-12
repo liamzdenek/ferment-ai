@@ -1,1 +1,1 @@
-export * from './lib/core-constructs-runtime.js';
+export * from './lib/module.js';
