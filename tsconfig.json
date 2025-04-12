@@ -4,43 +4,10 @@
   "files": [],
   "references": [
     {
+      "path": "./packages/ferment-ai"
+    },
+    {
       "path": "./packages/core-constructs-lib"
-    },
-    {
-      "path": "./packages/core-constructs-runtime"
-    },
-    {
-      "path": "./packages/runtime"
-    },
-    {
-      "path": "./packages/api"
-    },
-    {
-      "path": "./packages/tools"
-    },
-    {
-      "path": "./packages/models"
-    },
-    {
-      "path": "./packages/testing"
-    },
-    {
-      "path": "./packages/demo"
-    },
-    {
-      "path": "./packages/runtime-http"
-    },
-    {
-      "path": "./packages/runtime-interfaces",
-    },
-    {
-      "path": "./packages/runtime-in-memory",
-    },
-    {
-      "path": "./packages/runtime-common",
-    },
-    {
-      "path": "./packages/runtime-hooks",
     }
   ]
 }

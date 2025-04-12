@@ -10,7 +10,7 @@ const swcJestConfig = JSON.parse(
 swcJestConfig.swcrc = false;
 
 export default {
-  displayName: '@ferment/constructs',
+  displayName: '@ferment-ai/core-constructs-lib',
   preset: '../../jest.preset.js',
   testEnvironment: 'node',
   transform: {

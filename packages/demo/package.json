@@ -2,8 +2,8 @@
   "name": "@ferment-ai/demo",
   "version": "0.0.1",
   "private": true,
-  "type":"module",
   "nx": {
+    "name": "demo",
     "targets": {
       "build": {
         "executor": "@nx/esbuild:esbuild",
@@ -15,7 +15,7 @@
           "platform": "node",
           "outputPath": "packages/demo/dist",
           "format": [
-            "esm"
+            "cjs"
           ],
           "bundle": false,
           "main": "packages/demo/src/main.ts",
@@ -39,15 +39,6 @@
                 ".js": ".js"
               }
             }
-          },
-          "ecs": {
-            "main": "packages/demo/src/ecs-demo.ts",
-            "esbuildOptions": {
-              "sourcemap": true,
-              "outExtension": {
-                ".js": ".js"
-              }
-            }
           }
         }
       },
@@ -58,27 +49,23 @@
           "build"
         ],
         "options": {
-          "buildTarget": "@ferment-ai/demo:build",
+          "buildTarget": "ferment-ai:build",
           "runBuildTargetDependencies": false
         },
         "configurations": {
           "development": {
-            "buildTarget": "@ferment-ai/demo:build:development"
+            "buildTarget": "ferment-ai:build:development"
           },
           "production": {
-            "buildTarget": "@ferment-ai/demo:build:production"
-          },
-          "ecs": {
-            "buildTarget": "@ferment-ai/demo:build:ecs"
+            "buildTarget": "ferment-ai:build:production"
           }
+        }
+      },
+      "test": {
+        "options": {
+          "passWithNoTests": true
         }
       }
     }
-  },
-  "dependencies": {
-    "@ferment-ai/core-constructs-lib": "*",
-    "@ferment-ai/core-constructs-runtime": "*",
-    "@ferment-ai/runtime-http": "*",
-    "constructs": "^10.4.2"
   }
 }

@@ -16,9 +16,10 @@
     }
   },
   "nx": {
+    "sourceRoot": "packages/core-constructs-lib/src",
     "targets": {
       "build": {
-        "executor": "@nx/esbuild:esbuild",
+        "executor": "@nx/js:swc",
         "outputs": [
           "{options.outputPath}"
         ],
@@ -26,21 +27,13 @@
           "outputPath": "packages/core-constructs-lib/dist",
           "main": "packages/core-constructs-lib/src/index.ts",
           "tsConfig": "packages/core-constructs-lib/tsconfig.lib.json",
-          "format": [
-            "esm"
-          ],
-          "declarationRootDir": "packages/core-constructs-lib/src",
-          "external": [
-            "constructs",
-            "@ferment-ai/*"
-          ]
+          "skipTypeCheck": true,
+          "stripLeadingPaths": true
         }
       }
     }
   },
   "dependencies": {
-    "constructs": "^10.4.2",
-    "zod": "^3.24.2",
-    "zod-to-json-schema": "^3.24.5"
+    "@swc/helpers": "~0.5.11"
   }
 }

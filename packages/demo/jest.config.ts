@@ -10,7 +10,7 @@ const swcJestConfig = JSON.parse(
 swcJestConfig.swcrc = false;
 
 export default {
-  displayName: '@ferment/runtime',
+  displayName: 'ferment-ai',
   preset: '../../jest.preset.js',
   testEnvironment: 'node',
   transform: {
