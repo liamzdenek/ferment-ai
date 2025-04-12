@@ -95,46 +95,8 @@ function findWorkflows(construct: Construct): Record<string, WorkflowDefinition>
     }
   }
   
-  // If no workflows were found, create a default workflow from entrypoints
   if (Object.keys(workflowDefs).length === 0) {
-    // Find all entrypoints in the construct tree
-    const entrypoints = findEntrypoints(construct);
-    
-    // Create a workflow for each entrypoint
-    for (const [, entrypoint] of Object.entries(entrypoints)) {
-      const workflowName = entrypoint.node.path.replace(/\//g, '-');
-      
-      // Create a task for the entrypoint
-      const taskId = entrypoint.node.id;
-      const task: TaskDefinition = {
-        id: taskId,
-        name: entrypoint.node.id,
-        description: `Task for ${entrypoint.node.id}`,
-        inputSchema: {
-          type: 'object',
-          schema: {}
-        } as TaskSchema,
-        outputSchema: {
-          type: 'object',
-          schema: {}
-        } as TaskSchema
-      };
-      
-      // Create the workflow definition
-      const workflowDef: WorkflowDefinition = {
-        id: workflowName,
-        name: workflowName,
-        description: `Workflow for ${entrypoint.node.id}`,
-        tasks: {
-          [taskId]: task
-        },
-        entryPoints: {
-          'default': taskId
-        }
-      };
-      
-      workflowDefs[workflowName] = workflowDef;
-    }
+    throw new Error("No workflows were found; is your Construct tree complete? You must declare at least one new Workflow()")
   }
   
   return workflowDefs;

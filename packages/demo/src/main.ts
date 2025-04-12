@@ -69,6 +69,7 @@ async function runWorkflow() {
         
         console.log('Workflow execution complete');
         console.log('Journal state:', journal.toSavedState());
+        console.log('Workflows:', (journal as any).workflows.get('RootConstruct-TwoAgentModel-TwoAgentWorkflow'));
     } catch (error) {
         console.error('Error executing workflow:', error);
     }
