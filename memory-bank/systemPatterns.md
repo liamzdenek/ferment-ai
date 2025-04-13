@@ -13,7 +13,6 @@ graph TD
     FermentConstruct --> AgentContext[Agent Context]
     FermentConstruct --> Tool[Tool]
     FermentConstruct --> Model[Model]
-    FermentConstruct --> Entrypoint[Entrypoint]
     FermentConstruct --> ExitPoint[Exit Point]
     Model --> OpenAIModel[OpenAI Model]
     Model --> AnthropicModel[Anthropic Model]
@@ -37,13 +36,15 @@ The system now implements a workflow-based architecture:
 
 ```mermaid
 graph TD
-    Journal[Journal] --> Workflows[Workflows]
-    Journal --> Tasks[Tasks]
-    Journal --> TaskFunctions[Task Functions]
+    Journal[Journal] --> CompileResult[Compile Result]
+    CompileResult --> Workflows[Workflows]
+    CompileResult --> TaskFunctions[Task Functions]
+    CompileResult --> Executors[Executors]
     
     Workflows -->|Contain| Tasks
-    Tasks -->|Executed by| TaskFunctions
-    Journal -->|Executes| Workflows
+    Tasks -->|Referenced by full path| TaskFunctions
+    Executors -->|Execute| Workflows
+    Journal -->|Uses| CompileResult
 ```
 
 This pattern enables:
@@ -62,6 +63,8 @@ graph TD
     Journal[Journal] -->|Uses| Module
     Compiler[Compiler] -->|Uses| Module
     Compiler -->|Extracts| Workflow[Workflows]
+    Compiler -->|Creates| CompileResult[Compile Result]
+    Journal -->|Stores| CompileResult
     Journal -->|Executes| Workflow
 ```
 
@@ -361,7 +364,7 @@ Key components:
 - `AgentContext`: Environment for a single agent
 - `Model`: Interface for LLM providers
 - `Tool`: Interface for tools that can be used by agents
-- `Entrypoint` and `ExitPoint`: Starting and ending points for a virtual model
+- `ExitPoint`: Ending point for a virtual model
 
 ### 2. Runtime Common (`@ferment-ai/runtime-common`)
 
@@ -382,7 +385,7 @@ This package defines how to run the constructs at runtime by mapping them to tas
 
 Key components:
 - `createCoreConstructsModule`: Function that creates a module for core constructs
-- Task functions for each construct type (Model, AgentContext, Tool)
+- Task functions for each construct type (Model, OpenAIModel, AgentContext, prompt tasks)
 
 ### 4. Runtime In-Memory (`@ferment-ai/runtime-in-memory`)
 
@@ -409,6 +412,12 @@ Key components:
 6. **Task-Based Execution**: Agent calls, tool calls, etc. are represented as tasks with defined relationships, allowing for better tracking and management of operations.
 
 7. **Package Structure**: We've organized the codebase into multiple packages to maintain separation of concerns and enable modular development, with clear interfaces between the definition and runtime layers.
+
+8. **Full Path Task References**: Task functions are indexed by the full path (node.path) instead of just the ID (node.id), ensuring that task names are globally unique within a construct tree.
+
+9. **Simplified Architecture**: The Entrypoint class has been removed as it's redundant; the first task in a Definition now serves as the entrypoint.
+
+10. **Complete CompileWorkflowsResult Storage**: The journal stores the whole CompileWorkflowsResult instead of decomposing it into different fields, making the system more maintainable.
 
 8. **Tool Implementation with Zod**: We're using Zod for schema validation in our tools, which provides runtime type safety and clear error messages.
 

@@ -37,19 +37,9 @@ export class Journal implements JournalInterface {
   private readonly state: Map<string, any> = new Map();
 
   /**
-   * The workflows registered with this journal
+   * The compile result containing workflows, task functions, and executors
    */
-  private readonly workflows: Map<string, WorkflowDefinition> = new Map();
-
-  /**
-   * The task functions for the workflows
-   */
-  private readonly taskFunctions: TaskFunctionMap = {};
-
-  /**
-   * The workflow executors
-   */
-  private readonly executors: Map<string, WorkflowExecutor> = new Map();
+  private compileResult: CompileWorkflowsResult;
 
   /**
    * Creates a new Journal instance
@@ -62,29 +52,10 @@ export class Journal implements JournalInterface {
     options: JournalOptions & { rootConstruct: RootConstruct }
   ) {
     // Compile workflows from the root construct
-    const result = compileWorkflows({
+    this.compileResult = compileWorkflows({
       rootConstruct: options.rootConstruct,
       modules: this.modules
     });
-
-    // Store the compiled workflows and task functions
-    this.initializeFromCompileResult(result);
-  }
-
-  /**
-   * Initializes the journal from a compile result
-   *
-   * @param result The result of compiling workflows
-   */
-  private initializeFromCompileResult(result: CompileWorkflowsResult): void {
-    // Store the task functions
-    Object.assign(this.taskFunctions, result.taskFunctions);
-
-    // Store the workflows and executors
-    for (const [name, workflow] of Object.entries(result.workflows)) {
-      this.workflows.set(name, workflow);
-      this.executors.set(name, result.executors[name]);
-    }
   }
 
   /**
@@ -96,7 +67,7 @@ export class Journal implements JournalInterface {
    */
   async *executeWorkflow(workflowName: string, event: any): AsyncIterable<WorkflowLogEvent> {
     // Get the workflow executor
-    const executor = this.executors.get(workflowName);
+    const executor = this.compileResult.executors[workflowName];
     if (!executor) {
       throw new Error(`Workflow not found: ${workflowName}`);
     }
@@ -123,8 +94,7 @@ export class Journal implements JournalInterface {
     const state = {
       log: this.log,
       state: Object.fromEntries(this.state),
-      workflows: Object.fromEntries(this.workflows),
-      taskFunctions: this.taskFunctions
+      compileResult: this.compileResult
     };
 
     return state;
@@ -139,9 +109,6 @@ export class Journal implements JournalInterface {
     // Clear the current state
     this.log.length = 0;
     this.state.clear();
-    this.workflows.clear();
-    this.executors.clear();
-    Object.keys(this.taskFunctions).forEach(key => delete this.taskFunctions[key]);
 
     // Restore the log
     if (state.log && Array.isArray(state.log)) {
@@ -155,22 +122,9 @@ export class Journal implements JournalInterface {
       }
     }
 
-    // Restore the workflows
-    if (state.workflows && typeof state.workflows === 'object') {
-      for (const [name, workflow] of Object.entries(state.workflows)) {
-        this.workflows.set(name, workflow as WorkflowDefinition);
-      }
-    }
-
-    // Restore the task functions
-    if (state.taskFunctions && typeof state.taskFunctions === 'object') {
-      Object.assign(this.taskFunctions, state.taskFunctions);
-    }
-
-    // Recompile the workflows
-    for (const [name, workflow] of this.workflows.entries()) {
-      const executor = compileWorkflow(workflow, this.taskFunctions);
-      this.executors.set(name, executor);
+    // Restore the compile result
+    if (state.compileResult) {
+      this.compileResult = state.compileResult;
     }
   }
 }

@@ -150,34 +150,39 @@ The project is entering a **rearchitecting phase**. We have decided to adopt a w
    - Created the Task class to represent a unit of work in a workflow
    - Added methods for defining task relationships (canCall, canCallAndReturn)
    - Implemented serialization of workflows to workflow definitions
+   - Updated to use full paths for task IDs in the tasks map and entryPoints map
 
 2. **Implemented Journal Class**:
    - Created the Journal class to execute workflows and maintain state
    - Added methods for executing workflows and serializing/deserializing state
    - Implemented module-based initialization
+   - Updated to store the whole CompileWorkflowsResult instead of decomposing it
 
 3. **Implemented Module Interface**:
    - Created the Module interface for mapping constructs to task functions
    - Implemented the core-constructs-runtime module for mapping core constructs
+   - Added task functions for AgentContext, OpenAIModel, and prompt tasks
+   - Removed workflow-related task functions that are implied by object references
 
 4. **Implemented Compiler**:
    - Created the compileWorkflows function to extract workflows from the construct tree
    - Added support for finding workflow constructs and their tasks
-   - Implemented fallback to create workflows from entrypoints
+   - Updated to use full paths for task functions instead of just IDs
+   - Fixed the implementation of compileWorkflow to properly handle both calling patterns
 
-5. **Updated AgentContext Class**:
-   - Added the newPromptTask method to create workflow tasks for agents
-   - Implemented the sendEmailTool method to create communication tools
+5. **Simplified Architecture**:
+   - Removed the Entrypoint class as it's redundant
+   - The first task in a Definition now serves as the entrypoint
 
 ## Known Issues
 
-1. **Architecture Transition**: We need to carefully manage the transition from the current architecture to the new workflow-based architecture to avoid breaking existing functionality.
+1. **Performance Concerns**: The workflow-based architecture may introduce performance overhead, especially for complex workflows with many tasks.
 
-2. **Performance Concerns**: The workflow-based architecture may introduce performance overhead, especially for complex workflows with many tasks.
+2. **Learning Curve**: The workflow-based architecture introduces new concepts that may require a learning curve for developers familiar with the current architecture.
 
-3. **Compatibility**: We need to ensure that the new architecture is compatible with existing code that uses the current architecture.
+3. **Task Path Management**: Using full paths for task references requires careful management of the construct tree structure to avoid path conflicts.
 
-4. **Learning Curve**: The workflow-based architecture introduces new concepts that may require a learning curve for developers familiar with the current architecture.
+4. **Workflow Execution Complexity**: The implementation of workflow execution with both calling patterns (canCall and canCallAndReturn) adds complexity that needs to be carefully tested.
 
 ## Next Milestones
 

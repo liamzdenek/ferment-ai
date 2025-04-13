@@ -251,28 +251,33 @@ The system now implements a workflow-based architecture:
    - Central executor for workflows
    - Maintains state and provides serialization/deserialization
    - Uses modules to map constructs to task functions
+   - Stores the complete CompileWorkflowsResult
    - Compiles workflows from the construct tree
 
 2. **Workflow**
    - Represents a sequence of tasks with defined relationships
    - Contains an entry point task
+   - Uses full paths for task IDs in the tasks map and entryPoints map
    - Can be serialized to a workflow definition
    - Extracted from the construct tree during initialization
-
 3. **Task**
    - Represents a unit of work in a workflow
-   - Can call other tasks and return to the caller
-   - Can call other tasks and not return (like a directed acyclic graph)
+   - Can call other tasks and return to the caller (canCallAndReturn)
+   - Can call other tasks and not return (canCall)
+   - Referenced by full path to ensure global uniqueness
    - Executed by task functions mapped from constructs
-
+   - Executed by task functions mapped from constructs
 4. **Module**
    - Maps constructs to task functions
    - Each module is responsible for a specific type of construct
+   - Provides task functions for AgentContext, OpenAIModel, and prompt tasks
    - Allows for extensibility through additional modules
-
+   - Allows for extensibility through additional modules
 5. **Compiler**
    - Extracts workflows from the construct tree
    - Finds workflow constructs and their tasks
+   - Uses full paths for task functions instead of just IDs
+   - Properly handles both calling patterns (canCallAndReturn and canCall)
    - Creates workflows from entrypoints if no workflow constructs are found
 
 ## Deployment Considerations

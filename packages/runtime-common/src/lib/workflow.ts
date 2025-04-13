@@ -119,11 +119,11 @@ export class Workflow extends Construct {
   getDefinition(): WorkflowDefinition {
     const tasks: Record<string, TaskDefinition> = {};
     const entryPoints: Record<string, string> = {
-      'default': this.definition.node.id
+      'default': this.definition.node.path
     };
 
     // Add the entry point task
-    tasks[this.definition.node.id] = this.definition.getDefinition();
+    tasks[this.definition.node.path] = this.definition.getDefinition();
 
     // Add all tasks reachable from the entry point
     this.addReachableTasks(this.definition, tasks);
@@ -146,16 +146,16 @@ export class Workflow extends Construct {
   private addReachableTasks(task: Workflow.Task, tasks: Record<string, TaskDefinition>): void {
     // Add next tasks
     for (const nextTask of task.getNextTasks()) {
-      if (!tasks[nextTask.node.id]) {
-        tasks[nextTask.node.id] = nextTask.getDefinition();
+      if (!tasks[nextTask.node.path]) {
+        tasks[nextTask.node.path] = nextTask.getDefinition();
         this.addReachableTasks(nextTask, tasks);
       }
     }
 
     // Add tools
     for (const [, tool] of Object.entries(task.getTools())) {
-      if (!tasks[tool.node.id]) {
-        tasks[tool.node.id] = tool.getDefinition();
+      if (!tasks[tool.node.path]) {
+        tasks[tool.node.path] = tool.getDefinition();
         this.addReachableTasks(tool, tasks);
       }
     }
@@ -233,8 +233,8 @@ export namespace Workflow {
      * @returns This task
      */
     canCallAndReturn(tool: Task): this {
-      const toolId = tool.node.id;
-      this.tools[toolId] = tool;
+      const toolPath = tool.node.path;
+      this.tools[toolPath] = tool;
       return this;
     }
 
@@ -257,7 +257,7 @@ export namespace Workflow {
      */
     getDefinition(): TaskDefinition {
       return {
-        id: this.node.id,
+        id: this.node.path,
         name: this.node.id,
         description: this.options.description,
         inputSchema: this.options.inputSchema || {
@@ -340,10 +340,15 @@ export function compileWorkflow(workflowDef: WorkflowDefinition, taskFunctions: 
   // Validate the workflow definition
   WorkflowDefinitionSchema.parse(workflowDef);
 
+  console.log('Compiling workflow with tasks:', Object.keys(workflowDef.tasks));
+  console.log('Available task functions:', Object.keys(taskFunctions));
+  
   // Validate that all tasks have corresponding task functions
-  for (const taskId of Object.keys(workflowDef.tasks)) {
-    if (!taskFunctions[taskId]) {
-      throw new Error(`Task function not found for task ID: ${taskId}`);
+  for (const taskPath of Object.keys(workflowDef.tasks)) {
+    console.log(`Checking task function for task path: ${taskPath}`);
+    if (!taskFunctions[taskPath]) {
+      console.log(`Task function not found for task path: ${taskPath}`);
+      throw new Error(`Task function not found for task path: ${taskPath}`);
     }
   }
 
@@ -355,9 +360,6 @@ export function compileWorkflow(workflowDef: WorkflowDefinition, taskFunctions: 
       throw new Error(`Entry point not found: ${options.entryPoint}`);
     }
 
-    // Get the task function
-    const taskFunction = taskFunctions[entryPointTaskId];
-
     // Start the workflow
     yield {
       timestamp: Date.now(),
@@ -365,47 +367,101 @@ export function compileWorkflow(workflowDef: WorkflowDefinition, taskFunctions: 
     };
 
     try {
-      // Start the task
+      // Create a stack for task execution
+      const taskStack: { taskId: string, input: any, returnTo?: { taskId: string, context: any } }[] = [
+        { taskId: entryPointTaskId, input: options.input }
+      ];
+      
+      // Execute tasks until the stack is empty
+      while (taskStack.length > 0) {
+        const currentTask = taskStack.pop()!;
+        const { taskId, input, returnTo } = currentTask;
+        // Get the task function by path
+        const taskFunction = taskFunctions[taskId];
+        
+        // Start the task
+        yield {
+          timestamp: Date.now(),
+          type: 'task_start',
+          taskId,
+          input
+        };
+        
+        try {
+          // Execute the task
+          const output = await taskFunction(input);
+          
+          // Complete the task
+          yield {
+            timestamp: Date.now(),
+            type: 'task_complete',
+            taskId,
+            output
+          };
+          
+          // If this task was called by another task (canCallAndReturn), return to the caller
+          if (returnTo) {
+            // Push the caller back on the stack with the result from this task
+            taskStack.push({
+              taskId: returnTo.taskId,
+              input: {
+                ...returnTo.context,
+                result: output
+              }
+            });
+          }
+          // Handle canCall - check if the output specifies a next task to call
+          else if (output && output.nextTaskId) {
+            const nextTaskId = output.nextTaskId;
+            if (workflowDef.tasks[nextTaskId]) {
+              taskStack.push({
+                taskId: nextTaskId,
+                input: output.nextTaskInput || output
+              });
+            }
+          }
+          // Handle canCallAndReturn - check if the output specifies a tool to call
+          else if (output && output.toolCall) {
+            const { toolId, toolInput } = output.toolCall;
+            if (workflowDef.tasks[toolId]) {
+              // Push the tool on the stack to execute it
+              taskStack.push({
+                taskId: toolId,
+                input: toolInput,
+                returnTo: {
+                  taskId,
+                  context: output.context || {}
+                }
+              });
+            }
+          }
+        } catch (error) {
+          // Handle task error
+          yield {
+            timestamp: Date.now(),
+            type: 'task_error',
+            taskId,
+            error: error as Error
+          };
+          
+          // If this task was called by another task, return the error to the caller
+          if (returnTo) {
+            taskStack.push({
+              taskId: returnTo.taskId,
+              input: {
+                ...returnTo.context,
+                error: error
+              }
+            });
+          }
+        }
+      }
+      
+      // Complete the workflow when the stack is empty
       yield {
         timestamp: Date.now(),
-        type: 'task_start',
-        taskId: entryPointTaskId,
-        input: options.input
+        type: 'workflow_complete'
       };
-
-      try {
-        // Execute the task
-        const output = await taskFunction(options.input);
-
-        // Complete the task
-        yield {
-          timestamp: Date.now(),
-          type: 'task_complete',
-          taskId: entryPointTaskId,
-          output
-        };
-
-        // Complete the workflow
-        yield {
-          timestamp: Date.now(),
-          type: 'workflow_complete'
-        };
-      } catch (error) {
-        // Handle task error
-        yield {
-          timestamp: Date.now(),
-          type: 'task_error',
-          taskId: entryPointTaskId,
-          error: error as Error
-        };
-
-        // Handle workflow error
-        yield {
-          timestamp: Date.now(),
-          type: 'workflow_error',
-          error: error as Error
-        };
-      }
     } catch (error) {
       // Handle workflow error
       yield {

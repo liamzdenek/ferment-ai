@@ -48,15 +48,19 @@ export function compileWorkflows(options: CompileWorkflowsOptions): CompileWorkf
   
   // Map constructs to task functions
   const taskFunctions: TaskFunctionMap = {};
+  console.log('Mapping constructs to task functions...');
   for (const construct of rootConstruct.node.findAll()) {
     for (const module of modules) {
       const taskFunction = module(construct);
       if (taskFunction) {
-        taskFunctions[construct.node.id] = taskFunction;
+        console.log(`Found task function for construct: ${construct.node.id}, path: ${construct.node.path}`);
+        taskFunctions[construct.node.path] = taskFunction;
         break;
       }
     }
   }
+  
+  console.log('Task functions:', Object.keys(taskFunctions));
   
   // Find all workflows in the construct tree
   const workflows = findWorkflows(rootConstruct);
@@ -64,6 +68,8 @@ export function compileWorkflows(options: CompileWorkflowsOptions): CompileWorkf
   // Compile each workflow
   const executors: Record<string, WorkflowExecutor> = {};
   for (const [name, workflowDef] of Object.entries(workflows)) {
+    console.log(`Compiling workflow: ${name}`);
+    console.log('Workflow tasks:', Object.keys(workflowDef.tasks));
     executors[name] = compileWorkflow(workflowDef, taskFunctions);
   }
   
@@ -89,7 +95,7 @@ function findWorkflows(construct: Construct): Record<string, WorkflowDefinition>
   // Create a workflow definition for each workflow construct
   for (const [, workflowConstruct] of Object.entries(workflowConstructs)) {
     if (workflowConstruct instanceof Workflow) {
-      const workflowName = workflowConstruct.node.path.replace(/\//g, '-');
+      const workflowName = workflowConstruct.node.path;
       const workflowDef = workflowConstruct.getDefinition();
       workflowDefs[workflowName] = workflowDef;
     }
@@ -123,27 +129,4 @@ function findWorkflowConstructs(construct: Construct): Record<string, Construct>
   }
   
   return workflows;
-}
-
-/**
- * Finds all entrypoints in a construct tree
- *
- * @param construct The construct to search
- * @returns A map of entrypoint IDs to entrypoints
- */
-function findEntrypoints(construct: Construct): Record<string, Construct> {
-  const entrypoints: Record<string, Construct> = {};
-  
-  // Check if the construct is an entrypoint
-  if (construct.node.id.includes('Entrypoint')) {
-    entrypoints[construct.node.id] = construct;
-  }
-  
-  // Recursively search child constructs
-  for (const child of construct.node.children) {
-    const childEntrypoints = findEntrypoints(child);
-    Object.assign(entrypoints, childEntrypoints);
-  }
-  
-  return entrypoints;
 }

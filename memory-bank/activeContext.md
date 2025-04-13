@@ -38,9 +38,13 @@ We are implementing a workflow-based architecture for the Ferment AI system. Thi
 
 5. **Async Iterable Execution**: The Journal's executeWorkflow method will be an async iterable that yields events as they happen, allowing for real-time streaming.
 
-6. **Full State Serialization**: The Journal will serialize its state, including workflows and task functions, allowing for stateful execution.
+6. **Full State Serialization**: The Journal will serialize its state, including the complete CompileWorkflowsResult, allowing for stateful execution.
 
 7. **Construct Tree Compilation**: The system will extract workflows from the construct tree during initialization, allowing for declarative workflow definition.
+
+8. **Full Path Task References**: Task functions are now indexed by the full path (node.path) instead of just the ID (node.id), ensuring that task names are globally unique within a construct tree.
+
+9. **Simplified Architecture**: The Entrypoint class has been removed as it's redundant; the first task in a Definition now serves as the entrypoint.
 
 ## Active Considerations
 
@@ -61,24 +65,29 @@ We are implementing a workflow-based architecture for the Ferment AI system. Thi
    - Created the Task class to represent a unit of work in a workflow
    - Added methods for defining task relationships (canCall, canCallAndReturn)
    - Implemented serialization of workflows to workflow definitions
+   - Updated to use full paths for task IDs in the tasks map and entryPoints map
 
 2. **Implemented Journal Class**:
    - Created the Journal class to execute workflows and maintain state
    - Added methods for executing workflows and serializing/deserializing state
    - Implemented module-based initialization
+   - Updated to store the whole CompileWorkflowsResult instead of decomposing it
 
 3. **Implemented Module Interface**:
    - Created the Module interface for mapping constructs to task functions
    - Implemented the core-constructs-runtime module for mapping core constructs
+   - Added task functions for AgentContext, OpenAIModel, and prompt tasks
+   - Removed workflow-related task functions that are implied by object references
 
 4. **Implemented Compiler**:
    - Created the compileWorkflows function to extract workflows from the construct tree
    - Added support for finding workflow constructs and their tasks
-   - Implemented fallback to create workflows from entrypoints
+   - Updated to use full paths for task functions instead of just IDs
+   - Fixed the implementation of compileWorkflow to properly handle both calling patterns
 
-5. **Updated AgentContext Class**:
-   - Added the newPromptTask method to create workflow tasks for agents
-   - Implemented the sendEmailTool method to create communication tools
+5. **Simplified Architecture**:
+   - Removed the Entrypoint class as it's redundant
+   - The first task in a Definition now serves as the entrypoint
 
 ## Current Implementation Focus
 

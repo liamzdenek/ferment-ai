@@ -1,7 +1,8 @@
 import { Construct } from 'constructs';
 import {
   AgentContext,
-  Entrypoint
+  OpenAIModel,
+  Model
 } from '@ferment-ai/core-constructs-lib';
 import { Module, TaskFunction, Workflow } from '@ferment-ai/runtime-common';
 
@@ -27,41 +28,62 @@ function createAgentContextTaskFunction(agentContext: AgentContext): TaskFunctio
 }
 
 /**
- * Creates a task function for an Entrypoint
+ * Creates a task function for an OpenAIModel
  *
- * @param entrypoint The entrypoint
+ * @param model The OpenAI model
  * @returns A task function
  */
-function createEntrypointTaskFunction(entrypoint: Entrypoint): TaskFunction {
+function createOpenAIModelTaskFunction(model: OpenAIModel): TaskFunction {
   return async (input: any) => {
-    console.log(`Executing entrypoint: ${entrypoint.node.id}`);
-    console.log(`Prompt agent: ${entrypoint.promptAgent.node.id}`);
+    console.log(`Executing OpenAI model: ${model.node.id}`);
+    console.log(`Model ID: ${model.modelId}`);
     console.log(`Input: ${JSON.stringify(input)}`);
     
-    // In a real implementation, this would forward the input to the prompt agent
+    // In a real implementation, this would call the OpenAI API
     // For now, just return a dummy response
     return {
-      response: `Response from ${entrypoint.node.id}`,
+      response: `Response from ${model.node.id}`,
       input
     };
   };
 }
 
 /**
- * Creates a task function for a Workflow.Task
+ * Creates a task function for a Model
  *
- * @param task The task
+ * @param model The model
  * @returns A task function
  */
-function createWorkflowTaskFunction(task: Workflow.Task): TaskFunction {
+function createModelTaskFunction(model: Model): TaskFunction {
   return async (input: any) => {
-    console.log(`Executing workflow task: ${task.node.id}`);
+    console.log(`Executing model: ${model.node.id}`);
+    console.log(`Model ID: ${model.modelId}`);
     console.log(`Input: ${JSON.stringify(input)}`);
     
-    // In a real implementation, this would execute the task's functionality
+    // In a real implementation, this would call the model API
     // For now, just return a dummy response
     return {
-      response: `Response from ${task.node.id}`,
+      response: `Response from ${model.node.id}`,
+      input
+    };
+  };
+}
+
+/**
+ * Creates a task function for a prompt task
+ *
+ * @param task The prompt task
+ * @returns A task function
+ */
+function createPromptTaskFunction(task: Workflow.Task): TaskFunction {
+  return async (input: any) => {
+    console.log(`Executing prompt task: ${task.node.id}`);
+    console.log(`Input: ${JSON.stringify(input)}`);
+    
+    // In a real implementation, this would process the prompt
+    // For now, just return a dummy response
+    return {
+      response: `Response from prompt task ${task.node.id}`,
       input
     };
   };
@@ -99,9 +121,14 @@ export function createCoreConstructsModule(): Module {
       return createAgentContextTaskFunction(construct);
     }
     
-    // Check if the construct is an Entrypoint
-    if (construct instanceof Entrypoint) {
-      return createEntrypointTaskFunction(construct);
+    // Check if the construct is an OpenAIModel
+    if (construct instanceof OpenAIModel) {
+      return createOpenAIModelTaskFunction(construct);
+    }
+    
+    // Check if the construct is a Model
+    if (construct instanceof Model) {
+      return createModelTaskFunction(construct);
     }
     
     // Check if the construct is a Workflow.Task
@@ -111,7 +138,7 @@ export function createCoreConstructsModule(): Module {
         return createWorkflowEndTaskFunction(construct);
       }
       
-      return createWorkflowTaskFunction(construct);
+      return createPromptTaskFunction(construct);
     }
     
     // No task function for this construct

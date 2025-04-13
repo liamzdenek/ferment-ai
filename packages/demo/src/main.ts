@@ -1,4 +1,4 @@
-import { AgentContext, Entrypoint, OpenAIModel, VirtualModel } from '@ferment-ai/core-constructs-lib';
+import { AgentContext, OpenAIModel, VirtualModel } from '@ferment-ai/core-constructs-lib';
 import { Construct, RootConstruct } from 'constructs';
 import { createCoreConstructsModule } from '@ferment-ai/core-constructs-runtime';
 import { Journal } from '@ferment-ai/runtime-in-memory';
@@ -57,10 +57,10 @@ async function runWorkflow() {
     try {
         // Get all available workflows
         const state = journal.toSavedState();
-        console.log('Available workflows:', Object.keys(state.workflows));
+        console.log('Available workflows:', Object.keys(state.compileResult.workflows));
         
         // Get the workflow name from the TwoAgentModel
-        const workflowName = Object.keys(state.workflows)[0];
+        const workflowName = Object.keys(state.compileResult.workflows)[0];
         console.log('Using workflow:', workflowName);
         
         for await (const event of journal.executeWorkflow(workflowName, { message: 'Hello, world!' })) {
@@ -69,7 +69,7 @@ async function runWorkflow() {
         
         console.log('Workflow execution complete');
         console.log('Journal state:', journal.toSavedState());
-        console.log('Workflows:', (journal as any).workflows.get('RootConstruct-TwoAgentModel-TwoAgentWorkflow'));
+        console.log('Workflows:', state.compileResult.workflows);
     } catch (error) {
         console.error('Error executing workflow:', error);
     }
