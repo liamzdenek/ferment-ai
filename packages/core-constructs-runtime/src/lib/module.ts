@@ -79,6 +79,14 @@ function createPromptTaskFunction(task: Workflow.Task): TaskFunction {
   return async (input: any) => {
     console.log(`Executing prompt task: ${task.node.id}`);
     console.log(`Input: ${JSON.stringify(input)}`);
+    console.log(`Task:`, task);
+
+    return {
+      toolCall: {
+        toolId: "RootConstruct/TwoAgentModel/JuniorEngineerTask/JuniorEngineerTaskSendEmailTool",
+        toolInput: { "TEST": "INPUT" }
+      }
+    }
     
     // In a real implementation, this would process the prompt
     // For now, just return a dummy response

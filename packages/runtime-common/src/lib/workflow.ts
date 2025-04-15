@@ -399,19 +399,9 @@ export function compileWorkflow(workflowDef: WorkflowDefinition, taskFunctions: 
             output
           };
           
-          // If this task was called by another task (canCallAndReturn), return to the caller
-          if (returnTo) {
-            // Push the caller back on the stack with the result from this task
-            taskStack.push({
-              taskId: returnTo.taskId,
-              input: {
-                ...returnTo.context,
-                result: output
-              }
-            });
-          }
-          // Handle canCall - check if the output specifies a next task to call
-          else if (output && output.nextTaskId) {
+          // Decide which redirection, if any, should take precedence:
+          if (output && output.nextTaskId) {
+            // Permanent redirection (canCall) takes priority.
             const nextTaskId = output.nextTaskId;
             if (workflowDef.tasks[nextTaskId]) {
               taskStack.push({
@@ -419,12 +409,10 @@ export function compileWorkflow(workflowDef: WorkflowDefinition, taskFunctions: 
                 input: output.nextTaskInput || output
               });
             }
-          }
-          // Handle canCallAndReturn - check if the output specifies a tool to call
-          else if (output && output.toolCall) {
+          } else if (output && output.toolCall) {
+            // This is a canCallAndReturn type of redirection.
             const { toolId, toolInput } = output.toolCall;
             if (workflowDef.tasks[toolId]) {
-              // Push the tool on the stack to execute it
               taskStack.push({
                 taskId: toolId,
                 input: toolInput,
@@ -433,7 +421,19 @@ export function compileWorkflow(workflowDef: WorkflowDefinition, taskFunctions: 
                   context: output.context || {}
                 }
               });
+            } else {
+              throw new Error("Unknown use of tool with toolId: "+toolId);
             }
+          } else if (returnTo) {
+            // If no explicit redirection is provided but we were in a tool call,
+            // then return to the caller.
+            taskStack.push({
+              taskId: returnTo.taskId,
+              input: {
+                ...returnTo.context,
+                result: output
+              }
+            });
           }
         } catch (error) {
           // Handle task error
