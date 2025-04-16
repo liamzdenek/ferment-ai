@@ -4,7 +4,7 @@ import {
   WorkflowLogEvent,
   Module,
   WorkflowDefinition,
-  TaskFunctionMap,
+  TaskImplMap,
   WorkflowExecutor,
   compileWorkflow,
   WorkflowExecutionOptions,

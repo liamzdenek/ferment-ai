@@ -38,12 +38,99 @@ export const WorkflowDefinitionSchema = z.object({
 export type WorkflowDefinition = z.infer<typeof WorkflowDefinitionSchema>;
 
 /**
+ * Task definition interface with input and output types
+ */
+export interface TaskDef<I extends z.ZodTypeAny, O extends z.ZodTypeAny> {
+  taskDefId: string; // distinct from taskId because this is global
+  inputType: I;
+  outputType: O;
+}
+
+/**
+ * Task context provided to a task during execution
+ */
+export interface TaskCtx<I extends z.ZodTypeAny, O extends z.ZodTypeAny> {
+  taskDefId: string;
+  taskId: string;
+  input: z.infer<I>;
+  output: z.infer<O>;
+  canCall: { [taskId: string]: TaskDef<z.ZodTypeAny, z.ZodTypeAny> };
+  canCallAndReturn: { [taskId: string]: TaskDef<z.ZodTypeAny, z.ZodTypeAny> };
+}
+
+/**
+ * Task call and return request
+ */
+export interface TaskCallAndReturnRequest {
+  type: 'callAndReturn';
+  taskDefId: string;
+  taskId: string;
+  input: any;
+}
+
+/**
+ * Task call request
+ */
+export interface TaskCallRequest {
+  type: 'call';
+  taskDefId: string;
+  taskId: string;
+  input: any;
+}
+
+/**
+ * Task call result
+ */
+export interface TaskCallResult {
+  type: 'result';
+  taskDefId: string;
+  taskId: string;
+  input: any;
+  output: any;
+}
+
+/**
+ * Task message type union
+ */
+export type TaskMessage = TaskCallAndReturnRequest | TaskCallRequest | TaskCallResult;
+
+/**
+ * Task execution function types
+ */
+export type TaskExecuteGenerator<I extends z.ZodTypeAny, O extends z.ZodTypeAny> =
+  (ctx: TaskCtx<I, O>) => AsyncGenerator<TaskCallAndReturnRequest, TaskCallRequest | TaskCallResult, TaskCallResult>;
+
+export type TaskExecutePromise<I extends z.ZodTypeAny, O extends z.ZodTypeAny> =
+  (ctx: TaskCtx<I, O>) => Promise<TaskCallResult>;
+
+export type TaskExecuteFunction<I extends z.ZodTypeAny, O extends z.ZodTypeAny> =
+  TaskExecuteGenerator<I, O> | TaskExecutePromise<I, O>;
+
+/**
+ * Task implementation with definition and execution function
+ */
+export interface TaskImpl<I extends z.ZodTypeAny, O extends z.ZodTypeAny> {
+  def: TaskDef<I, O>;
+  taskId: string;
+  execute: TaskExecuteFunction<I, O>;
+}
+
+/**
  * A task function that executes a task
+ * 
+ * @deprecated Use TaskImpl instead
  */
 export type TaskFunction<TInput = any, TOutput = any> = (input: TInput) => Promise<TOutput>;
 
 /**
+ * A map of task IDs to task implementations
+ */
+export type TaskImplMap = Record<string, TaskImpl<any, any>>;
+
+/**
  * A map of task IDs to task functions
+ * 
+ * @deprecated Use TaskImplMap instead
  */
 export type TaskFunctionMap = Record<string, TaskFunction>;
 
@@ -330,25 +417,264 @@ export interface WorkflowOptions {
 }
 
 /**
+ * Interface for task execution state
+ */
+interface TaskExecutionState {
+  taskId: string;
+  input: any;
+  generator?: AsyncGenerator<any, any, any>;
+  returnTo?: {
+    taskId: string;
+    generator: AsyncGenerator<any, any, any>;
+    context: any;
+  };
+}
+
+/**
+ * Helper function to check if a function is an async generator function
+ * 
+ * @param fn The function to check
+ * @returns True if the function is an async generator function, false otherwise
+ */
+function isAsyncGeneratorFunction(fn: TaskExecuteFunction<any, any>): boolean {
+  return fn.toString().includes('function*') || fn.toString().includes('async function*');
+}
+
+/**
+ * Helper function to validate input against a Zod schema
+ * 
+ * @param schema The Zod schema to validate against
+ * @param input The input to validate
+ * @param taskId The ID of the task for error reporting
+ * @returns The validated input
+ */
+function validateWithZod<T>(schema: z.ZodType<T>, input: any, taskId: string, direction: 'input' | 'output'): T {
+  try {
+    return schema.parse(input);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      throw new Error(`Invalid ${direction} for task ${taskId}: ${error.message}`);
+    }
+    throw error;
+  }
+}
+
+/**
+ * Execute a task as a promise
+ * 
+ * @param taskState The task execution state
+ * @param taskImpl The task implementation
+ * @param taskDef The task definition
+ * @param taskCtx The task context
+ * @param taskStack The task execution stack
+ * @param workflowDef The workflow definition
+ * @returns A generator that yields workflow log events
+ */
+async function* executeTaskAsPromise(
+  taskState: TaskExecutionState,
+  taskImpl: TaskImpl<any, any>,
+  taskDef: TaskDefinition,
+  taskCtx: TaskCtx<any, any>,
+  taskStack: TaskExecutionState[],
+  workflowDef: WorkflowDefinition
+): AsyncGenerator<WorkflowLogEvent, void, unknown> {
+  const { taskId, returnTo } = taskState;
+  
+  try {
+    // Execute the task function and get the result
+    const result = await (taskImpl.execute as TaskExecutePromise<any, any>)(taskCtx);
+    
+    // Validate output using Zod
+    const outputSchema = taskDef.outputSchema.schema;
+    let validatedOutput;
+    
+    if (result && result.type === 'result') {
+      validatedOutput = validateWithZod(outputSchema, result.output, taskId, 'output');
+      
+      // Complete the task
+      yield {
+        timestamp: Date.now(),
+        type: 'task_complete',
+        taskId,
+        output: validatedOutput
+      };
+      
+      // If this task was called by another task, return the result to the caller
+      if (returnTo) {
+        const callerTask = taskStack[taskStack.length - 1];
+        callerTask.input = validatedOutput;
+      }
+    } else if (result && (result.type as string) === 'call') {
+      // Handle direct call (canCall)
+      const { taskDefId, taskId: nextTaskId, input: nextInput } = result;
+      
+      if (workflowDef.tasks[nextTaskId]) {
+        taskStack.push({
+          taskId: nextTaskId,
+          input: nextInput
+        });
+      } else {
+        throw new Error(`Unknown task ID for call: ${nextTaskId}`);
+      }
+    }
+    
+    // Remove the current task from the stack since it's completed
+    taskStack.pop();
+  } catch (error) {
+    // Handle task error
+    yield {
+      timestamp: Date.now(),
+      type: 'task_error',
+      taskId,
+      error: error as Error
+    };
+    
+    // Remove the current task from the stack
+    taskStack.pop();
+    
+    // If this task was called by another task, return the error to the caller
+    if (returnTo) {
+      const callerTask = taskStack[taskStack.length - 1];
+      callerTask.input = { error };
+    }
+  }
+}
+
+/**
+ * Result of executing a task as a generator
+ */
+type TaskGeneratorResult = {
+  events: WorkflowLogEvent[];
+  nextTask?: TaskExecutionState;
+};
+
+/**
+ * Execute a task as an async generator
+ * 
+ * @param taskState The task execution state
+ * @param taskImpl The task implementation
+ * @param taskDef The task definition
+ * @param workflowDef The workflow definition
+ * @returns The result of executing the task
+ */
+async function executeTaskAsGenerator(
+  taskState: TaskExecutionState,
+  taskImpl: TaskImpl<any, any>,
+  taskDef: TaskDefinition,
+  workflowDef: WorkflowDefinition
+): Promise<TaskGeneratorResult> {
+  const { taskId, input, generator, returnTo } = taskState;
+  const events: WorkflowLogEvent[] = [];
+  
+  try {
+    if (!generator) {
+      throw new Error('Generator is undefined');
+    }
+    
+    const { value, done } = await generator.next(input);
+    
+    if (done) {
+      // Generator has completed
+      
+      // Validate output using Zod
+      const outputSchema = taskDef.outputSchema.schema;
+      let validatedOutput;
+      
+      if (value && value.type === 'result') {
+        validatedOutput = validateWithZod(outputSchema, value.output, taskId, 'output');
+        
+        // Complete the task
+        events.push({
+          timestamp: Date.now(),
+          type: 'task_complete',
+          taskId,
+          output: validatedOutput
+        });
+        
+        // No next task, just return the events
+        return { events };
+      } else if (value && (value.type as string) === 'call') {
+        // Handle direct call (canCall)
+        const { taskDefId, taskId: nextTaskId, input: nextInput } = value;
+        
+        if (workflowDef.tasks[nextTaskId]) {
+          // Return the next task to execute
+          return {
+            events,
+            nextTask: {
+              taskId: nextTaskId,
+              input: nextInput
+            }
+          };
+        } else {
+          throw new Error(`Unknown task ID for call: ${nextTaskId}`);
+        }
+      }
+      
+      // Default case, just return the events
+      return { events };
+    } else {
+      // Generator has yielded a value
+      if (value && value.type === 'callAndReturn') {
+        // Handle call and return (canCallAndReturn)
+        const { taskDefId, taskId: toolId, input: toolInput } = value;
+        
+        if (workflowDef.tasks[toolId]) {
+          // Return the tool task to execute
+          return {
+            events,
+            nextTask: {
+              taskId: toolId,
+              input: toolInput,
+              returnTo: {
+                taskId,
+                generator,
+                context: {}
+              }
+            }
+          };
+        } else {
+          throw new Error(`Unknown tool ID for callAndReturn: ${toolId}`);
+        }
+      }
+      
+      // Default case, just return the events
+      return { events };
+    }
+  } catch (error) {
+    // Handle task error
+    events.push({
+      timestamp: Date.now(),
+      type: 'task_error',
+      taskId,
+      error: error as Error
+    });
+    
+    // Return the events
+    return { events };
+  }
+}
+
+/**
  * Compiles a workflow definition into an executor function
  *
  * @param workflowDef The workflow definition to compile
- * @param taskFunctions A map of task IDs to task functions
+ * @param taskImpls A map of task IDs to task implementations
  * @returns A workflow executor function
  */
-export function compileWorkflow(workflowDef: WorkflowDefinition, taskFunctions: TaskFunctionMap): WorkflowExecutor {
+export function compileWorkflow(workflowDef: WorkflowDefinition, taskImpls: TaskImplMap): WorkflowExecutor {
   // Validate the workflow definition
   WorkflowDefinitionSchema.parse(workflowDef);
 
   console.log('Compiling workflow with tasks:', Object.keys(workflowDef.tasks));
-  console.log('Available task functions:', Object.keys(taskFunctions));
+  console.log('Available task implementations:', Object.keys(taskImpls));
   
-  // Validate that all tasks have corresponding task functions
+  // Validate that all tasks have corresponding task implementations
   for (const taskPath of Object.keys(workflowDef.tasks)) {
-    console.log(`Checking task function for task path: ${taskPath}`);
-    if (!taskFunctions[taskPath]) {
-      console.log(`Task function not found for task path: ${taskPath}`);
-      throw new Error(`Task function not found for task path: ${taskPath}`);
+    console.log(`Checking task implementation for task path: ${taskPath}`);
+    if (!taskImpls[taskPath]) {
+      console.log(`Task implementation not found for task path: ${taskPath}`);
+      throw new Error(`Task implementation not found for task path: ${taskPath}`);
     }
   }
 
@@ -368,91 +694,114 @@ export function compileWorkflow(workflowDef: WorkflowDefinition, taskFunctions: 
 
     try {
       // Create a stack for task execution
-      const taskStack: { taskId: string, input: any, returnTo?: { taskId: string, context: any } }[] = [
+      const taskStack: TaskExecutionState[] = [
         { taskId: entryPointTaskId, input: options.input }
       ];
       
       // Execute tasks until the stack is empty
       while (taskStack.length > 0) {
-        const currentTask = taskStack.pop()!;
-        const { taskId, input, returnTo } = currentTask;
-        // Get the task function by path
-        const taskFunction = taskFunctions[taskId];
+        const currentTask = taskStack[taskStack.length - 1];
+        const { taskId, generator } = currentTask;
         
-        // Start the task
-        yield {
-          timestamp: Date.now(),
-          type: 'task_start',
-          taskId,
-          input
-        };
+        // Get the task implementation
+        const taskImpl = taskImpls[taskId];
+        const taskDef = workflowDef.tasks[taskId];
         
-        try {
-          // Execute the task
-          const output = await taskFunction(input);
+        if (!generator) {
+          // This is a new task execution, start it
           
-          // Complete the task
+          // Validate input using Zod
+          const inputSchema = taskDef.inputSchema.schema;
+          const validatedInput = validateWithZod(inputSchema, currentTask.input, taskId, 'input');
+          
+          // Start the task
           yield {
             timestamp: Date.now(),
-            type: 'task_complete',
+            type: 'task_start',
             taskId,
-            output
+            input: validatedInput
           };
           
-          // Decide which redirection, if any, should take precedence:
-          if (output && output.nextTaskId) {
-            // Permanent redirection (canCall) takes priority.
-            const nextTaskId = output.nextTaskId;
-            if (workflowDef.tasks[nextTaskId]) {
-              taskStack.push({
-                taskId: nextTaskId,
-                input: output.nextTaskInput || output
-              });
-            }
-          } else if (output && output.toolCall) {
-            // This is a canCallAndReturn type of redirection.
-            const { toolId, toolInput } = output.toolCall;
-            if (workflowDef.tasks[toolId]) {
-              taskStack.push({
-                taskId: toolId,
-                input: toolInput,
-                returnTo: {
-                  taskId,
-                  context: output.context || {}
-                }
-              });
-            } else {
-              throw new Error("Unknown use of tool with toolId: "+toolId);
-            }
-          } else if (returnTo) {
-            // If no explicit redirection is provided but we were in a tool call,
-            // then return to the caller.
-            taskStack.push({
-              taskId: returnTo.taskId,
-              input: {
-                ...returnTo.context,
-                result: output
-              }
-            });
+          // Create task context
+          const taskCtx: TaskCtx<any, any> = {
+            taskDefId: taskImpl.def.taskDefId,
+            taskId,
+            input: validatedInput,
+            output: undefined,
+            canCall: {},
+            canCallAndReturn: {}
+          };
+          
+          // Populate canCall and canCallAndReturn maps
+          for (const nextTaskId of Object.keys(workflowDef.tasks)) {
+            const nextTaskDef = taskImpls[nextTaskId].def;
+            
+            // Check if this task can call the next task
+            const task = workflowDef.tasks[taskId];
+            const nextTask = workflowDef.tasks[nextTaskId];
+            
+            // Logic to determine if a task can call another task
+            // This would need to be based on the task relationships defined in the workflow
+            // For now, we'll assume all tasks can call all other tasks
+            taskCtx.canCall[nextTaskId] = nextTaskDef;
+            taskCtx.canCallAndReturn[nextTaskId] = nextTaskDef;
           }
-        } catch (error) {
-          // Handle task error
-          yield {
-            timestamp: Date.now(),
-            type: 'task_error',
-            taskId,
-            error: error as Error
-          };
           
-          // If this task was called by another task, return the error to the caller
-          if (returnTo) {
-            taskStack.push({
-              taskId: returnTo.taskId,
-              input: {
-                ...returnTo.context,
-                error: error
-              }
-            });
+          // Check if the execute function is an async generator function
+          const executeFunction = taskImpl.execute;
+          
+          if (isAsyncGeneratorFunction(executeFunction)) {
+            // Execute the task as an async generator
+            currentTask.generator = executeFunction(taskCtx) as AsyncGenerator<any, any, any>;
+            
+            // Process the generator in the next iteration
+            continue;
+          } else {
+            // Execute the task as a promise
+            for await (const event of executeTaskAsPromise(
+              currentTask,
+              taskImpl,
+              taskDef,
+              taskCtx,
+              taskStack,
+              workflowDef
+            )) {
+              yield event;
+            }
+            
+            // Continue to the next task
+            continue;
+          }
+        } else {
+          // Continue execution of an existing generator
+          const result = await executeTaskAsGenerator(
+            currentTask,
+            taskImpl,
+            taskDef,
+            workflowDef
+          );
+          
+          // Yield any events from the generator
+          for (const event of result.events) {
+            yield event;
+          }
+          
+          // If the generator returned a next task
+          if (result.nextTask) {
+            // Remove the current task from the stack
+            taskStack.pop();
+            
+            // Add the next task to the stack
+            taskStack.push(result.nextTask);
+          } else {
+            // Remove the current task from the stack
+            taskStack.pop();
+            
+            // If this task was called by another task, return to the caller
+            if (currentTask.returnTo) {
+              const callerTask = taskStack[taskStack.length - 1];
+              callerTask.input = undefined; // No specific result to return
+            }
           }
         }
       }

@@ -1,11 +1,11 @@
 import { Construct } from 'constructs';
-import { TaskFunction } from './workflow.js';
+import { TaskImpl } from './workflow.js';
 
 /**
- * A module is a function that takes a construct and returns a task function
+ * A module is a function that takes a construct and returns a task implementation
  * for that construct, or undefined if the module doesn't handle the construct.
  *
- * @param construct The construct to get a task function for
- * @returns A task function or undefined if the module doesn't handle the construct
+ * @param construct The construct to get a task implementation for
+ * @returns A task implementation or undefined if the module doesn't handle the construct
  */
-export type Module = (construct: Construct) => TaskFunction | undefined;
+export type Module = (construct: Construct) => TaskImpl<any, any> | undefined;

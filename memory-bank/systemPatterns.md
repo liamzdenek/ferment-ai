@@ -32,19 +32,26 @@ This pattern enables:
 
 ### 2. Workflow-Based Architecture
 
-The system now implements a workflow-based architecture:
+The system implements a workflow-based architecture with async generator task functions:
 
 ```mermaid
 graph TD
     Journal[Journal] --> CompileResult[Compile Result]
     CompileResult --> Workflows[Workflows]
-    CompileResult --> TaskFunctions[Task Functions]
+    CompileResult --> TaskImpls[Task Implementations]
     CompileResult --> Executors[Executors]
     
     Workflows -->|Contain| Tasks
-    Tasks -->|Referenced by full path| TaskFunctions
+    Tasks -->|Referenced by full path| TaskImpls
     Executors -->|Execute| Workflows
     Journal -->|Uses| CompileResult
+    
+    TaskImpls -->|Include| TaskDefs[Task Definitions]
+    TaskImpls -->|Include| ExecuteFunctions[Execute Functions]
+    ExecuteFunctions -->|Can be| AsyncGenerators[Async Generators]
+    ExecuteFunctions -->|Can be| Promises[Promises]
+    AsyncGenerators -->|Can yield| TaskCallRequests[Task Call Requests]
+    AsyncGenerators -->|Can resume with| TaskCallResults[Task Call Results]
 ```
 
 This pattern enables:
@@ -52,6 +59,8 @@ This pattern enables:
 - Modular and composable workflows
 - Stateful execution with serialization/deserialization
 - Audit trail of all operations
+- Task suspension and resumption
+- Type validation between task calls
 
 ### 3. Module-Based Extensibility
 
@@ -59,19 +68,24 @@ Components communicate through a module-based pattern:
 
 ```mermaid
 graph TD
-    Module[Module] -->|Maps constructs to| TaskFunction[Task Functions]
+    Module[Module] -->|Maps constructs to| TaskImpl[Task Implementations]
     Journal[Journal] -->|Uses| Module
     Compiler[Compiler] -->|Uses| Module
     Compiler -->|Extracts| Workflow[Workflows]
     Compiler -->|Creates| CompileResult[Compile Result]
     Journal -->|Stores| CompileResult
     Journal -->|Executes| Workflow
+    
+    CoreConstructsLib[Core Constructs Lib] -->|Defines| TaskDefs[Task Definitions]
+    CoreConstructsRuntime[Core Constructs Runtime] -->|Implements| TaskImpls[Task Implementations]
+    TaskImpls -->|Reference| TaskDefs
 ```
 
 This pattern enables:
 - Loose coupling between components
 - Extensibility through additional modules
 - Clear separation of concerns
+- Separation of task definitions and implementations
 
 ## Implementation Patterns
 
@@ -271,11 +285,11 @@ export class Workflow extends Construct {
   getDefinition(): WorkflowDefinition {
     const tasks: Record<string, TaskDefinition> = {};
     const entryPoints: Record<string, string> = {
-      'default': this.definition.node.id
+      'default': this.definition.node.path
     };
 
     // Add the entry point task
-    tasks[this.definition.node.id] = this.definition.getDefinition();
+    tasks[this.definition.node.path] = this.definition.getDefinition();
 
     // Add all tasks reachable from the entry point
     this.addReachableTasks(this.definition, tasks);
@@ -315,8 +329,8 @@ export class Task extends Construct {
   }
 
   canCallAndReturn(tool: Task): this {
-    const toolId = tool.node.id;
-    this.tools[toolId] = tool;
+    const toolPath = tool.node.path;
+    this.tools[toolPath] = tool;
     return this;
   }
 
@@ -329,7 +343,7 @@ export class Task extends Construct {
 
   getDefinition(): TaskDefinition {
     return {
-      id: this.node.id,
+      id: this.node.path,
       name: this.node.id,
       description: this.options.description,
       inputSchema: this.options.inputSchema || {
@@ -350,13 +364,57 @@ This pattern provides:
 - Definition of task relationships
 - Creation of tools for communication
 
+### 8. Task Implementation Pattern
+
+The new `TaskImpl` interface represents a task implementation:
+
+```typescript
+export interface TaskImpl<I extends z.ZodTypeAny, O extends z.ZodTypeAny> {
+  def: TaskDef<I, O>;
+  taskId: string;
+  execute: TaskExecuteFunction<I, O>;
+}
+
+export type TaskExecuteGenerator<I extends z.ZodTypeAny, O extends z.ZodTypeAny> =
+  (ctx: TaskCtx<I, O>) => AsyncGenerator<TaskCallAndReturnRequest, TaskCallRequest | TaskCallResult, TaskCallResult>;
+
+export type TaskExecutePromise<I extends z.ZodTypeAny, O extends z.ZodTypeAny> =
+  (ctx: TaskCtx<I, O>) => Promise<TaskCallResult>;
+
+export type TaskExecuteFunction<I extends z.ZodTypeAny, O extends z.ZodTypeAny> =
+  TaskExecuteGenerator<I, O> | TaskExecutePromise<I, O>;
+```
+
+This pattern provides:
+- A clear interface for task implementations
+- Support for both async generator and promise-based execution
+- Type safety with Zod validation
+- Separation of task definition and implementation
+
+### 9. Task Definition Pattern
+
+The new `TaskDef` interface represents a task definition:
+
+```typescript
+export interface TaskDef<I extends z.ZodTypeAny, O extends z.ZodTypeAny> {
+  taskDefId: string; // distinct from taskId because this is global
+  inputType: I;
+  outputType: O;
+}
+```
+
+This pattern provides:
+- A clear interface for task definitions
+- Type safety with Zod validation
+- Separation from task implementation
+
 ## Package Structure and Responsibilities
 
 The Ferment AI system is organized into several packages, each with a specific responsibility:
 
 ### 1. Core Constructs Library (`@ferment-ai/core-constructs-lib`)
 
-This package defines the constructs using the AWS CDK Constructs library. It defines the relationship between agents and what they have access to, but does NOT define how to actually run the agent.
+This package defines the constructs using the AWS CDK Constructs library and task definitions. It defines the relationship between agents and what they have access to, but does NOT define how to actually run the agent.
 
 Key components:
 - `FermentConstruct`: Base class for all Ferment constructs
@@ -365,27 +423,30 @@ Key components:
 - `Model`: Interface for LLM providers
 - `Tool`: Interface for tools that can be used by agents
 - `ExitPoint`: Ending point for a virtual model
+- `TaskDef`: Interface for task definitions
 
 ### 2. Runtime Common (`@ferment-ai/runtime-common`)
 
 This package defines interfaces and utilities that both core-constructs-runtime and runtime will implement. It serves as a contract between the definition and runtime layers.
 
 Key components:
-- `Module`: Interface for modules that map constructs to task functions
+- `Module`: Interface for modules that map constructs to task implementations
 - `Workflow`: Interface for workflows
 - `Task`: Interface for tasks
 - `Journal`: Interface for the journal system
 - `WorkflowDefinition`: Interface for workflow definitions
 - `TaskDefinition`: Interface for task definitions
+- `TaskImpl`: Interface for task implementations
+- `TaskExecuteFunction`: Type for task execution functions
 - `compileWorkflow`: Function to compile a workflow into an executor
 
 ### 3. Core Constructs Runtime (`@ferment-ai/core-constructs-runtime`)
 
-This package defines how to run the constructs at runtime by mapping them to task functions. It has a 1-to-1 relationship with core-constructs-lib.
+This package defines how to run the constructs at runtime by mapping them to task implementations. It has a 1-to-1 relationship with core-constructs-lib.
 
 Key components:
 - `createCoreConstructsModule`: Function that creates a module for core constructs
-- Task functions for each construct type (Model, OpenAIModel, AgentContext, prompt tasks)
+- Task implementations for each construct type (Model, OpenAIModel, AgentContext, prompt tasks)
 
 ### 4. Runtime In-Memory (`@ferment-ai/runtime-in-memory`)
 
@@ -399,28 +460,36 @@ Key components:
 
 ## Key Technical Decisions
 
-1. **Workflow-Based Architecture**: We've implemented a workflow-based architecture where workflows are composed of tasks with defined relationships.
+1. **Async Generator TaskFunction**: We've refactored TaskFunction to be an async generator/AsyncIterable function, enabling suspension and resumption of tasks.
 
-2. **Using AWS CDK Constructs**: We're using the actual "constructs" npm package from AWS CDK as the foundation for our configuration system.
+2. **Task Definitions in core-constructs-lib**: Task definitions are now located in the core-constructs-lib package, while task implementations remain in core-constructs-runtime.
 
-3. **Journal as Central Executor**: The journal is the central executor for workflows, maintaining state and providing serialization/deserialization.
+3. **Zod Type Validation**: We've implemented Zod validation for inputs and outputs between task calls, ensuring type safety at runtime.
 
-4. **Module-Based Mapping**: We've implemented a module system that maps constructs to task functions, allowing for modular and extensible system configuration.
+4. **Support for Both Promise and Generator Patterns**: The system now supports both promise-based task functions (for simple tasks) and generator-based task functions (for complex tasks that need to call other tasks).
 
-5. **Stateless API Design**: The system has no persistence and relies on a stateless API, where each request creates a new journal instance that runs until completion and returns the results.
+5. **TaskImpl Interface**: We've created a new TaskImpl interface that includes the task definition, task ID, and execute function.
 
-6. **Task-Based Execution**: Agent calls, tool calls, etc. are represented as tasks with defined relationships, allowing for better tracking and management of operations.
+6. **Serializable Task Messages**: All task messages (TaskCallRequest, TaskCallResult, TaskCallAndReturnRequest) are designed to be serializable as JSON.
 
-7. **Package Structure**: We've organized the codebase into multiple packages to maintain separation of concerns and enable modular development, with clear interfaces between the definition and runtime layers.
+7. **Workflow-Based Architecture**: We've implemented a workflow-based architecture where workflows are composed of tasks with defined relationships.
 
-8. **Full Path Task References**: Task functions are indexed by the full path (node.path) instead of just the ID (node.id), ensuring that task names are globally unique within a construct tree.
+8. **Using AWS CDK Constructs**: We're using the actual "constructs" npm package from AWS CDK as the foundation for our configuration system.
 
-9. **Simplified Architecture**: The Entrypoint class has been removed as it's redundant; the first task in a Definition now serves as the entrypoint.
+9. **Journal as Central Executor**: The journal is the central executor for workflows, maintaining state and providing serialization/deserialization.
 
-10. **Complete CompileWorkflowsResult Storage**: The journal stores the whole CompileWorkflowsResult instead of decomposing it into different fields, making the system more maintainable.
+10. **Module-Based Mapping**: We've implemented a module system that maps constructs to task implementations, allowing for modular and extensible system configuration.
 
-8. **Tool Implementation with Zod**: We're using Zod for schema validation in our tools, which provides runtime type safety and clear error messages.
+11. **Stateless API Design**: The system has no persistence and relies on a stateless API, where each request creates a new journal instance that runs until completion and returns the results.
 
-9. **TypeScript Configuration**: We've configured TypeScript to use the appropriate module resolution strategy and other compiler options.
+12. **Task-Based Execution**: Agent calls, tool calls, etc. are represented as tasks with defined relationships, allowing for better tracking and management of operations.
 
-10. **Testing with Jest**: We're using Jest for testing, with comprehensive tests for the workflow architecture components.
+13. **Package Structure**: We've organized the codebase into multiple packages to maintain separation of concerns and enable modular development, with clear interfaces between the definition and runtime layers.
+
+14. **Full Path Task References**: Task functions are indexed by the full path (node.path) instead of just the ID (node.id), ensuring that task names are globally unique within a construct tree.
+
+15. **Tool Implementation with Zod**: We're using Zod for schema validation in our tools, which provides runtime type safety and clear error messages.
+
+16. **TypeScript Configuration**: We've configured TypeScript to use the appropriate module resolution strategy and other compiler options.
+
+17. **Testing with Jest**: We're using Jest for testing, with comprehensive tests for the workflow architecture components.

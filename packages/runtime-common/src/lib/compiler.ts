@@ -1,5 +1,14 @@
 import { Construct, RootConstruct } from 'constructs';
-import { WorkflowDefinition, TaskFunctionMap, WorkflowExecutor, compileWorkflow, TaskDefinition, TaskSchema, Workflow } from './workflow.js';
+import { 
+  WorkflowDefinition, 
+  TaskImplMap, 
+  WorkflowExecutor, 
+  compileWorkflow, 
+  TaskDefinition, 
+  TaskSchema, 
+  Workflow,
+  TaskImpl
+} from './workflow.js';
 import { Module } from './module.js';
 
 /**
@@ -12,7 +21,7 @@ export interface CompileWorkflowsOptions {
   rootConstruct: RootConstruct;
 
   /**
-   * An ordered list of modules to use for mapping constructs to task functions
+   * An ordered list of modules to use for mapping constructs to task implementations
    */
   modules: Module[];
 }
@@ -27,9 +36,9 @@ export interface CompileWorkflowsResult {
   executors: Record<string, WorkflowExecutor>;
 
   /**
-   * A map of task IDs to task functions
+   * A map of task IDs to task implementations
    */
-  taskFunctions: TaskFunctionMap;
+  taskImpls: TaskImplMap;
 
   /**
    * A map of workflow names to workflow definitions
@@ -46,21 +55,21 @@ export interface CompileWorkflowsResult {
 export function compileWorkflows(options: CompileWorkflowsOptions): CompileWorkflowsResult {
   const { rootConstruct, modules } = options;
   
-  // Map constructs to task functions
-  const taskFunctions: TaskFunctionMap = {};
-  console.log('Mapping constructs to task functions...');
+  // Map constructs to task implementations
+  const taskImpls: TaskImplMap = {};
+  console.log('Mapping constructs to task implementations...');
   for (const construct of rootConstruct.node.findAll()) {
     for (const module of modules) {
-      const taskFunction = module(construct);
-      if (taskFunction) {
-        console.log(`Found task function for construct: ${construct.node.id}, path: ${construct.node.path}`);
-        taskFunctions[construct.node.path] = taskFunction;
+      const taskImpl = module(construct);
+      if (taskImpl) {
+        console.log(`Found task implementation for construct: ${construct.node.id}, path: ${construct.node.path}`);
+        taskImpls[construct.node.path] = taskImpl;
         break;
       }
     }
   }
   
-  console.log('Task functions:', Object.keys(taskFunctions));
+  console.log('Task implementations:', Object.keys(taskImpls));
   
   // Find all workflows in the construct tree
   const workflows = findWorkflows(rootConstruct);
@@ -70,12 +79,12 @@ export function compileWorkflows(options: CompileWorkflowsOptions): CompileWorkf
   for (const [name, workflowDef] of Object.entries(workflows)) {
     console.log(`Compiling workflow: ${name}`);
     console.log('Workflow tasks:', Object.keys(workflowDef.tasks));
-    executors[name] = compileWorkflow(workflowDef, taskFunctions);
+    executors[name] = compileWorkflow(workflowDef, taskImpls);
   }
   
   return {
     executors,
-    taskFunctions,
+    taskImpls,
     workflows
   };
 }

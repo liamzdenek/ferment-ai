@@ -2,12 +2,12 @@
 
 ## Current Status
 
-The project is entering a **rearchitecting phase**. We have decided to adopt a workflow-based architecture for the Journal, Modules, and Runtime library. This architecture allows for defining workflows as sequences of tasks with clear relationships, enabling modular and composable agent systems. We have created detailed implementation of the new architecture and are continuing to refine it.
+The project has undergone a **major refactoring** of the TaskFunction to be an async generator/AsyncIterable function. This enables suspension and resumption of tasks, allowing for more complex workflows with better type safety. We have also moved task definitions to the core-constructs-lib package while keeping task implementations in core-constructs-runtime. The system now supports both promise-based and generator-based task functions, with proper Zod validation for inputs and outputs.
 
 ## What Works
 
 1. **Project Structure**: We have set up an Nx monorepo with the following packages:
-   - `@ferment-ai/core-constructs-lib`: Core construct library
+   - `@ferment-ai/core-constructs-lib`: Core construct library and task definitions
    - `@ferment-ai/runtime-common`: Common interfaces and utilities for runtime packages
    - `@ferment-ai/runtime-in-memory`: In-memory implementation of the Journal
    - `@ferment-ai/core-constructs-runtime`: Runtime implementation for constructs
@@ -20,7 +20,7 @@ The project is entering a **rearchitecting phase**. We have decided to adopt a w
    - `AgentContext`: Environment for a single agent
    - `Model` (with `OpenAIModel` and `AnthropicModel`): LLM provider interfaces
    - `Tool` (with `FileTool` and `CommandTool`): Tool interfaces
-   - `Entrypoint` and `ExitPoint`: Starting and ending points for a virtual model
+   - `ExitPoint`: Ending point for a virtual model
    - `SendEmailTool`: Tool for sending messages between agents
    - `ExitPointTool`: Tool for finishing virtual model execution
 
@@ -35,7 +35,7 @@ The project is entering a **rearchitecting phase**. We have decided to adopt a w
    - **Journal**: The central executor that runs workflows and maintains state
    - **Workflow**: A sequence of tasks with defined relationships
    - **Task**: A unit of work in a workflow
-   - **Module**: A function that maps constructs to task functions
+   - **Module**: A function that maps constructs to task implementations
    - **Compiler**: A function that extracts workflows from the construct tree
 
 6. **Workflow and Task Implementation**: We have implemented the core classes for the workflow architecture:
@@ -51,16 +51,27 @@ The project is entering a **rearchitecting phase**. We have decided to adopt a w
    - **fromSavedState**: A method that deserializes the journal state
    - **addModule**: A method that adds a module to the journal
 
-8. **Module System**: We have implemented a module system that maps constructs to task functions:
-   - **Module**: An interface for modules that map constructs to task functions
+8. **Module System**: We have implemented a module system that maps constructs to task implementations:
+   - **Module**: An interface for modules that map constructs to task implementations
    - **createCoreConstructsModule**: A function that creates a module for core constructs
-   - **TaskFunction**: A type for functions that execute tasks
+   - **TaskImpl**: An interface for task implementations with execute function
 
 9. **Compiler Implementation**: We have implemented a compiler that extracts workflows from the construct tree:
    - **compileWorkflows**: A function that extracts workflows from the construct tree
    - **findWorkflows**: A function that finds workflow constructs in the construct tree
    - **findWorkflowConstructs**: A function that finds workflow constructs in the construct tree
-   - **findEntrypoints**: A function that finds entrypoint constructs in the construct tree
+
+10. **Task Implementation Pattern**: We have implemented a new pattern for task implementations:
+    - **TaskImpl**: An interface for task implementations
+    - **TaskExecuteFunction**: A type for task execution functions
+    - **TaskExecuteGenerator**: A type for generator-based task functions
+    - **TaskExecutePromise**: A type for promise-based task functions
+    - **TaskDef**: An interface for task definitions
+
+11. **Task Message Types**: We have implemented message types for task communication:
+    - **TaskCallRequest**: A request to call another task
+    - **TaskCallResult**: A result from a task call
+    - **TaskCallAndReturnRequest**: A request to call another task and return to the caller
 
 ## What's Left to Build
 
@@ -82,7 +93,7 @@ The project is entering a **rearchitecting phase**. We have decided to adopt a w
 
 - [x] **Module System**
   - [x] Create Module interface
-  - [x] Implement mapping of constructs to task functions
+  - [x] Implement mapping of constructs to task implementations
   - [x] Create CoreConstructsModule
 
 - [x] **Compiler Implementation**
@@ -90,29 +101,53 @@ The project is entering a **rearchitecting phase**. We have decided to adopt a w
   - [x] Implement workflow extraction from construct tree
   - [x] Implement fallback to create workflows from entrypoints
 
-### Phase 2: Integration with Core Constructs (In Progress)
+### Phase 2: Task Function Refactoring (Completed)
+
+- [x] **Async Generator TaskFunction**
+  - [x] Refactor TaskFunction to be an async generator/AsyncIterable function
+  - [x] Add support for yielding control to other tasks and resuming execution
+  - [x] Implement proper type validation between calls using Zod
+
+- [x] **Task Definition and Implementation Separation**
+  - [x] Move task definitions to core-constructs-lib
+  - [x] Keep task implementations in core-constructs-runtime
+  - [x] Update imports and exports accordingly
+
+- [x] **Enhanced Task Implementation**
+  - [x] Create TaskImpl interface with def, taskId, and execute properties
+  - [x] Implement both promise-based and generator-based task functions
+  - [x] Add support for task suspension and resumption
+
+- [x] **Supporting Files Update**
+  - [x] Modify compiler.ts to use TaskImplMap instead of TaskFunctionMap
+  - [x] Update journal.ts to use the new interfaces
+  - [x] Ensure all files are compatible with the new architecture
+
+### Phase 3: Integration with Core Constructs (In Progress)
 
 - [x] **AgentContext Integration**
   - [x] Add newPromptTask method to AgentContext
   - [x] Implement sendEmailTool method
   - [ ] Add support for other agent operations
 
-- [ ] **Task Function Implementation**
-  - [x] Create task functions for agent contexts
-  - [x] Create task functions for models
-  - [ ] Create task functions for tools
-  - [ ] Create task functions for entrypoints and exit points
+- [x] **Task Implementation Enhancement**
+  - [x] Create task implementations for agent contexts
+  - [x] Create task implementations for models
+  - [x] Create task implementations for prompt tasks
+  - [ ] Create task implementations for tools
+  - [ ] Create task implementations for entrypoints and exit points
 
-- [ ] **Workflow Execution**
+- [ ] **Workflow Execution Enhancement**
   - [x] Implement basic workflow execution
+  - [x] Add support for task suspension and resumption
   - [ ] Add support for complex task relationships
   - [ ] Implement error handling and recovery
   - [ ] Add support for streaming responses
 
-### Phase 3: Advanced Features (Planned)
+### Phase 4: Advanced Features (Planned)
 
 - [ ] **Real Agent Execution**
-  - [ ] Connect task functions to actual LLM API calls
+  - [ ] Connect task implementations to actual LLM API calls
   - [ ] Implement proper handling of agent responses
   - [ ] Add support for streaming responses from agents
 
@@ -126,7 +161,7 @@ The project is entering a **rearchitecting phase**. We have decided to adopt a w
   - [ ] Implement task composition for complex workflows
   - [ ] Develop a library of reusable tasks
 
-### Phase 4: Performance and Reliability (Planned)
+### Phase 5: Performance and Reliability (Planned)
 
 - [ ] **Performance Optimization**
   - [ ] Optimize workflow execution
@@ -145,34 +180,30 @@ The project is entering a **rearchitecting phase**. We have decided to adopt a w
 
 ## Recent Improvements
 
-1. **Implemented Workflow and Task Classes**:
-   - Created the Workflow class to represent a sequence of tasks
-   - Created the Task class to represent a unit of work in a workflow
-   - Added methods for defining task relationships (canCall, canCallAndReturn)
-   - Implemented serialization of workflows to workflow definitions
-   - Updated to use full paths for task IDs in the tasks map and entryPoints map
+1. **Refactored TaskFunction to Async Generator**:
+   - Updated TaskFunction to be an async generator/AsyncIterable function
+   - Added support for yielding control to other tasks and resuming execution
+   - Implemented proper type validation between calls using Zod
 
-2. **Implemented Journal Class**:
-   - Created the Journal class to execute workflows and maintain state
-   - Added methods for executing workflows and serializing/deserializing state
-   - Implemented module-based initialization
-   - Updated to store the whole CompileWorkflowsResult instead of decomposing it
+2. **Moved Task Definitions to core-constructs-lib**:
+   - Created a new task-defs.ts file in core-constructs-lib
+   - Moved all task definitions from runtime to lib package
+   - Updated imports in core-constructs-runtime to use the new definitions
 
-3. **Implemented Module Interface**:
-   - Created the Module interface for mapping constructs to task functions
-   - Implemented the core-constructs-runtime module for mapping core constructs
-   - Added task functions for AgentContext, OpenAIModel, and prompt tasks
-   - Removed workflow-related task functions that are implied by object references
+3. **Enhanced Task Implementation**:
+   - Created TaskImpl interface with def, taskId, and execute properties
+   - Implemented both promise-based and generator-based task functions
+   - Added support for task suspension and resumption
 
-4. **Implemented Compiler**:
-   - Created the compileWorkflows function to extract workflows from the construct tree
-   - Added support for finding workflow constructs and their tasks
-   - Updated to use full paths for task functions instead of just IDs
-   - Fixed the implementation of compileWorkflow to properly handle both calling patterns
+4. **Updated Supporting Files**:
+   - Modified compiler.ts to use TaskImplMap instead of TaskFunctionMap
+   - Updated journal.ts to use the new interfaces
+   - Ensured all files are compatible with the new architecture
 
-5. **Simplified Architecture**:
-   - Removed the Entrypoint class as it's redundant
-   - The first task in a Definition now serves as the entrypoint
+5. **Implemented Task Message Types**:
+   - Created TaskCallRequest, TaskCallResult, and TaskCallAndReturnRequest interfaces
+   - Ensured all message types are serializable as JSON
+   - Added proper type validation for message fields
 
 ## Known Issues
 
@@ -184,20 +215,22 @@ The project is entering a **rearchitecting phase**. We have decided to adopt a w
 
 4. **Workflow Execution Complexity**: The implementation of workflow execution with both calling patterns (canCall and canCallAndReturn) adds complexity that needs to be carefully tested.
 
+5. **Serialization Challenges**: Ensuring that all task messages are properly serializable as JSON may require additional work for complex data structures.
+
 ## Next Milestones
 
-1. **Complete Task Function Implementation** (Target: Week 1)
-   - Create task functions for all construct types
-   - Implement proper execution of tasks
-   - Add support for error handling and recovery
+1. **Complete Task Implementation Enhancement** (Target: Week 1)
+   - Create task implementations for all construct types
+   - Implement proper error handling and result propagation
+   - Optimize task execution flow
 
 2. **Enhance Workflow Execution** (Target: Week 1)
-   - Implement support for complex task relationships
+   - Improve support for task relationships and tool calls
    - Add support for conditional execution
    - Create a mechanism for sharing state between tasks
 
 3. **Implement Real Agent Execution** (Target: Week 2)
-   - Connect task functions to actual LLM API calls
+   - Connect task implementations to actual LLM API calls
    - Implement proper handling of agent responses
    - Add support for streaming responses from agents
 

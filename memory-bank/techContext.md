@@ -19,6 +19,7 @@
    - Used for tool input/output validation
    - Generates JSON Schema for API documentation
    - Used for workflow and task schema validation
+   - Validates inputs and outputs between task calls
 
 4. **Jest**
    - Testing framework for unit and integration tests
@@ -109,6 +110,7 @@
    - Schema validation library
    - Used for tool input/output validation
    - Used for workflow and task schema validation
+   - Validates inputs and outputs between task calls
 
 3. **zod-to-json-schema** (^3.0.0)
    - Converts Zod schemas to JSON Schema
@@ -133,15 +135,18 @@
 8. **@ferment-ai/core-constructs-lib**
    - Core construct library
    - Defines the relationship between agents and what they have access to
+   - Contains task definitions
 
 9. **@ferment-ai/runtime-common**
    - Common interfaces and utilities for runtime packages
    - Defines the Journal interface and related types
-   - Contains workflow and task definitions
+   - Contains workflow and task interfaces
+   - Defines TaskImpl interface and related types
 
 10. **@ferment-ai/core-constructs-runtime**
     - Runtime implementation for constructs
-    - Maps constructs to task functions
+    - Maps constructs to task implementations
+    - Implements task execution functions
 
 11. **@ferment-ai/runtime-in-memory**
     - In-memory implementation of the Journal
@@ -183,11 +188,13 @@
    - Real-time streaming requires low-latency processing
    - Tool execution may introduce variable latency
    - Task execution should be optimized
+   - Task suspension and resumption adds complexity
 
 3. **Concurrency**
    - Multiple workflows may run concurrently
    - Need to manage resource contention
    - Task queuing for complex workflows
+   - Async generators may introduce concurrency challenges
 
 ### Security Constraints
 
@@ -206,10 +213,12 @@
 1. **Browser Support**
    - Client-side components should work in modern browsers
    - May need polyfills for older browsers
+   - Async generators require modern JavaScript engines
 
 2. **Node.js Version**
    - Minimum supported version is Node.js 18
    - May use features not available in older versions
+   - Async generators require Node.js 10+
 
 ## Integration Points
 
@@ -218,6 +227,7 @@
 1. **OpenAI API**
    - Integration with GPT models
    - Support for streaming responses
+   - Support for tool use
 
 2. **Anthropic API**
    - Integration with Claude models
@@ -245,12 +255,12 @@
 
 ### Workflow Architecture
 
-The system now implements a workflow-based architecture:
+The system now implements a workflow-based architecture with async generator task functions:
 
 1. **Journal**
    - Central executor for workflows
    - Maintains state and provides serialization/deserialization
-   - Uses modules to map constructs to task functions
+   - Uses modules to map constructs to task implementations
    - Stores the complete CompileWorkflowsResult
    - Compiles workflows from the construct tree
 
@@ -260,25 +270,77 @@ The system now implements a workflow-based architecture:
    - Uses full paths for task IDs in the tasks map and entryPoints map
    - Can be serialized to a workflow definition
    - Extracted from the construct tree during initialization
+
 3. **Task**
    - Represents a unit of work in a workflow
    - Can call other tasks and return to the caller (canCallAndReturn)
    - Can call other tasks and not return (canCall)
    - Referenced by full path to ensure global uniqueness
-   - Executed by task functions mapped from constructs
-   - Executed by task functions mapped from constructs
+   - Executed by task implementations mapped from constructs
+
 4. **Module**
-   - Maps constructs to task functions
+   - Maps constructs to task implementations
    - Each module is responsible for a specific type of construct
-   - Provides task functions for AgentContext, OpenAIModel, and prompt tasks
+   - Provides task implementations for AgentContext, OpenAIModel, and prompt tasks
    - Allows for extensibility through additional modules
-   - Allows for extensibility through additional modules
+
 5. **Compiler**
    - Extracts workflows from the construct tree
    - Finds workflow constructs and their tasks
-   - Uses full paths for task functions instead of just IDs
+   - Uses full paths for task implementations instead of just IDs
    - Properly handles both calling patterns (canCallAndReturn and canCall)
    - Creates workflows from entrypoints if no workflow constructs are found
+
+6. **Task Implementation**
+   - Implements the TaskImpl interface
+   - Includes task definition, task ID, and execute function
+   - Execute function can be either an async generator or a promise
+   - Async generators can yield control to other tasks and resume execution
+   - Promises are used for simple tasks that don't need to call other tasks
+
+7. **Task Definition**
+   - Implements the TaskDef interface
+   - Includes task definition ID, input type, and output type
+   - Located in the core-constructs-lib package
+   - Separated from task implementation for better organization
+
+8. **Task Message Types**
+   - TaskCallRequest: A request to call another task
+   - TaskCallResult: A result from a task call
+   - TaskCallAndReturnRequest: A request to call another task and return to the caller
+   - All message types are serializable as JSON
+
+### Package Structure
+
+The system is organized into several packages:
+
+1. **core-constructs-lib**
+   - Contains core constructs and task definitions
+   - Defines the relationship between agents and what they have access to
+   - Does not contain runtime implementation
+
+2. **runtime-common**
+   - Contains common interfaces and utilities
+   - Defines the Journal interface and related types
+   - Contains workflow and task interfaces
+   - Defines TaskImpl interface and related types
+
+3. **core-constructs-runtime**
+   - Contains runtime implementation for constructs
+   - Maps constructs to task implementations
+   - Implements task execution functions
+
+4. **runtime-in-memory**
+   - Contains in-memory implementation of the Journal
+   - Executes workflows and maintains state
+
+5. **runtime-http**
+   - Contains HTTP server implementation
+   - Provides API for executing workflows
+
+6. **demo**
+   - Contains demo application
+   - Shows how to use the system
 
 ## Deployment Considerations
 

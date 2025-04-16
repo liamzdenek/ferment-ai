@@ -2,10 +2,10 @@
 
 ## Current Focus
 
-We are implementing a workflow-based architecture for the Ferment AI system. This architecture allows for defining workflows as sequences of tasks with clear relationships, enabling modular and composable agent systems.
+We are implementing a workflow-based architecture for the Ferment AI system with a major refactoring of the TaskFunction to be an async generator/AsyncIterable function. This architecture allows for defining workflows as sequences of tasks with clear relationships, enabling modular and composable agent systems with improved suspension and resumption capabilities.
 
 1. **Project Structure**: We have set up an Nx monorepo with the following packages:
-   - `@ferment-ai/core-constructs-lib`: Core construct library
+   - `@ferment-ai/core-constructs-lib`: Core construct library and task definitions
    - `@ferment-ai/runtime-common`: Common interfaces and utilities for runtime packages
    - `@ferment-ai/runtime-in-memory`: In-memory implementation of the Journal
    - `@ferment-ai/core-constructs-runtime`: Runtime implementation for constructs
@@ -16,100 +16,85 @@ We are implementing a workflow-based architecture for the Ferment AI system. Thi
    - **Journal**: The central executor that runs workflows and maintains state
    - **Workflow**: A sequence of tasks with defined relationships
    - **Task**: A unit of work in a workflow
-   - **Module**: A function that maps constructs to task functions
+   - **Module**: A function that maps constructs to task implementations
    - **Compiler**: A function that extracts workflows from the construct tree
 
 3. **Implementation Approach**: We have created a detailed implementation of the new architecture:
    - `Workflow` class: Represents a sequence of tasks
    - `Task` class: Represents a unit of work in a workflow
    - `Journal` class: Executes workflows and maintains state
-   - `Module` interface: Maps constructs to task functions
+   - `Module` interface: Maps constructs to task implementations
    - `compileWorkflows` function: Extracts workflows from the construct tree
 
 ## Recent Decisions
 
-1. **Workflow-Based Architecture**: We've decided to adopt a workflow-based architecture where workflows are composed of tasks with defined relationships.
+1. **Async Generator TaskFunction**: We've refactored TaskFunction to be an async generator/AsyncIterable function, enabling suspension and resumption of tasks.
 
-2. **Journal as Central Executor**: The Journal will now be the central executor for workflows, maintaining state and providing serialization/deserialization.
+2. **Task Definitions in core-constructs-lib**: Task definitions are now located in the core-constructs-lib package, while task implementations remain in core-constructs-runtime.
 
-3. **Task-Based Execution**: Agent calls, tool calls, etc. will be represented as tasks with defined relationships, allowing for better tracking and management of operations.
+3. **Zod Type Validation**: We've implemented Zod validation for inputs and outputs between task calls, ensuring type safety at runtime.
 
-4. **Module-Based Mapping**: Constructs will be mapped to task functions by modules, allowing for modular and extensible system configuration.
+4. **Support for Both Promise and Generator Patterns**: The system now supports both promise-based task functions (for simple tasks) and generator-based task functions (for complex tasks that need to call other tasks).
 
-5. **Async Iterable Execution**: The Journal's executeWorkflow method will be an async iterable that yields events as they happen, allowing for real-time streaming.
+5. **TaskImpl Interface**: We've created a new TaskImpl interface that includes the task definition, task ID, and execute function.
 
-6. **Full State Serialization**: The Journal will serialize its state, including the complete CompileWorkflowsResult, allowing for stateful execution.
-
-7. **Construct Tree Compilation**: The system will extract workflows from the construct tree during initialization, allowing for declarative workflow definition.
-
-8. **Full Path Task References**: Task functions are now indexed by the full path (node.path) instead of just the ID (node.id), ensuring that task names are globally unique within a construct tree.
-
-9. **Simplified Architecture**: The Entrypoint class has been removed as it's redundant; the first task in a Definition now serves as the entrypoint.
+6. **Serializable Task Messages**: All task messages (TaskCallRequest, TaskCallResult, TaskCallAndReturnRequest) are designed to be serializable as JSON.
 
 ## Active Considerations
 
-1. **Journal Implementation**: The Journal class is responsible for executing workflows and maintaining state. It uses modules to map constructs to task functions and a compiler to extract workflows from the construct tree.
+1. **Journal Implementation**: The Journal class is responsible for executing workflows and maintaining state. It uses modules to map constructs to task implementations and a compiler to extract workflows from the construct tree.
 
 2. **Workflow and Task Design**: Workflows are composed of tasks with defined relationships. Tasks can call other tasks and return to the caller, or they can call other tasks and not return (like a directed acyclic graph).
 
-3. **Module Interface**: Modules map constructs to task functions, allowing for extensibility. Each module is responsible for a specific type of construct, such as agents, models, or tools.
+3. **Module Interface**: Modules map constructs to task implementations, allowing for extensibility. Each module is responsible for a specific type of construct, such as agents, models, or tools.
 
 4. **Compiler Implementation**: The compiler extracts workflows from the construct tree by finding workflow constructs and their tasks, or by creating workflows from entrypoints if no workflow constructs are found.
 
-5. **HttpApplication Integration**: The HttpApplication class will use the new Journal implementation, providing an API for executing workflows and getting their state.
+5. **Task Execution Flow**: The system now supports both promise-based and generator-based task execution, with proper handling of task suspension and resumption.
 
 ## Recent Changes
 
-1. **Implemented Workflow and Task Classes**:
-   - Created the Workflow class to represent a sequence of tasks
-   - Created the Task class to represent a unit of work in a workflow
-   - Added methods for defining task relationships (canCall, canCallAndReturn)
-   - Implemented serialization of workflows to workflow definitions
-   - Updated to use full paths for task IDs in the tasks map and entryPoints map
+1. **Refactored TaskFunction to Async Generator**:
+   - Updated TaskFunction to be an async generator/AsyncIterable function
+   - Added support for yielding control to other tasks and resuming execution
+   - Implemented proper type validation between calls using Zod
 
-2. **Implemented Journal Class**:
-   - Created the Journal class to execute workflows and maintain state
-   - Added methods for executing workflows and serializing/deserializing state
-   - Implemented module-based initialization
-   - Updated to store the whole CompileWorkflowsResult instead of decomposing it
+2. **Moved Task Definitions to core-constructs-lib**:
+   - Created a new task-defs.ts file in core-constructs-lib
+   - Moved all task definitions from runtime to lib package
+   - Updated imports in core-constructs-runtime to use the new definitions
 
-3. **Implemented Module Interface**:
-   - Created the Module interface for mapping constructs to task functions
-   - Implemented the core-constructs-runtime module for mapping core constructs
-   - Added task functions for AgentContext, OpenAIModel, and prompt tasks
-   - Removed workflow-related task functions that are implied by object references
+3. **Enhanced Task Implementation**:
+   - Created TaskImpl interface with def, taskId, and execute properties
+   - Implemented both promise-based and generator-based task functions
+   - Added support for task suspension and resumption
 
-4. **Implemented Compiler**:
-   - Created the compileWorkflows function to extract workflows from the construct tree
-   - Added support for finding workflow constructs and their tasks
-   - Updated to use full paths for task functions instead of just IDs
-   - Fixed the implementation of compileWorkflow to properly handle both calling patterns
-
-5. **Simplified Architecture**:
-   - Removed the Entrypoint class as it's redundant
-   - The first task in a Definition now serves as the entrypoint
+4. **Updated Supporting Files**:
+   - Modified compiler.ts to use TaskImplMap instead of TaskFunctionMap
+   - Updated journal.ts to use the new interfaces
+   - Ensured all files are compatible with the new architecture
 
 ## Current Implementation Focus
 
-1. **Task Function Implementation**:
-   - Implementing task functions for different construct types
-   - Adding support for agent execution, tool execution, etc.
+1. **Task Implementation Enhancement**:
+   - Refining task implementations for different construct types
    - Ensuring proper error handling and result propagation
+   - Optimizing task execution flow
 
 2. **Workflow Execution**:
-   - Implementing the workflow executor to run tasks in the correct order
-   - Adding support for task relationships and tool calls
+   - Enhancing workflow executor to handle both promise and generator patterns
+   - Improving support for task relationships and tool calls
    - Ensuring proper event generation during execution
 
 3. **State Management**:
-   - Implementing serialization and deserialization of the journal state
-   - Adding support for saving and loading workflows
+   - Refining serialization and deserialization of the journal state
    - Ensuring proper state propagation between tasks
+   - Handling task suspension and resumption state
 
 ## Next Steps
 
 1. **Implement Real Agent Execution**:
-   - Connect task functions to actual LLM API calls
+   - Connect task implementations to actual LLM API calls
    - Implement proper handling of agent responses
    - Add support for streaming responses from agents
 
@@ -142,11 +127,6 @@ We are implementing a workflow-based architecture for the Ferment AI system. Thi
    - Implement a visualization tool for workflows
    - Add metrics collection for performance analysis
    - Create a debugging interface for inspecting tasks and their state
-
-8. **Extend Module System**:
-   - Add support for module dependencies and loading order
-   - Implement a plugin system for third-party modules
-   - Create a registry for discovering available modules
 
 ## Open Questions
 

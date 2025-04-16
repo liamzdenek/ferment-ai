@@ -2,154 +2,240 @@ import { Construct } from 'constructs';
 import {
   AgentContext,
   OpenAIModel,
-  Model
+  Model,
+  AGENT_CONTEXT_TASK_DEF,
+  OPENAI_MODEL_TASK_DEF,
+  MODEL_TASK_DEF,
+  PROMPT_TASK_DEF,
+  END_TASK_DEF,
+  AgentContextInputSchema,
+  AgentContextOutputSchema,
+  ModelInputSchema,
+  ModelOutputSchema,
+  PromptTaskInputSchema,
+  PromptTaskOutputSchema,
+  EndTaskInputSchema,
+  EndTaskOutputSchema
 } from '@ferment-ai/core-constructs-lib';
-import { Module, TaskFunction, Workflow } from '@ferment-ai/runtime-common';
+import {
+  Module,
+  Workflow,
+  TaskImpl,
+  TaskCtx,
+  TaskCallResult,
+  TaskCallAndReturnRequest,
+  TaskCallRequest,
+  TaskExecutePromise,
+  TaskExecuteGenerator
+} from '@ferment-ai/runtime-common';
 
 /**
- * Creates a task function for an AgentContext
+ * Creates a task implementation for an AgentContext
  *
  * @param agentContext The agent context
- * @returns A task function
+ * @returns A task implementation
  */
-function createAgentContextTaskFunction(agentContext: AgentContext): TaskFunction {
-  return async (input: any) => {
-    console.log(`Executing agent context: ${agentContext.node.id}`);
-    console.log(`Prompt: ${agentContext.prompt}`);
-    console.log(`Input: ${JSON.stringify(input)}`);
-    
-    // In a real implementation, this would call the model API
-    // For now, just return a dummy response
-    return {
-      response: `Response from ${agentContext.node.id}`,
-      input
-    };
+function createAgentContextTaskImpl(agentContext: AgentContext): TaskImpl<typeof AgentContextInputSchema, typeof AgentContextOutputSchema> {
+  return {
+    def: AGENT_CONTEXT_TASK_DEF,
+    taskId: agentContext.node.path,
+    execute: async (ctx: TaskCtx<typeof AgentContextInputSchema, typeof AgentContextOutputSchema>) => {
+      console.log(`Executing agent context: ${agentContext.node.id}`);
+      console.log(`Prompt: ${agentContext.prompt}`);
+      console.log(`Input: ${JSON.stringify(ctx.input)}`);
+
+      // In a real implementation, this would call the model API
+      // For now, just return a dummy response
+      return {
+        type: 'result',
+        taskDefId: ctx.taskDefId,
+        taskId: ctx.taskId,
+        input: ctx.input,
+        output: {
+          response: `Response from ${agentContext.node.id}`,
+          input: ctx.input
+        }
+      };
+    }
   };
 }
 
 /**
- * Creates a task function for an OpenAIModel
+ * Creates a task implementation for an OpenAIModel
  *
  * @param model The OpenAI model
- * @returns A task function
+ * @returns A task implementation
  */
-function createOpenAIModelTaskFunction(model: OpenAIModel): TaskFunction {
-  return async (input: any) => {
-    console.log(`Executing OpenAI model: ${model.node.id}`);
-    console.log(`Model ID: ${model.modelId}`);
-    console.log(`Input: ${JSON.stringify(input)}`);
-    
-    // In a real implementation, this would call the OpenAI API
-    // For now, just return a dummy response
-    return {
-      response: `Response from ${model.node.id}`,
-      input
-    };
+function createOpenAIModelTaskImpl(model: OpenAIModel): TaskImpl<typeof ModelInputSchema, typeof ModelOutputSchema> {
+  return {
+    def: OPENAI_MODEL_TASK_DEF,
+    taskId: model.node.path,
+    execute: async (ctx: TaskCtx<typeof ModelInputSchema, typeof ModelOutputSchema>) => {
+      console.log(`Executing OpenAI model: ${model.node.id}`);
+      console.log(`Model ID: ${model.modelId}`);
+      console.log(`Input: ${JSON.stringify(ctx.input)}`);
+      
+      // In a real implementation, this would call the OpenAI API
+      // For now, just return a dummy response
+      return {
+        type: 'result',
+        taskDefId: ctx.taskDefId,
+        taskId: ctx.taskId,
+        input: ctx.input,
+        output: {
+          response: `Response from ${model.node.id}`,
+          input: ctx.input
+        }
+      };
+    }
   };
 }
 
 /**
- * Creates a task function for a Model
+ * Creates a task implementation for a Model
  *
  * @param model The model
- * @returns A task function
+ * @returns A task implementation
  */
-function createModelTaskFunction(model: Model): TaskFunction {
-  return async (input: any) => {
-    console.log(`Executing model: ${model.node.id}`);
-    console.log(`Model ID: ${model.modelId}`);
-    console.log(`Input: ${JSON.stringify(input)}`);
-    
-    // In a real implementation, this would call the model API
-    // For now, just return a dummy response
-    return {
-      response: `Response from ${model.node.id}`,
-      input
-    };
+function createModelTaskImpl(model: Model): TaskImpl<typeof ModelInputSchema, typeof ModelOutputSchema> {
+  return {
+    def: MODEL_TASK_DEF,
+    taskId: model.node.path,
+    execute: async (ctx: TaskCtx<typeof ModelInputSchema, typeof ModelOutputSchema>) => {
+      console.log(`Executing model: ${model.node.id}`);
+      console.log(`Model ID: ${model.modelId}`);
+      console.log(`Input: ${JSON.stringify(ctx.input)}`);
+      
+      // In a real implementation, this would call the model API
+      // For now, just return a dummy response
+      return {
+        type: 'result',
+        taskDefId: ctx.taskDefId,
+        taskId: ctx.taskId,
+        input: ctx.input,
+        output: {
+          response: `Response from ${model.node.id}`,
+          input: ctx.input
+        }
+      };
+    }
   };
 }
 
 /**
- * Creates a task function for a prompt task
+ * Creates a task implementation for a prompt task
  *
  * @param task The prompt task
- * @returns A task function
+ * @returns A task implementation
  */
-function createPromptTaskFunction(task: Workflow.Task): TaskFunction {
-  return async (input: any) => {
-    console.log(`Executing prompt task: ${task.node.id}`);
-    console.log(`Input: ${JSON.stringify(input)}`);
-    console.log(`Task:`, task);
+function createPromptTaskImpl(task: Workflow.Task): TaskImpl<typeof PromptTaskInputSchema, typeof PromptTaskOutputSchema> {
+  return {
+    def: PROMPT_TASK_DEF,
+    taskId: task.node.path,
+    execute: async function* (ctx: TaskCtx<typeof PromptTaskInputSchema, typeof PromptTaskOutputSchema>) {
+      console.log(`Executing prompt task: ${task.node.id}`);
+      console.log(`Input: ${JSON.stringify(ctx.input)}`);
+      console.log(`Task:`, task);
 
-    return {
-      toolCall: {
-        toolId: "RootConstruct/TwoAgentModel/JuniorEngineerTask/JuniorEngineerTaskSendEmailTool",
-        toolInput: { "TEST": "INPUT" }
+      // Example of calling another task and returning to this task
+      if (Object.keys(ctx.canCallAndReturn).length > 0) {
+        // Get the first available tool
+        const toolEntry = Object.entries(ctx.canCallAndReturn)[0];
+        const [toolId, toolDef] = toolEntry;
+        
+        // Create a tool call request
+        const toolCall: TaskCallAndReturnRequest = {
+          type: 'callAndReturn',
+          taskDefId: toolDef.taskDefId,
+          taskId: toolId,
+          input: { "TEST": "INPUT" }
+        };
+        
+        // Yield control to the tool and wait for result
+        const result = yield toolCall;
+        
+        // Process the result
+        console.log(`Received result from tool: ${JSON.stringify(result)}`);
       }
+      
+      // Return the final result
+      return {
+        type: 'result',
+        taskDefId: ctx.taskDefId,
+        taskId: ctx.taskId,
+        input: ctx.input,
+        output: {
+          response: `Response from prompt task ${task.node.id}`,
+          input: ctx.input
+        }
+      };
     }
-    
-    // In a real implementation, this would process the prompt
-    // For now, just return a dummy response
-    return {
-      response: `Response from prompt task ${task.node.id}`,
-      input
-    };
   };
 }
 
 /**
- * Creates a task function for a Workflow.EndTask
+ * Creates a task implementation for a Workflow.EndTask
  *
  * @param endTask The end task
- * @returns A task function
+ * @returns A task implementation
  */
-function createWorkflowEndTaskFunction(endTask: Workflow.EndTask): TaskFunction {
-  return async (input: any) => {
-    console.log(`Executing workflow end task: ${endTask.node.id}`);
-    console.log(`Input: ${JSON.stringify(input)}`);
-    
-    // In a real implementation, this would finalize the workflow
-    // For now, just return a dummy response
-    return {
-      response: `Workflow completed: ${endTask.node.id}`,
-      input
-    };
+function createWorkflowEndTaskImpl(endTask: Workflow.EndTask): TaskImpl<typeof EndTaskInputSchema, typeof EndTaskOutputSchema> {
+  return {
+    def: END_TASK_DEF,
+    taskId: endTask.node.path,
+    execute: async (ctx: TaskCtx<typeof EndTaskInputSchema, typeof EndTaskOutputSchema>) => {
+      console.log(`Executing workflow end task: ${endTask.node.id}`);
+      console.log(`Input: ${JSON.stringify(ctx.input)}`);
+      
+      // In a real implementation, this would finalize the workflow
+      // For now, just return a dummy response
+      return {
+        type: 'result',
+        taskDefId: ctx.taskDefId,
+        taskId: ctx.taskId,
+        input: ctx.input,
+        output: {
+          response: `Workflow completed: ${endTask.node.id}`,
+          input: ctx.input
+        }
+      };
+    }
   };
 }
 
 /**
  * Creates a core constructs module
  *
- * @returns A module that maps core constructs to task functions
+ * @returns A module that maps core constructs to task implementations
  */
 export function createCoreConstructsModule(): Module {
   return (construct: Construct) => {
     // Check if the construct is an AgentContext
     if (construct instanceof AgentContext) {
-      return createAgentContextTaskFunction(construct);
+      return createAgentContextTaskImpl(construct);
     }
     
     // Check if the construct is an OpenAIModel
     if (construct instanceof OpenAIModel) {
-      return createOpenAIModelTaskFunction(construct);
+      return createOpenAIModelTaskImpl(construct);
     }
     
     // Check if the construct is a Model
     if (construct instanceof Model) {
-      return createModelTaskFunction(construct);
+      return createModelTaskImpl(construct);
     }
     
     // Check if the construct is a Workflow.Task
     if (construct instanceof Workflow.Task) {
       // Check if it's an EndTask
       if (construct instanceof Workflow.EndTask) {
-        return createWorkflowEndTaskFunction(construct);
+        return createWorkflowEndTaskImpl(construct);
       }
       
-      return createPromptTaskFunction(construct);
+      return createPromptTaskImpl(construct);
     }
     
-    // No task function for this construct
+    // No task implementation for this construct
     return undefined;
   };
 }
