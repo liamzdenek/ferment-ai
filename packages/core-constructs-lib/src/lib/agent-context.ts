@@ -1,8 +1,9 @@
 import { Construct } from 'constructs';
 import { FermentConstruct, FermentConstructProps } from './base-construct.js';
 import { SendEmailTool } from './send-email-tool.js';
-import { Workflow } from '@ferment-ai/runtime-common';
-import { AGENT_CONTEXT_TASK_DEF } from './task-defs.js';
+import { Workflow, TaskDef } from '@ferment-ai/runtime-common';
+import { AGENT_CONTEXT_TASK_DEF, PROMPT_TASK_DEF } from './task-defs.js';
+import { z } from 'zod';
 
 /**
  * Properties for the AgentContext construct
@@ -109,27 +110,65 @@ export class AgentContext extends FermentConstruct {
   }
 
   /**
-   * Creates a tool that sends a message to this agent
-   *
-   * @returns A tool that can be used to send messages to this agent
-   */
-  public sendEmailTool(): Construct {
-    return new SendEmailTool(this, `${this.node.id}SendEmailTool`, {
-      name: `Send Email to ${this.node.id}`,
-      description: `Send a message to the ${this.node.id} agent`,
-      targetAgent: this,
-    });
-  }
-
-  /**
    * Creates a new prompt task for this agent
    *
    * @param scope The scope in which to define the task
    * @param id The task's identifier
    * @param options The task options
-   * @returns A new workflow task
+   * @returns A new prompt task
    */
-  public newPromptTask(scope: Construct, id: string, options: Workflow.TaskOptions = {}): Workflow.Task {
-    return new Workflow.Task(scope, id, options);
+  public newPromptTask(scope: Construct, id: string, options?: Partial<Workflow.TaskOptions>): PromptTask {
+    return new PromptTask(scope, id, this, options);
+  }
+}
+
+/**
+ * A specialized task for agent prompts that can create email tools
+ */
+export class PromptTask extends Workflow.Task {
+  /**
+   * The agent context this task belongs to
+   */
+  private readonly agentContext: AgentContext;
+
+  /**
+   * Creates a new prompt task
+   *
+   * @param scope The scope in which to define the task
+   * @param id The task's identifier
+   * @param agentContext The agent context this task belongs to
+   * @param options The options for the task
+   */
+  constructor(
+    scope: Construct,
+    id: string,
+    agentContext: AgentContext,
+    options?: Partial<Workflow.TaskOptions>
+  ) {
+    super(scope, id, {
+      taskDef: PROMPT_TASK_DEF,
+      description: `Prompt task for ${agentContext.node.id}`,
+      ...options
+    });
+    this.agentContext = agentContext;
+  }
+
+  /**
+   * Creates a tool that can be used to send an email to this agent
+   *
+   * @returns A task that can be used as a tool
+   */
+  sendEmailTool(): Workflow.Task {
+    // Create a task wrapper for the tool
+    const emailToolTask = new Workflow.Task(this, `${this.node.id}SendEmailTool`, {
+      taskDef: {
+        taskDefId: 'send-email-tool',
+        inputType: z.any(),
+        outputType: z.any()
+      },
+      description: `Send an email to ${this.agentContext.node.id}`
+    });
+
+    return emailToolTask;
   }
 }
