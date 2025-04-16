@@ -163,10 +163,10 @@ function createPromptTaskImpl(task: Workflow.Task): TaskImpl<typeof PromptTaskIn
     def: PROMPT_TASK_DEF,
     taskId: task.node.path,
     execute: async function* (ctx: TaskCtx<typeof PromptTaskInputSchema, typeof PromptTaskOutputSchema>) {
-      console.log(`Executing prompt task: ${task.node.id}`);
-      console.log(`Input: ${JSON.stringify(ctx.input)}`);
-      console.log(`Task:`, task);
-      console.log("Got canCallAndReturn:", ctx.canCallAndReturn);
+      //console.log(`Executing prompt task: ${task.node.id}`);
+      //console.log(`Input: ${JSON.stringify(ctx.input)}`);
+      //console.log(`Task:`, task);
+      //console.log("Got canCallAndReturn:", ctx.canCallAndReturn);
 
       // Add a delay to make execution more visible
       await delay(TaskConfig.executionDelay);
@@ -221,8 +221,8 @@ function createWorkflowEndTaskImpl(endTask: Workflow.EndTask): TaskImpl<typeof E
     def: END_TASK_DEF,
     taskId: endTask.node.path,
     execute: async (ctx: TaskCtx<typeof EndTaskInputSchema, typeof EndTaskOutputSchema>) => {
-      console.log(`Executing workflow end task: ${endTask.node.id}`);
-      console.log(`Input: ${JSON.stringify(ctx.input)}`);
+      //console.log(`Executing workflow end task: ${endTask.node.id}`);
+      //console.log(`Input: ${JSON.stringify(ctx.input)}`);
       
       // Add a delay to make execution more visible
       await delay(TaskConfig.executionDelay);

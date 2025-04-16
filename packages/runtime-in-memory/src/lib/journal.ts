@@ -5,9 +5,7 @@ import {
   Module,
   WorkflowExecutionOptions,
   compileWorkflows,
-  CompileWorkflowsResult,
-  WorkflowLogger,
-  LogLevel
+  CompileWorkflowsResult
 } from '@ferment-ai/runtime-common';
 
 /**
@@ -18,11 +16,6 @@ export interface JournalOptions {
    * Enable compression for saved state
    */
   enableCompression?: boolean;
-  
-  /**
-   * Log level for workflow execution
-   */
-  logLevel?: LogLevel;
 }
 
 /**
@@ -43,11 +36,6 @@ export class Journal implements JournalInterface {
    * The compile result containing workflows, task functions, and executors
    */
   private compileResult: CompileWorkflowsResult;
-  
-  /**
-   * The logger for workflow execution
-   */
-  private readonly logger: WorkflowLogger;
 
   /**
    * Creates a new Journal instance
@@ -59,10 +47,6 @@ export class Journal implements JournalInterface {
     private readonly modules: Module[],
     options: JournalOptions & { rootConstruct: RootConstruct }
   ) {
-    // Create logger
-    this.logger = new WorkflowLogger({
-      logLevel: options.logLevel || LogLevel.NORMAL
-    });
     
     // Compile workflows from the root construct
     this.compileResult = compileWorkflows({
@@ -89,7 +73,6 @@ export class Journal implements JournalInterface {
     const executionOptions: WorkflowExecutionOptions = {
       entryPoint: 'default',
       input: event,
-      logLevel: this.logger.options.logLevel
     };
 
     // Execute the workflow and yield all events

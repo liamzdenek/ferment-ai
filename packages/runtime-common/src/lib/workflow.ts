@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import { Construct } from 'constructs';
-import { WorkflowLogger, LogLevel } from './logger.js';
 
 /**
  * Task definition interface with input and output types
@@ -135,6 +134,7 @@ export interface WorkflowLogEvent {
   timestamp: number;
   type: 'task_start' | 'task_complete' | 'task_error' | 'workflow_start' | 'workflow_complete' | 'workflow_error';
   taskId?: string;
+  taskDefId?: string;
   input?: any;
   output?: any;
   error?: Error;
@@ -146,7 +146,6 @@ export interface WorkflowLogEvent {
 export interface WorkflowExecutionOptions {
   entryPoint: string;
   input?: any;
-  logLevel?: LogLevel;
 }
 
 /**
@@ -489,18 +488,20 @@ async function* executeTaskAsPromise(
 ): AsyncGenerator<WorkflowLogEvent, void, unknown> {
   const { taskId, returnTo } = taskState;
   
+  /*
   console.log("executeTaskAsPromise:", {
     taskId,
     hasReturnTo: !!returnTo,
     returnToTaskId: returnTo?.taskId,
     stackSize: taskStack.length
   });
+  */
   
   try {
     // Execute the task function and get the result
-    console.log(`Executing promise-based task ${taskId}`);
+    //console.log(`Executing promise-based task ${taskId}`);
     const result = await (taskImpl.execute as TaskExecutePromise<any, any>)(taskCtx);
-    console.log(`Task ${taskId} execution completed with result:`, result);
+    //console.log(`Task ${taskId} execution completed with result:`, result);
     
     // Validate output using Zod
     const outputType = taskDef.outputType;
@@ -509,23 +510,24 @@ async function* executeTaskAsPromise(
     if (result && result.type === 'result') {
       validatedOutput = validateWithZod(outputType, result.output, taskId, 'output');
       
-      console.log(`Task ${taskId} completed with validated output:`, validatedOutput);
+      //console.log(`Task ${taskId} completed with validated output:`, validatedOutput);
       
       // Complete the task
       yield {
         timestamp: Date.now(),
         type: 'task_complete',
+        taskDefId: taskDef.taskDefId,
         taskId,
         output: validatedOutput
       };
       
-      console.log(`Task ${taskId} complete event yielded`);
+      //console.log(`Task ${taskId} complete event yielded`);
       
       // If this task was called by another task using canCallAndReturn, we need to
       // push the caller task back onto the stack so it can continue execution
       if (returnTo) {
-        console.log(`Task ${taskId} was called by ${returnTo.taskId}, pushing caller back onto stack`);
-        console.log(`Return context:`, returnTo.context);
+        //console.log(`Task ${taskId} was called by ${returnTo.taskId}, pushing caller back onto stack`);
+        //console.log(`Return context:`, returnTo.context);
         // Push the caller task back onto the stack
         taskStack.push({
           taskId: returnTo.taskId,
@@ -533,13 +535,13 @@ async function* executeTaskAsPromise(
           generator: returnTo.generator
         });
         
-        console.log(`Stack after pushing caller:`, taskStack.map(t => t.taskId));
+        //console.log(`Stack after pushing caller:`, taskStack.map(t => t.taskId));
       }
       
       // If this task was called by another task, return the result to the caller
       if (returnTo && taskStack.length > 0) {
         const callerTask = taskStack[taskStack.length - 1];
-        console.log(`Setting input of caller task ${callerTask.taskId} to result of ${taskId}`);
+        //console.log(`Setting input of caller task ${callerTask.taskId} to result of ${taskId}`);
         callerTask.input = validatedOutput;
       }
     } else if (result && (result.type as string) === 'call') {
@@ -558,7 +560,7 @@ async function* executeTaskAsPromise(
     
     // Remove the current task from the stack since it's completed
     const poppedTask = taskStack.pop();
-    console.log(`Removed task ${poppedTask?.taskId} from stack, stack size now: ${taskStack.length}`);
+    //console.log(`Removed task ${poppedTask?.taskId} from stack, stack size now: ${taskStack.length}`);
   } catch (error) {
     // Handle task error
     yield {
@@ -605,6 +607,7 @@ async function executeTaskAsGenerator(
   const { taskId, input, generator, returnTo } = taskState;
   const events: WorkflowLogEvent[] = [];
   
+  /*
   console.log("executeTaskAsGenerator:", {
     taskId,
     hasInput: !!input,
@@ -612,15 +615,16 @@ async function executeTaskAsGenerator(
     hasReturnTo: !!returnTo,
     returnToTaskId: returnTo?.taskId
   });
+  */
   
   try {
     if (!generator) {
       throw new Error('Generator is undefined');
     }
     
-    console.log(`Resuming generator for task ${taskId} with input:`, input);
+    //console.log(`Resuming generator for task ${taskId} with input:`, input);
     const { value, done } = await generator.next(input);
-    console.log(`Generator for task ${taskId} yielded:`, { value, done });
+    //console.log(`Generator for task ${taskId} yielded:`, { value, done });
     
     if (done) {
       // Generator has completed
@@ -632,17 +636,18 @@ async function executeTaskAsGenerator(
       if (value && value.type === 'result') {
         validatedOutput = validateWithZod(outputType, value.output, taskId, 'output');
         
-        console.log(`Task ${taskId} completed with output:`, validatedOutput);
+        //console.log(`Task ${taskId} completed with output:`, validatedOutput);
         
         // Complete the task
         events.push({
           timestamp: Date.now(),
           type: 'task_complete',
+          taskDefId: taskDef.taskDefId,
           taskId,
           output: validatedOutput
         });
         
-        console.log(`Task ${taskId} complete event added, returning events`);
+        //console.log(`Task ${taskId} complete event added, returning events`);
         // No next task, just return the events
         return { events };
       } else if (value && (value.type as string) === 'call') {
@@ -671,10 +676,10 @@ async function executeTaskAsGenerator(
         // Handle call and return (canCallAndReturn)
         const { taskDefId, taskId: toolId, input: toolInput } = value;
         
-        console.log(`Task ${taskId} is calling tool ${toolId} with input:`, toolInput);
+        //console.log(`Task ${taskId} is calling tool ${toolId} with input:`, toolInput);
         
         if (workflowDef.tasks[toolId]) {
-          console.log(`Setting up returnTo for tool ${toolId} to return to ${taskId}`);
+          //console.log(`Setting up returnTo for tool ${toolId} to return to ${taskId}`);
           // Return the tool task to execute
           return {
             events,
@@ -720,39 +725,26 @@ async function executeTaskAsGenerator(
 export function compileWorkflow(workflowDef: WorkflowDefinition, taskImpls: TaskImplMap): WorkflowExecutor {
   // Validate the workflow definition
   WorkflowDefinitionSchema.parse(workflowDef);
-
-  // Create a logger for compilation
-  const compileLogger = new WorkflowLogger({ logLevel: LogLevel.NORMAL });
   
-  compileLogger.setWorkflowContext(workflowDef.id);
-  console.log('Compiling workflow with tasks:', Object.keys(workflowDef.tasks));
-  console.log('Available task implementations:', Object.keys(taskImpls));
+  //console.log('Compiling workflow with tasks:', Object.keys(workflowDef.tasks));
+  //console.log('Available task implementations:', Object.keys(taskImpls));
   
   // Validate that all tasks have corresponding task implementations
   for (const taskPath of Object.keys(workflowDef.tasks)) {
-    console.log(`Checking task implementation for task path: ${taskPath}`);
+    //console.log(`Checking task implementation for task path: ${taskPath}`);
     if (!taskImpls[taskPath]) {
-      console.log(`Task implementation not found for task path: ${taskPath}`);
+      //console.log(`Task implementation not found for task path: ${taskPath}`);
       throw new Error(`Task implementation not found for task path: ${taskPath}`);
     }
   }
-  
-  // Restore console after compilation
-  compileLogger.restore();
 
   // Return the workflow executor function
   return async function* (options: WorkflowExecutionOptions): AsyncIterable<WorkflowLogEvent> {
     // Create a logger for execution
-    const logger = new WorkflowLogger({
-      logLevel: options.logLevel || LogLevel.NORMAL
-    });
     
-    // Set workflow context
-    logger.setWorkflowContext(workflowDef.id);
-    
-    console.log("=== WORKFLOW EXECUTION START ===");
-    console.log("Workflow:", workflowDef.id);
-    console.log("Entry point:", options.entryPoint);
+    //console.log("=== WORKFLOW EXECUTION START ===");
+    //console.log("Workflow:", workflowDef.id);
+    //console.log("Entry point:", options.entryPoint);
     
     // Validate the entry point
     const entryPointTaskId = workflowDef.entryPoints[options.entryPoint];
@@ -766,9 +758,6 @@ export function compileWorkflow(workflowDef: WorkflowDefinition, taskImpls: Task
       type: 'workflow_start' as const
     };
     
-    // Log the event
-    logger.logWorkflowEvent(startEvent);
-    
     // Yield the event
     yield startEvent;
 
@@ -778,15 +767,12 @@ export function compileWorkflow(workflowDef: WorkflowDefinition, taskImpls: Task
         { taskId: entryPointTaskId, input: options.input }
       ];
 
-      console.log("Initial task stack:", JSON.stringify(taskStack, null, 2));
-      
-      // Set initial task context
-      logger.setTaskContext(entryPointTaskId);
+      //console.log("Initial task stack:", JSON.stringify(taskStack, null, 2));
       // Remove stack overflow check to allow proper nesting of tasks
       
       // Execute tasks until the stack is empty
       while (taskStack.length > 0) {
-        console.log("Current stack size:", taskStack.length, "Current task:", taskStack[taskStack.length - 1].taskId);
+        //console.log("Current stack size:", taskStack.length, "Current task:", taskStack[taskStack.length - 1].taskId);
         const currentTask = taskStack[taskStack.length - 1];
         const { taskId, generator } = currentTask;
         
@@ -807,17 +793,12 @@ export function compileWorkflow(workflowDef: WorkflowDefinition, taskImpls: Task
             timestamp: Date.now(),
             type: 'task_start' as const,
             taskId,
+            taskDefId: currentTaskDef.taskDefId,
             input: validatedInput
           };
           
-          // Log the event
-          logger.logWorkflowEvent(taskStartEvent);
-          
           // Yield the event
           yield taskStartEvent;
-          
-          // Update logger context
-          logger.setTaskContext(taskId);
           
           // Create task context
           const taskCtx: TaskCtx<any, any> = {
@@ -866,18 +847,8 @@ export function compileWorkflow(workflowDef: WorkflowDefinition, taskImpls: Task
               taskStack,
               workflowDef
             )) {
-              // Log the event
-              logger.logWorkflowEvent(event);
-              
               // Yield the event
               yield event;
-              
-              // Update logger context based on event type
-              if (event.type === 'task_start' && event.taskId) {
-                logger.setTaskContext(event.taskId);
-              } else if ((event.type === 'task_complete' || event.type === 'task_error') && event.taskId) {
-                logger.setTaskContext(null);
-              }
             }
             
             // Continue to the next task
@@ -898,27 +869,9 @@ export function compileWorkflow(workflowDef: WorkflowDefinition, taskImpls: Task
           
           // Yield and log any events from the generator
           for (const event of result.events) {
-            // Log the event
-            logger.logWorkflowEvent(event);
-            
             // Yield the event
             yield event;
-            
-            // Update logger context based on event type
-            if (event.type === 'task_start' && event.taskId) {
-              logger.setTaskContext(event.taskId);
-            } else if ((event.type === 'task_complete' || event.type === 'task_error') && event.taskId) {
-              logger.setTaskContext(null);
-            }
           }
-          
-          console.log("Task execution result:", {
-            taskId: currentTask.taskId,
-            hasNextTask: !!result.nextTask,
-            hasReturnTo: !!currentTask.returnTo,
-            stackLength: taskStack.length,
-            returnToTaskId: currentTask.returnTo?.taskId
-          });
 
           // If the generator returned a next task
           if (result.nextTask) {
@@ -933,7 +886,7 @@ export function compileWorkflow(workflowDef: WorkflowDefinition, taskImpls: Task
             
             // If this task was called by another task, return to the caller
             if (currentTask.returnTo) {
-              console.log("Returning to caller task:", currentTask.returnTo.taskId);
+              //console.log("Returning to caller task:", currentTask.returnTo.taskId);
               
               // Push the caller task back onto the stack
               taskStack.push({
@@ -947,8 +900,8 @@ export function compileWorkflow(workflowDef: WorkflowDefinition, taskImpls: Task
       }
       
       // Complete the workflow when the stack is empty
-      console.log("=== WORKFLOW EXECUTION COMPLETE ===");
-      console.log("Task stack is empty, completing workflow");
+      //console.log("=== WORKFLOW EXECUTION COMPLETE ===");
+      //console.log("Task stack is empty, completing workflow");
       
       // Create workflow complete event
       const completeEvent = {
@@ -956,14 +909,8 @@ export function compileWorkflow(workflowDef: WorkflowDefinition, taskImpls: Task
         type: 'workflow_complete' as const
       };
       
-      // Log the event
-      logger.logWorkflowEvent(completeEvent);
-      
       // Yield the event
       yield completeEvent;
-      
-      // Restore console
-      logger.restore();
     } catch (error) {
       // Handle workflow error
       console.log("=== WORKFLOW EXECUTION ERROR ===");
@@ -975,15 +922,8 @@ export function compileWorkflow(workflowDef: WorkflowDefinition, taskImpls: Task
         type: 'workflow_error' as const,
         error: error as Error
       };
-      
-      // Log the event
-      logger.logWorkflowEvent(errorEvent);
-      
       // Yield the event
       yield errorEvent;
-      
-      // Restore console
-      logger.restore();
     }
   };
 }

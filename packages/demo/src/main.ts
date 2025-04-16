@@ -68,8 +68,10 @@ async function runWorkflow() {
         }
         
         console.log('Workflow execution complete');
-        console.log('Journal state:', journal.toSavedState());
-        console.log('Workflows:', state.compileResult.workflows);
+        /*for(const logItem of journal.toSavedState().log) {
+            console.log('Journal logItem:', logItem);
+        }
+        console.log('Workflows:', state.compileResult.workflows);*/
     } catch (error) {
         console.error('Error executing workflow:', error);
     }
