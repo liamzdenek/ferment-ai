@@ -1,7 +1,7 @@
 import { Construct } from 'constructs';
 import { FermentConstruct, FermentConstructProps } from './base-construct.js';
 import { SendEmailTool } from './send-email-tool.js';
-import { Workflow, TaskDef } from '@ferment-ai/runtime-common';
+import { Workflow, TaskDef, WorkflowTask, WorkflowTaskOptions } from '@ferment-ai/runtime-common';
 import { AGENT_CONTEXT_TASK_DEF, PROMPT_TASK_DEF } from './task-defs.js';
 import { z } from 'zod';
 
@@ -71,7 +71,7 @@ export class AgentContext extends FermentConstruct {
    * @param props The construct properties
    */
   constructor(scope: Construct, id: string, props: AgentContextProps) {
-    super(scope, id, props);
+    super(scope, id);
     this.prompt = props.prompt;
     this.model = props.model;
     this._contextWindowSize = props.contextWindowSize ?? 4000;
@@ -117,7 +117,7 @@ export class AgentContext extends FermentConstruct {
    * @param options The task options
    * @returns A new prompt task
    */
-  public newPromptTask(scope: Construct, id: string, options?: Partial<Workflow.TaskOptions>): PromptTask {
+  public newPromptTask(scope: Construct, id: string, options?: Partial<WorkflowTaskOptions>): PromptTask {
     return new PromptTask(scope, id, this, options);
   }
 }
@@ -125,7 +125,7 @@ export class AgentContext extends FermentConstruct {
 /**
  * A specialized task for agent prompts that can create email tools
  */
-export class PromptTask extends Workflow.Task {
+export class PromptTask extends WorkflowTask {
   /**
    * The agent context this task belongs to
    */
@@ -143,7 +143,7 @@ export class PromptTask extends Workflow.Task {
     scope: Construct,
     id: string,
     agentContext: AgentContext,
-    options?: Partial<Workflow.TaskOptions>
+    options?: Partial<WorkflowTaskOptions>
   ) {
     super(scope, id, {
       taskDef: PROMPT_TASK_DEF,
@@ -158,9 +158,9 @@ export class PromptTask extends Workflow.Task {
    *
    * @returns A task that can be used as a tool
    */
-  sendEmailTool(): Workflow.Task {
+  sendEmailTool(): WorkflowTask {
     // Create a task wrapper for the tool
-    const emailToolTask = new Workflow.Task(this, `${this.node.id}SendEmailTool`, {
+    const emailToolTask = new WorkflowTask(this, `${this.node.id}SendEmailTool`, {
       taskDef: {
         taskDefId: 'send-email-tool',
         inputType: z.any(),

@@ -168,263 +168,6 @@ export interface ReconcilerCallbacks {
 }
 
 /**
- * Workflow class
- */
-export class Workflow extends Construct {
-  /**
-   * The entry point task for the workflow
-   */
-  private readonly definition: Workflow.Task;
-
-  /**
-   * Creates a new workflow
-   *
-   * @param scope The scope in which to define this construct
-   * @param id The scoped ID of the construct
-   * @param options The options for the workflow
-   */
-  constructor(
-    scope: Construct,
-    id: string,
-    private readonly options: WorkflowOptions
-  ) {
-    super(scope, id);
-    this.definition = options.definition;
-  }
-
-  /**
-   * Gets the workflow definition
-   *
-   * @returns The workflow definition
-   */
-  getDefinition(): WorkflowDefinition {
-    const tasks: Record<string, TaskDefinition> = {};
-    const entryPoints: Record<string, string> = {
-      'default': this.definition.node.path
-    };
-
-    // Add the entry point task
-    tasks[this.definition.node.path] = this.definition.getDefinition();
-
-    // Add all tasks reachable from the entry point
-    this.addReachableTasks(this.definition, tasks);
-
-    return {
-      id: this.node.id,
-      name: this.node.id,
-      description: this.options.description,
-      tasks,
-      entryPoints
-    };
-  }
-
-  /**
-   * Adds all tasks reachable from a task to the tasks map
-   *
-   * @param task The task to start from
-   * @param tasks The tasks map to add to
-   */
-  private addReachableTasks(task: Workflow.Task, tasks: Record<string, TaskDefinition>): void {
-    // Add next tasks
-    for (const nextTask of task.getNextTasks()) {
-      if (!tasks[nextTask.node.path]) {
-        tasks[nextTask.node.path] = nextTask.getDefinition();
-        this.addReachableTasks(nextTask, tasks);
-      }
-    }
-
-    // Add tools
-    for (const [, tool] of Object.entries(task.getTools())) {
-      if (!tasks[tool.node.path]) {
-        tasks[tool.node.path] = tool.getDefinition();
-        this.addReachableTasks(tool, tasks);
-      }
-    }
-  }
-}
-
-/**
- * Workflow namespace for task-related classes
- */
-export namespace Workflow {
-  /**
-   * Options for creating a task
-   */
-  export interface TaskOptions {
-    /**
-     * The input type for the task
-     */
-    inputType?: z.ZodTypeAny;
-
-    /**
-     * The output type for the task
-     */
-    outputType?: z.ZodTypeAny;
-
-    /**
-     * The task definition ID
-     */
-    taskDefId?: string;
-
-    /**
-     * A description of what the task does
-     */
-    description?: string;
-
-    /**
-     * The task definition - required for all tasks
-     */
-    taskDef: TaskDef<any, any>;
-  }
-
-  /**
-   * A task in a workflow
-   */
-  export class Task extends Construct {
-    /**
-     * The next tasks in the workflow
-     */
-    private readonly nextTasks: Task[] = [];
-
-    /**
-     * The tools that can be called by this task
-     */
-    private readonly tools: Record<string, Task> = {};
-
-    /**
-     * Creates a new task
-     *
-     * @param scope The scope in which to define this construct
-     * @param id The scoped ID of the construct
-     * @param options The options for the task
-     */
-    constructor(
-      scope: Construct,
-      id: string,
-      private readonly options: TaskOptions
-    ) {
-      super(scope, id);
-    }
-
-    /**
-     * Adds a task that can be called by this task
-     *
-     * @param task The task that can be called
-     * @returns This task
-     */
-    canCall(task: Task): this {
-      this.nextTasks.push(task);
-      return this;
-    }
-
-    /**
-     * Adds a task that can be called and returned to by this task
-     *
-     * @param tool The tool that can be called
-     * @returns This task
-     */
-    canCallAndReturn(tool: Task): this {
-      const toolPath = tool.node.path;
-      this.tools[toolPath] = tool;
-      return this;
-    }
-    /**
-     * Gets the task definition
-     *
-     * @returns The task definition
-     */
-    getDefinition(): TaskDefinition {
-      if (!this.options.taskDef) {
-        throw new Error(`Task ${this.node.id} does not have a taskDef defined`);
-      }
-      
-      // Get the next tasks
-      const nextTasks = this.getNextTasks().map(task => task.node.path);
-      
-      // Get the tools
-      const tools = Object.keys(this.getTools());
-      
-      return {
-        id: this.node.path,
-        name: this.node.id,
-        description: this.options.description,
-        taskDefId: this.options.taskDef.taskDefId,
-        inputType: this.options.taskDef.inputType,
-        outputType: this.options.taskDef.outputType,
-        nextTasks,
-        tools
-      };
-    }
-
-    /**
-     * Gets the next tasks in the workflow
-     *
-     * @returns The next tasks
-     */
-    getNextTasks(): Task[] {
-      return [...this.nextTasks];
-    }
-
-    /**
-     * Gets the tools that can be called by this task
-     *
-     * @returns The tools
-     */
-    getTools(): Record<string, Task> {
-      return { ...this.tools };
-    }
-  }
-
-  /**
-   * An end task in a workflow
-   */
-  export class EndTask extends Task {
-    /**
-     * Default task definition for end tasks
-     */
-    private static readonly END_TASK_DEF: TaskDef<any, any> = {
-      taskDefId: 'end-task',
-      inputType: z.any(),
-      outputType: z.any()
-    };
-
-    /**
-     * Creates a new end task
-     *
-     * @param scope The scope in which to define this construct
-     * @param id The scoped ID of the construct
-     * @param options The options for the task (optional)
-     */
-    constructor(
-      scope: Construct,
-      id: string,
-      options?: Partial<TaskOptions>
-    ) {
-      super(scope, id, {
-        description: options?.description || 'End of workflow',
-        taskDef: EndTask.END_TASK_DEF,
-        ...options
-      });
-    }
-  }
-}
-
-/**
- * Options for creating a workflow
- */
-export interface WorkflowOptions {
-  /**
-   * The entry point task for the workflow
-   */
-  definition: Workflow.Task;
-
-  /**
-   * A description of what the workflow does
-   */
-  description?: string;
-}
-
-/**
  * Interface for task execution state
  */
 interface TaskExecutionState {
@@ -487,7 +230,7 @@ async function* executeTaskAsPromise(
   workflowDef: WorkflowDefinition
 ): AsyncGenerator<WorkflowLogEvent, void, unknown> {
   const { taskId, returnTo } = taskState;
-  
+
   /*
   console.log("executeTaskAsPromise:", {
     taskId,
@@ -496,22 +239,22 @@ async function* executeTaskAsPromise(
     stackSize: taskStack.length
   });
   */
-  
+
   try {
     // Execute the task function and get the result
     //console.log(`Executing promise-based task ${taskId}`);
     const result = await (taskImpl.execute as TaskExecutePromise<any, any>)(taskCtx);
     //console.log(`Task ${taskId} execution completed with result:`, result);
-    
+
     // Validate output using Zod
     const outputType = taskDef.outputType;
     let validatedOutput;
-    
+
     if (result && result.type === 'result') {
       validatedOutput = validateWithZod(outputType, result.output, taskId, 'output');
-      
+
       //console.log(`Task ${taskId} completed with validated output:`, validatedOutput);
-      
+
       // Complete the task
       yield {
         timestamp: Date.now(),
@@ -520,9 +263,9 @@ async function* executeTaskAsPromise(
         taskId,
         output: validatedOutput
       };
-      
+
       //console.log(`Task ${taskId} complete event yielded`);
-      
+
       // If this task was called by another task using canCallAndReturn, we need to
       // push the caller task back onto the stack so it can continue execution
       if (returnTo) {
@@ -534,10 +277,10 @@ async function* executeTaskAsPromise(
           input: validatedOutput,
           generator: returnTo.generator
         });
-        
+
         //console.log(`Stack after pushing caller:`, taskStack.map(t => t.taskId));
       }
-      
+
       // If this task was called by another task, return the result to the caller
       if (returnTo && taskStack.length > 0) {
         const callerTask = taskStack[taskStack.length - 1];
@@ -547,7 +290,7 @@ async function* executeTaskAsPromise(
     } else if (result && (result.type as string) === 'call') {
       // Handle direct call (canCall)
       const { taskDefId, taskId: nextTaskId, input: nextInput } = result;
-      
+
       if (workflowDef.tasks[nextTaskId]) {
         taskStack.push({
           taskId: nextTaskId,
@@ -557,7 +300,7 @@ async function* executeTaskAsPromise(
         throw new Error(`Unknown task ID for call: ${nextTaskId}`);
       }
     }
-    
+
     // Remove the current task from the stack since it's completed
     const poppedTask = taskStack.pop();
     //console.log(`Removed task ${poppedTask?.taskId} from stack, stack size now: ${taskStack.length}`);
@@ -569,10 +312,10 @@ async function* executeTaskAsPromise(
       taskId,
       error: error as Error
     };
-    
+
     // Remove the current task from the stack
     taskStack.pop();
-    
+
     // If this task was called by another task, return the error to the caller
     if (returnTo && taskStack.length > 0) {
       const callerTask = taskStack[taskStack.length - 1];
@@ -606,7 +349,7 @@ async function executeTaskAsGenerator(
 ): Promise<TaskGeneratorResult> {
   const { taskId, input, generator, returnTo } = taskState;
   const events: WorkflowLogEvent[] = [];
-  
+
   /*
   console.log("executeTaskAsGenerator:", {
     taskId,
@@ -616,28 +359,28 @@ async function executeTaskAsGenerator(
     returnToTaskId: returnTo?.taskId
   });
   */
-  
+
   try {
     if (!generator) {
       throw new Error('Generator is undefined');
     }
-    
+
     //console.log(`Resuming generator for task ${taskId} with input:`, input);
     const { value, done } = await generator.next(input);
     //console.log(`Generator for task ${taskId} yielded:`, { value, done });
-    
+
     if (done) {
       // Generator has completed
-      
+
       // Validate output using Zod
       const outputType = taskDef.outputType;
       let validatedOutput;
-      
+
       if (value && value.type === 'result') {
         validatedOutput = validateWithZod(outputType, value.output, taskId, 'output');
-        
+
         //console.log(`Task ${taskId} completed with output:`, validatedOutput);
-        
+
         // Complete the task
         events.push({
           timestamp: Date.now(),
@@ -646,14 +389,14 @@ async function executeTaskAsGenerator(
           taskId,
           output: validatedOutput
         });
-        
+
         //console.log(`Task ${taskId} complete event added, returning events`);
         // No next task, just return the events
         return { events };
       } else if (value && (value.type as string) === 'call') {
         // Handle direct call (canCall)
         const { taskDefId, taskId: nextTaskId, input: nextInput } = value;
-        
+
         if (workflowDef.tasks[nextTaskId]) {
           // Return the next task to execute
           return {
@@ -667,7 +410,7 @@ async function executeTaskAsGenerator(
           throw new Error(`Unknown task ID for call: ${nextTaskId}`);
         }
       }
-      
+
       // Default case, just return the events
       return { events };
     } else {
@@ -675,9 +418,9 @@ async function executeTaskAsGenerator(
       if (value && value.type === 'callAndReturn') {
         // Handle call and return (canCallAndReturn)
         const { taskDefId, taskId: toolId, input: toolInput } = value;
-        
+
         //console.log(`Task ${taskId} is calling tool ${toolId} with input:`, toolInput);
-        
+
         if (workflowDef.tasks[toolId]) {
           //console.log(`Setting up returnTo for tool ${toolId} to return to ${taskId}`);
           // Return the tool task to execute
@@ -697,7 +440,7 @@ async function executeTaskAsGenerator(
           throw new Error(`Unknown tool ID for callAndReturn: ${toolId}`);
         }
       }
-      
+
       // Default case, just return the events
       return { events };
     }
@@ -709,7 +452,7 @@ async function executeTaskAsGenerator(
       taskId,
       error: error as Error
     });
-    
+
     // Return the events
     return { events };
   }
@@ -725,10 +468,10 @@ async function executeTaskAsGenerator(
 export function compileWorkflow(workflowDef: WorkflowDefinition, taskImpls: TaskImplMap): WorkflowExecutor {
   // Validate the workflow definition
   WorkflowDefinitionSchema.parse(workflowDef);
-  
+
   //console.log('Compiling workflow with tasks:', Object.keys(workflowDef.tasks));
   //console.log('Available task implementations:', Object.keys(taskImpls));
-  
+
   // Validate that all tasks have corresponding task implementations
   for (const taskPath of Object.keys(workflowDef.tasks)) {
     //console.log(`Checking task implementation for task path: ${taskPath}`);
@@ -741,11 +484,11 @@ export function compileWorkflow(workflowDef: WorkflowDefinition, taskImpls: Task
   // Return the workflow executor function
   return async function* (options: WorkflowExecutionOptions): AsyncIterable<WorkflowLogEvent> {
     // Create a logger for execution
-    
+
     //console.log("=== WORKFLOW EXECUTION START ===");
     //console.log("Workflow:", workflowDef.id);
     //console.log("Entry point:", options.entryPoint);
-    
+
     // Validate the entry point
     const entryPointTaskId = workflowDef.entryPoints[options.entryPoint];
     if (!entryPointTaskId) {
@@ -757,7 +500,7 @@ export function compileWorkflow(workflowDef: WorkflowDefinition, taskImpls: Task
       timestamp: Date.now(),
       type: 'workflow_start' as const
     };
-    
+
     // Yield the event
     yield startEvent;
 
@@ -769,25 +512,25 @@ export function compileWorkflow(workflowDef: WorkflowDefinition, taskImpls: Task
 
       //console.log("Initial task stack:", JSON.stringify(taskStack, null, 2));
       // Remove stack overflow check to allow proper nesting of tasks
-      
+
       // Execute tasks until the stack is empty
       while (taskStack.length > 0) {
         //console.log("Current stack size:", taskStack.length, "Current task:", taskStack[taskStack.length - 1].taskId);
         const currentTask = taskStack[taskStack.length - 1];
         const { taskId, generator } = currentTask;
-        
+
         if (!generator) {
           // This is a new task execution, start it
-          
+
           // Get the task implementation and definition
           const currentTaskImpl = taskImpls[taskId];
           const currentTaskDef = workflowDef.tasks[taskId];
-          
+
           // Validate input using Zod
           //console.log("Got task definition", currentTaskDef);
           const inputType = currentTaskDef.inputType;
           const validatedInput = validateWithZod(inputType, currentTask.input, taskId, 'input');
-          
+
           // Create task start event
           const taskStartEvent = {
             timestamp: Date.now(),
@@ -796,10 +539,10 @@ export function compileWorkflow(workflowDef: WorkflowDefinition, taskImpls: Task
             taskDefId: currentTaskDef.taskDefId,
             input: validatedInput
           };
-          
+
           // Yield the event
           yield taskStartEvent;
-          
+
           // Create task context
           const taskCtx: TaskCtx<any, any> = {
             taskDefId: currentTaskImpl.def.taskDefId,
@@ -809,32 +552,32 @@ export function compileWorkflow(workflowDef: WorkflowDefinition, taskImpls: Task
             canCall: {},
             canCallAndReturn: {}
           };
-          
+
           // Populate canCall and canCallAndReturn maps based on the task's relationships
           // Get the task definition from the workflow
           const taskDef = workflowDef.tasks[taskId];
-          
+
           // Get the next tasks that this task can call (canCall)
           for (const nextTaskId of taskDef.nextTasks) {
             if (taskImpls[nextTaskId]) {
               taskCtx.canCall[nextTaskId] = taskImpls[nextTaskId].def;
             }
           }
-          
+
           // Get the tools that this task can call and return to (canCallAndReturn)
           for (const toolTaskId of taskDef.tools) {
             if (taskImpls[toolTaskId]) {
               taskCtx.canCallAndReturn[toolTaskId] = taskImpls[toolTaskId].def;
             }
           }
-          
+
           // Check if the execute function is an async generator function
           const executeFunction = currentTaskImpl.execute;
-          
+
           if (isAsyncGeneratorFunction(executeFunction)) {
             // Execute the task as an async generator
             currentTask.generator = executeFunction(taskCtx) as AsyncGenerator<any, any, any>;
-            
+
             // Process the generator in the next iteration
             continue;
           } else {
@@ -850,7 +593,7 @@ export function compileWorkflow(workflowDef: WorkflowDefinition, taskImpls: Task
               // Yield the event
               yield event;
             }
-            
+
             // Continue to the next task
             continue;
           }
@@ -859,14 +602,14 @@ export function compileWorkflow(workflowDef: WorkflowDefinition, taskImpls: Task
           // Get the task implementation and definition for the current task
           const currentTaskImpl = taskImpls[taskId];
           const currentTaskDef = workflowDef.tasks[taskId];
-          
+
           const result = await executeTaskAsGenerator(
             currentTask,
             currentTaskImpl,
             currentTaskDef,
             workflowDef
           );
-          
+
           // Yield and log any events from the generator
           for (const event of result.events) {
             // Yield the event
@@ -877,17 +620,17 @@ export function compileWorkflow(workflowDef: WorkflowDefinition, taskImpls: Task
           if (result.nextTask) {
             // Remove the current task from the stack
             taskStack.pop();
-            
+
             // Add the next task to the stack
             taskStack.push(result.nextTask);
           } else {
             // Remove the current task from the stack
             taskStack.pop();
-            
+
             // If this task was called by another task, return to the caller
             if (currentTask.returnTo) {
               //console.log("Returning to caller task:", currentTask.returnTo.taskId);
-              
+
               // Push the caller task back onto the stack
               taskStack.push({
                 taskId: currentTask.returnTo.taskId,
@@ -898,24 +641,24 @@ export function compileWorkflow(workflowDef: WorkflowDefinition, taskImpls: Task
           }
         }
       }
-      
+
       // Complete the workflow when the stack is empty
       //console.log("=== WORKFLOW EXECUTION COMPLETE ===");
       //console.log("Task stack is empty, completing workflow");
-      
+
       // Create workflow complete event
       const completeEvent = {
         timestamp: Date.now(),
         type: 'workflow_complete' as const
       };
-      
+
       // Yield the event
       yield completeEvent;
     } catch (error) {
       // Handle workflow error
       console.log("=== WORKFLOW EXECUTION ERROR ===");
       console.error("Workflow error:", error);
-      
+
       // Create workflow error event
       const errorEvent = {
         timestamp: Date.now(),

@@ -26,7 +26,9 @@ import {
   TaskCallAndReturnRequest,
   TaskCallRequest,
   TaskExecutePromise,
-  TaskExecuteGenerator
+  TaskExecuteGenerator,
+  WorkflowTask,
+  WorkflowEndTask
 } from '@ferment-ai/runtime-common';
 
 /**
@@ -158,7 +160,7 @@ function createModelTaskImpl(model: Model): TaskImpl<typeof ModelInputSchema, ty
  * @param task The prompt task
  * @returns A task implementation
  */
-function createPromptTaskImpl(task: Workflow.Task): TaskImpl<typeof PromptTaskInputSchema, typeof PromptTaskOutputSchema> {
+function createPromptTaskImpl(task: WorkflowTask): TaskImpl<typeof PromptTaskInputSchema, typeof PromptTaskOutputSchema> {
   return {
     def: PROMPT_TASK_DEF,
     taskId: task.node.path,
@@ -216,7 +218,7 @@ function createPromptTaskImpl(task: Workflow.Task): TaskImpl<typeof PromptTaskIn
  * @param endTask The end task
  * @returns A task implementation
  */
-function createWorkflowEndTaskImpl(endTask: Workflow.EndTask): TaskImpl<typeof EndTaskInputSchema, typeof EndTaskOutputSchema> {
+function createWorkflowEndTaskImpl(endTask: WorkflowEndTask): TaskImpl<typeof EndTaskInputSchema, typeof EndTaskOutputSchema> {
   return {
     def: END_TASK_DEF,
     taskId: endTask.node.path,
@@ -266,9 +268,9 @@ export function createCoreConstructsModule(): Module {
     }
     
     // Check if the construct is a Workflow.Task
-    if (construct instanceof Workflow.Task) {
+    if (construct instanceof WorkflowTask) {
       // Check if it's an EndTask
-      if (construct instanceof Workflow.EndTask) {
+      if (construct instanceof WorkflowEndTask) {
         return createWorkflowEndTaskImpl(construct);
       }
       

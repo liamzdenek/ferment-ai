@@ -2,7 +2,7 @@ import { AgentContext, OpenAIModel, VirtualModel } from '@ferment-ai/core-constr
 import { Construct, RootConstruct } from 'constructs';
 import { createCoreConstructsModule } from '@ferment-ai/core-constructs-runtime';
 import { Journal } from '@ferment-ai/runtime-in-memory';
-import { Workflow } from '@ferment-ai/runtime-common';
+import { Workflow, WorkflowEndTask } from '@ferment-ai/runtime-common';
 
 class TwoAgentModel extends VirtualModel {
     constructor(scope: Construct, id: string) {
@@ -25,7 +25,7 @@ class TwoAgentModel extends VirtualModel {
         // Create workflow tasks
         const seniorEngineerTask = seniorEngineer.newPromptTask(this, 'SeniorEngineerTask');
         const juniorEngineerTask = juniorEngineer.newPromptTask(this, 'JuniorEngineerTask');
-        const endTask = new Workflow.EndTask(this, 'EndTask');
+        const endTask = new WorkflowEndTask(this, 'EndTask');
 
         // Set up task relationships
         seniorEngineerTask.canCallAndReturn(juniorEngineerTask.sendEmailTool());

@@ -4,9 +4,9 @@ import {
   TaskImplMap,
   WorkflowExecutor,
   compileWorkflow,
-  Workflow
 } from './workflow.js';
 import { Module } from './module.js';
+import { Workflow } from './builtin-constructs.js';
 
 /**
  * Options for compiling workflows
@@ -102,7 +102,7 @@ function findWorkflows(construct: Construct): Record<string, WorkflowDefinition>
   for (const [, workflowConstruct] of Object.entries(workflowConstructs)) {
     if (workflowConstruct instanceof Workflow) {
       const workflowName = workflowConstruct.node.path;
-      const workflowDef = workflowConstruct.getDefinition();
+      const workflowDef = workflowConstruct.getDefinition()
       workflowDefs[workflowName] = workflowDef;
     }
   }
