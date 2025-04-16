@@ -131,10 +131,13 @@ const LoggerUI: React.FC<{
   taskTree: TaskNode[];
   workflowId: string | null;
 }> = ({ logs, taskTree, workflowId }) => {
+  // Only show the last 10 logs to prevent excessive scrolling
+  const recentLogs = logs.slice(-10);
+  
   return (
-    <>
+    <Box flexDirection="column">
       {/* Static logs at the top */}
-      <Static items={logs}>
+      <Static items={recentLogs}>
         {(log) => (
           <Box key={log.id}>
             <Text>{log.text}</Text>
@@ -160,7 +163,7 @@ const LoggerUI: React.FC<{
           <Text dimColor>No active tasks</Text>
         )}
       </Box>
-    </>
+    </Box>
   );
 };
 
@@ -173,15 +176,6 @@ export class WorkflowLogger {
   private taskStack: string[] = [];
   private indentLevel = 0;
   public readonly options: Required<WorkflowLoggerOptions>;
-  
-  // Store original console methods
-  private originalConsole = {
-    log: console.log,
-    warn: console.warn,
-    error: console.error,
-    info: console.info,
-    debug: console.debug
-  };
   
   // Task hierarchy for tree visualization
   private taskHierarchy: Map<string, string[]> = new Map();
@@ -250,11 +244,6 @@ export class WorkflowLogger {
       id: this.logCounter++,
       text
     });
-    
-    // Update UI if interactive mode is enabled
-    if (this.options.interactive) {
-      this.renderUI();
-    }
   }
 
   /**
@@ -347,18 +336,52 @@ export class WorkflowLogger {
     
     // Update task context if needed
     if (event.type === 'task_start' && event.taskId) {
+      // Extract the task path components
+      const pathComponents = event.taskId.split('/');
+      const taskName = pathComponents[pathComponents.length - 1];
+      
+      // Check if this is a tool task (like JuniorEngineerTaskSendEmailTool)
+      const isToolTask = taskName.includes('Tool');
+      
+      // Set the task context
       this.setTaskContext(event.taskId, this.indentLevel + 1);
       
       // Update task hierarchy
-      const parentTaskId = this.findParentTask(event.taskId);
-      if (parentTaskId) {
-        if (!this.taskHierarchy.has(parentTaskId)) {
-          this.taskHierarchy.set(parentTaskId, []);
+      if (isToolTask && this.currentTaskId) {
+        // For tool tasks, always use the current task as parent
+        // This ensures tools appear as children of the tasks that call them
+        const parentTaskId = this.taskStack.length > 1 ? this.taskStack[this.taskStack.length - 2] : null;
+        
+        if (parentTaskId) {
+          // Add the tool task as a child of the calling task
+          if (!this.taskHierarchy.has(parentTaskId)) {
+            this.taskHierarchy.set(parentTaskId, []);
+          }
+          
+          const children = this.taskHierarchy.get(parentTaskId);
+          if (children && !children.includes(event.taskId)) {
+            children.push(event.taskId);
+          }
+          
+          // Log the parent-child relationship for debugging
+          console.debug(`Adding tool task ${event.taskId} as child of ${parentTaskId}`);
+        } else {
+          // Fallback to workflow parent if no calling task is found
+          this.addTaskToWorkflowHierarchy(event.taskId);
         }
-        const children = this.taskHierarchy.get(parentTaskId);
+      } else if (this.currentTaskId && this.currentTaskId !== event.taskId) {
+        // For non-tool tasks, use the current task context as parent if available
+        if (!this.taskHierarchy.has(this.currentTaskId)) {
+          this.taskHierarchy.set(this.currentTaskId, []);
+        }
+        
+        const children = this.taskHierarchy.get(this.currentTaskId);
         if (children && !children.includes(event.taskId)) {
           children.push(event.taskId);
         }
+      } else {
+        // For root tasks, use the workflow as parent
+        this.addTaskToWorkflowHierarchy(event.taskId);
       }
       
       // Update task status
@@ -393,6 +416,11 @@ export class WorkflowLogger {
     // Add to logs
     this.addLog(formattedEvent);
     
+    // Force a UI update after each event
+    if (this.options.interactive) {
+      this.renderUI();
+    }
+    
     // If workflow is complete, show the summary
     if ((event.type === 'workflow_complete' || event.type === 'workflow_error') && this.options.interactive) {
       // Small delay to ensure the UI is updated
@@ -425,6 +453,13 @@ export class WorkflowLogger {
       // Build the task tree
       const taskTree = this.buildTaskTree();
       
+      // Debug the task hierarchy
+      console.debug('Task hierarchy:',
+        Array.from(this.taskHierarchy.entries())
+          .map(([k, v]) => `${k} -> [${v.join(', ')}]`)
+          .join('\n')
+      );
+      
       // If we already have an Ink instance, update it
       if (this.inkInstance) {
         this.inkInstance.rerender(
@@ -451,7 +486,7 @@ export class WorkflowLogger {
       }
     } catch (error) {
       // Log any errors but don't crash
-      this.originalConsole.error('Error rendering workflow status:', error);
+      console.error('Error rendering workflow status:', error);
     }
   }
   
@@ -461,6 +496,7 @@ export class WorkflowLogger {
   private showFinalSummary(): void {
     // Clean up the Ink instance
     if (this.inkInstance) {
+      this.inkInstance.rerender(<></>);
       this.inkInstance.unmount();
       this.inkInstance = null;
     }
@@ -475,14 +511,46 @@ export class WorkflowLogger {
   }
   
   /**
+   * Helper method to add a task to the workflow hierarchy
+   */
+  private addTaskToWorkflowHierarchy(taskId: string): void {
+    if (this.workflowId) {
+      // Create a root node for the workflow if it doesn't exist
+      const workflowNodeId = `RootConstruct/${this.workflowId}`;
+      if (!this.taskHierarchy.has(workflowNodeId)) {
+        this.taskHierarchy.set(workflowNodeId, []);
+        this.taskStatus.set(workflowNodeId, 'running');
+      }
+      
+      // Add this task as a child of the workflow
+      const children = this.taskHierarchy.get(workflowNodeId);
+      if (children && !children.includes(taskId)) {
+        children.push(taskId);
+      }
+    }
+  }
+
+  /**
    * Build the task tree for rendering
-   * 
+   *
    * @returns An array of root task nodes
    */
   private buildTaskTree(): TaskNode[] {
-    // Find root tasks (those without parents in the hierarchy)
+    // Create a set of all task IDs that are children of other tasks
+    const childTaskIds = new Set<string>();
+    for (const children of this.taskHierarchy.values()) {
+      for (const childId of children) {
+        childTaskIds.add(childId);
+      }
+    }
+    
+    // Find root tasks (those that are not children of any other task)
     const rootTaskIds = Array.from(this.taskHierarchy.keys())
-      .filter(taskId => !this.findParentTask(taskId) || !this.taskHierarchy.has(this.findParentTask(taskId)!));
+      .filter(taskId => !childTaskIds.has(taskId));
+    
+    // Debug the task hierarchy
+    console.debug('Root task IDs:', rootTaskIds);
+    console.debug('Child task IDs:', Array.from(childTaskIds));
     
     // Build the tree starting from root tasks
     return rootTaskIds.map(taskId => this.buildTaskNode(taskId));

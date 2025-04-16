@@ -525,6 +525,7 @@ async function* executeTaskAsPromise(
       // push the caller task back onto the stack so it can continue execution
       if (returnTo) {
         console.log(`Task ${taskId} was called by ${returnTo.taskId}, pushing caller back onto stack`);
+        console.log(`Return context:`, returnTo.context);
         // Push the caller task back onto the stack
         taskStack.push({
           taskId: returnTo.taskId,
