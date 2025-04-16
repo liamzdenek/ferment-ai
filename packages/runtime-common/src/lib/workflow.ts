@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { Construct } from 'constructs';
+import { WorkflowLogger, LogLevel } from './logger.js';
 
 /**
  * Task definition interface with input and output types
@@ -145,6 +146,7 @@ export interface WorkflowLogEvent {
 export interface WorkflowExecutionOptions {
   entryPoint: string;
   input?: any;
+  logLevel?: LogLevel;
 }
 
 /**
@@ -718,6 +720,10 @@ export function compileWorkflow(workflowDef: WorkflowDefinition, taskImpls: Task
   // Validate the workflow definition
   WorkflowDefinitionSchema.parse(workflowDef);
 
+  // Create a logger for compilation
+  const compileLogger = new WorkflowLogger({ logLevel: LogLevel.NORMAL });
+  
+  compileLogger.setWorkflowContext(workflowDef.id);
   console.log('Compiling workflow with tasks:', Object.keys(workflowDef.tasks));
   console.log('Available task implementations:', Object.keys(taskImpls));
   
@@ -729,27 +735,41 @@ export function compileWorkflow(workflowDef: WorkflowDefinition, taskImpls: Task
       throw new Error(`Task implementation not found for task path: ${taskPath}`);
     }
   }
+  
+  // Restore console after compilation
+  compileLogger.restore();
 
   // Return the workflow executor function
   return async function* (options: WorkflowExecutionOptions): AsyncIterable<WorkflowLogEvent> {
+    // Create a logger for execution
+    const logger = new WorkflowLogger({
+      logLevel: options.logLevel || LogLevel.NORMAL
+    });
+    
+    // Set workflow context
+    logger.setWorkflowContext(workflowDef.id);
+    
     console.log("=== WORKFLOW EXECUTION START ===");
     console.log("Workflow:", workflowDef.id);
     console.log("Entry point:", options.entryPoint);
-    console.log("Available task implementations:", Object.keys(taskImpls));
     
     // Validate the entry point
     const entryPointTaskId = workflowDef.entryPoints[options.entryPoint];
     if (!entryPointTaskId) {
       throw new Error(`Entry point not found: ${options.entryPoint}`);
     }
-    
-    console.log("Entry point task ID:", entryPointTaskId);
 
     // Start the workflow
-    yield {
+    const startEvent = {
       timestamp: Date.now(),
-      type: 'workflow_start'
+      type: 'workflow_start' as const
     };
+    
+    // Log the event
+    logger.logWorkflowEvent(startEvent);
+    
+    // Yield the event
+    yield startEvent;
 
     try {
       // Create a stack for task execution
@@ -758,6 +778,9 @@ export function compileWorkflow(workflowDef: WorkflowDefinition, taskImpls: Task
       ];
 
       console.log("Initial task stack:", JSON.stringify(taskStack, null, 2));
+      
+      // Set initial task context
+      logger.setTaskContext(entryPointTaskId);
       // Remove stack overflow check to allow proper nesting of tasks
       
       // Execute tasks until the stack is empty
@@ -778,13 +801,22 @@ export function compileWorkflow(workflowDef: WorkflowDefinition, taskImpls: Task
           const inputType = currentTaskDef.inputType;
           const validatedInput = validateWithZod(inputType, currentTask.input, taskId, 'input');
           
-          // Start the task
-          yield {
+          // Create task start event
+          const taskStartEvent = {
             timestamp: Date.now(),
-            type: 'task_start',
+            type: 'task_start' as const,
             taskId,
             input: validatedInput
           };
+          
+          // Log the event
+          logger.logWorkflowEvent(taskStartEvent);
+          
+          // Yield the event
+          yield taskStartEvent;
+          
+          // Update logger context
+          logger.setTaskContext(taskId);
           
           // Create task context
           const taskCtx: TaskCtx<any, any> = {
@@ -833,7 +865,18 @@ export function compileWorkflow(workflowDef: WorkflowDefinition, taskImpls: Task
               taskStack,
               workflowDef
             )) {
+              // Log the event
+              logger.logWorkflowEvent(event);
+              
+              // Yield the event
               yield event;
+              
+              // Update logger context based on event type
+              if (event.type === 'task_start' && event.taskId) {
+                logger.setTaskContext(event.taskId);
+              } else if ((event.type === 'task_complete' || event.type === 'task_error') && event.taskId) {
+                logger.setTaskContext(null);
+              }
             }
             
             // Continue to the next task
@@ -852,9 +895,20 @@ export function compileWorkflow(workflowDef: WorkflowDefinition, taskImpls: Task
             workflowDef
           );
           
-          // Yield any events from the generator
+          // Yield and log any events from the generator
           for (const event of result.events) {
+            // Log the event
+            logger.logWorkflowEvent(event);
+            
+            // Yield the event
             yield event;
+            
+            // Update logger context based on event type
+            if (event.type === 'task_start' && event.taskId) {
+              logger.setTaskContext(event.taskId);
+            } else if ((event.type === 'task_complete' || event.type === 'task_error') && event.taskId) {
+              logger.setTaskContext(null);
+            }
           }
           
           console.log("Task execution result:", {
@@ -895,19 +949,40 @@ export function compileWorkflow(workflowDef: WorkflowDefinition, taskImpls: Task
       console.log("=== WORKFLOW EXECUTION COMPLETE ===");
       console.log("Task stack is empty, completing workflow");
       
-      yield {
+      // Create workflow complete event
+      const completeEvent = {
         timestamp: Date.now(),
-        type: 'workflow_complete'
+        type: 'workflow_complete' as const
       };
+      
+      // Log the event
+      logger.logWorkflowEvent(completeEvent);
+      
+      // Yield the event
+      yield completeEvent;
+      
+      // Restore console
+      logger.restore();
     } catch (error) {
       // Handle workflow error
       console.log("=== WORKFLOW EXECUTION ERROR ===");
       console.error("Workflow error:", error);
-      yield {
+      
+      // Create workflow error event
+      const errorEvent = {
         timestamp: Date.now(),
-        type: 'workflow_error',
+        type: 'workflow_error' as const,
         error: error as Error
       };
+      
+      // Log the event
+      logger.logWorkflowEvent(errorEvent);
+      
+      // Yield the event
+      yield errorEvent;
+      
+      // Restore console
+      logger.restore();
     }
   };
 }

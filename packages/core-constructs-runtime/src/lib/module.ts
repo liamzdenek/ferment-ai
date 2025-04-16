@@ -30,6 +30,27 @@ import {
 } from '@ferment-ai/runtime-common';
 
 /**
+ * Configuration for task execution
+ */
+export const TaskConfig = {
+  /**
+   * Delay in milliseconds between task execution steps
+   * This is useful for slowing down execution for testing and visualization
+   */
+  executionDelay: 4000
+};
+
+/**
+ * Helper function to add a delay
+ *
+ * @param ms Milliseconds to delay
+ * @returns A promise that resolves after the delay
+ */
+async function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
  * Creates a task implementation for an AgentContext
  *
  * @param agentContext The agent context
@@ -43,6 +64,9 @@ function createAgentContextTaskImpl(agentContext: AgentContext): TaskImpl<typeof
       console.log(`Executing agent context: ${agentContext.node.id}`);
       console.log(`Prompt: ${agentContext.prompt}`);
       console.log(`Input: ${JSON.stringify(ctx.input)}`);
+
+      // Add a delay to make execution more visible
+      await delay(TaskConfig.executionDelay);
 
       // In a real implementation, this would call the model API
       // For now, just return a dummy response
@@ -75,6 +99,9 @@ function createOpenAIModelTaskImpl(model: OpenAIModel): TaskImpl<typeof ModelInp
       console.log(`Model ID: ${model.modelId}`);
       console.log(`Input: ${JSON.stringify(ctx.input)}`);
       
+      // Add a delay to make execution more visible
+      await delay(TaskConfig.executionDelay);
+      
       // In a real implementation, this would call the OpenAI API
       // For now, just return a dummy response
       return {
@@ -105,6 +132,9 @@ function createModelTaskImpl(model: Model): TaskImpl<typeof ModelInputSchema, ty
       console.log(`Executing model: ${model.node.id}`);
       console.log(`Model ID: ${model.modelId}`);
       console.log(`Input: ${JSON.stringify(ctx.input)}`);
+      
+      // Add a delay to make execution more visible
+      await delay(TaskConfig.executionDelay);
       
       // In a real implementation, this would call the model API
       // For now, just return a dummy response
@@ -138,6 +168,9 @@ function createPromptTaskImpl(task: Workflow.Task): TaskImpl<typeof PromptTaskIn
       console.log(`Task:`, task);
       console.log("Got canCallAndReturn:", ctx.canCallAndReturn);
 
+      // Add a delay to make execution more visible
+      await delay(TaskConfig.executionDelay);
+
       // Example of calling another task and returning to this task
       if (Object.keys(ctx.canCallAndReturn).length > 0) {
         // Get the first available tool
@@ -154,6 +187,9 @@ function createPromptTaskImpl(task: Workflow.Task): TaskImpl<typeof PromptTaskIn
         
         // Yield control to the tool and wait for result
         const result = yield toolCall;
+        
+        // Add another delay after receiving the result
+        await delay(TaskConfig.executionDelay);
         
         // Process the result
         console.log(`Received result from tool: ${JSON.stringify(result)}`);
@@ -187,6 +223,9 @@ function createWorkflowEndTaskImpl(endTask: Workflow.EndTask): TaskImpl<typeof E
     execute: async (ctx: TaskCtx<typeof EndTaskInputSchema, typeof EndTaskOutputSchema>) => {
       console.log(`Executing workflow end task: ${endTask.node.id}`);
       console.log(`Input: ${JSON.stringify(ctx.input)}`);
+      
+      // Add a delay to make execution more visible
+      await delay(TaskConfig.executionDelay);
       
       // In a real implementation, this would finalize the workflow
       // For now, just return a dummy response
