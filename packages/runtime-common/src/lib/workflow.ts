@@ -2,14 +2,13 @@ import { z } from 'zod';
 import { Construct } from 'constructs';
 
 /**
- * Schema for a task input or output
+ * Task definition interface with input and output types
  */
-export const TaskSchemaSchema = z.object({
-  type: z.string().describe('The type of the schema'),
-  schema: z.any().describe('The Zod schema for validation')
-});
-
-export type TaskSchema = z.infer<typeof TaskSchemaSchema>;
+export interface TaskDef<I extends z.ZodTypeAny, O extends z.ZodTypeAny> {
+  taskDefId: string; // distinct from taskId because this is global
+  inputType: I;
+  outputType: O;
+}
 
 /**
  * Schema for a task
@@ -18,8 +17,9 @@ export const TaskDefinitionSchema = z.object({
   id: z.string().describe('The unique identifier for the task'),
   name: z.string().describe('The name of the task'),
   description: z.string().optional().describe('A description of what the task does'),
-  inputSchema: TaskSchemaSchema.describe('The schema for the task input'),
-  outputSchema: TaskSchemaSchema.describe('The schema for the task output')
+  taskDefId: z.string().describe('The global task definition ID'),
+  inputType: z.any().describe('The Zod schema for input validation'),
+  outputType: z.any().describe('The Zod schema for output validation')
 });
 
 export type TaskDefinition = z.infer<typeof TaskDefinitionSchema>;
@@ -36,15 +36,6 @@ export const WorkflowDefinitionSchema = z.object({
 });
 
 export type WorkflowDefinition = z.infer<typeof WorkflowDefinitionSchema>;
-
-/**
- * Task definition interface with input and output types
- */
-export interface TaskDef<I extends z.ZodTypeAny, O extends z.ZodTypeAny> {
-  taskDefId: string; // distinct from taskId because this is global
-  inputType: I;
-  outputType: O;
-}
 
 /**
  * Task context provided to a task during execution
@@ -258,14 +249,19 @@ export namespace Workflow {
    */
   export interface TaskOptions {
     /**
-     * The input schema for the task
+     * The input type for the task
      */
-    inputSchema?: TaskSchema;
+    inputType?: z.ZodTypeAny;
 
     /**
-     * The output schema for the task
+     * The output type for the task
      */
-    outputSchema?: TaskSchema;
+    outputType?: z.ZodTypeAny;
+
+    /**
+     * The task definition ID
+     */
+    taskDefId?: string;
 
     /**
      * A description of what the task does
@@ -347,14 +343,9 @@ export namespace Workflow {
         id: this.node.path,
         name: this.node.id,
         description: this.options.description,
-        inputSchema: this.options.inputSchema || {
-          type: 'object',
-          schema: {}
-        },
-        outputSchema: this.options.outputSchema || {
-          type: 'object',
-          schema: {}
-        }
+        taskDefId: this.options.taskDefId || 'default-task',
+        inputType: this.options.inputType || z.any(),
+        outputType: this.options.outputType || z.any()
       };
     }
 
@@ -485,11 +476,11 @@ async function* executeTaskAsPromise(
     const result = await (taskImpl.execute as TaskExecutePromise<any, any>)(taskCtx);
     
     // Validate output using Zod
-    const outputSchema = taskDef.outputSchema.schema;
+    const outputType = taskDef.outputType;
     let validatedOutput;
     
     if (result && result.type === 'result') {
-      validatedOutput = validateWithZod(outputSchema, result.output, taskId, 'output');
+      validatedOutput = validateWithZod(outputType, result.output, taskId, 'output');
       
       // Complete the task
       yield {
@@ -577,11 +568,11 @@ async function executeTaskAsGenerator(
       // Generator has completed
       
       // Validate output using Zod
-      const outputSchema = taskDef.outputSchema.schema;
+      const outputType = taskDef.outputType;
       let validatedOutput;
       
       if (value && value.type === 'result') {
-        validatedOutput = validateWithZod(outputSchema, value.output, taskId, 'output');
+        validatedOutput = validateWithZod(outputType, value.output, taskId, 'output');
         
         // Complete the task
         events.push({
@@ -697,6 +688,9 @@ export function compileWorkflow(workflowDef: WorkflowDefinition, taskImpls: Task
       const taskStack: TaskExecutionState[] = [
         { taskId: entryPointTaskId, input: options.input }
       ];
+
+      console.log("Task stack", taskStack);
+      if(taskStack.length > 2) { throw new Error("Stack overflow"); }
       
       // Execute tasks until the stack is empty
       while (taskStack.length > 0) {
@@ -711,8 +705,9 @@ export function compileWorkflow(workflowDef: WorkflowDefinition, taskImpls: Task
           // This is a new task execution, start it
           
           // Validate input using Zod
-          const inputSchema = taskDef.inputSchema.schema;
-          const validatedInput = validateWithZod(inputSchema, currentTask.input, taskId, 'input');
+          //console.log("Got task definition", taskDef);
+          const inputType = taskDef.inputType;
+          const validatedInput = validateWithZod(inputType, currentTask.input, taskId, 'input');
           
           // Start the task
           yield {
