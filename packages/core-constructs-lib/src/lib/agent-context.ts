@@ -2,6 +2,7 @@ import { Construct } from 'constructs';
 import { FermentConstruct, FermentConstructProps } from './base-construct.js';
 import { SendEmailTool } from './send-email-tool.js';
 import { Workflow } from '@ferment-ai/runtime-common';
+import { AGENT_CONTEXT_TASK_DEF } from './task-defs.js';
 
 /**
  * Properties for the AgentContext construct
@@ -45,6 +46,11 @@ export class AgentContext extends FermentConstruct {
    * The model to use for the agent
    */
   public readonly model: Construct;
+
+  /**
+   * The task definition for this agent context
+   */
+  public readonly taskDef = AGENT_CONTEXT_TASK_DEF;
 
   /**
    * The context window size for the agent

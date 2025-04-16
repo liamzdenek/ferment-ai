@@ -2,6 +2,7 @@ import { Construct } from 'constructs';
 import { FermentConstruct, FermentConstructProps } from './base-construct.js';
 import { z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
+import { TaskDef } from '@ferment-ai/runtime-common';
 
 /**
  * Properties for the Tool construct
@@ -123,6 +124,15 @@ export class FileTool extends Tool<
   });
 
   /**
+   * The task definition for this file tool
+   */
+  public readonly taskDef: TaskDef<any, any> = {
+    taskDefId: 'file-tool',
+    inputType: this.inputSchema,
+    outputType: this.outputSchema
+  };
+
+  /**
    * Creates a new instance of the FileTool class
    * 
    * @param scope The parent construct
@@ -192,6 +202,15 @@ export class CommandTool extends Tool<
     stdout: z.string().describe('The standard output of the command'),
     stderr: z.string().describe('The standard error of the command'),
   });
+
+  /**
+   * The task definition for this command tool
+   */
+  public readonly taskDef: TaskDef<any, any> = {
+    taskDefId: 'command-tool',
+    inputType: this.inputSchema,
+    outputType: this.outputSchema
+  };
 
   /**
    * Creates a new instance of the CommandTool class

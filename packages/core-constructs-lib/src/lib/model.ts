@@ -1,5 +1,6 @@
 import { Construct } from 'constructs';
 import { FermentConstruct, FermentConstructProps } from './base-construct.js';
+import { MODEL_TASK_DEF, OPENAI_MODEL_TASK_DEF } from './task-defs.js';
 
 /**
  * Properties for the Model construct
@@ -38,6 +39,11 @@ export abstract class Model extends FermentConstruct {
    * The model identifier
    */
   public readonly modelId: string;
+
+  /**
+   * The task definition for this model
+   */
+  public readonly taskDef = MODEL_TASK_DEF;
 
   /**
    * The API key for the model provider
@@ -85,6 +91,11 @@ export interface OpenAIModelProps extends ModelProps {
  */
 export class OpenAIModel extends Model {
   /**
+   * The task definition for this OpenAI model
+   */
+  public override readonly taskDef = OPENAI_MODEL_TASK_DEF;
+
+  /**
    * The organization ID for the OpenAI API
    */
   private readonly organizationId?: string;
@@ -116,6 +127,11 @@ export interface AnthropicModelProps extends ModelProps {
  * An AnthropicModel represents an Anthropic language model
  */
 export class AnthropicModel extends Model {
+  /**
+   * The task definition for this Anthropic model
+   */
+  public override readonly taskDef = MODEL_TASK_DEF;
+
   /**
    * The version of the Anthropic API
    */

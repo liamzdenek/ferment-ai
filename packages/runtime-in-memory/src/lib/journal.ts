@@ -3,10 +3,6 @@ import {
   Journal as JournalInterface,
   WorkflowLogEvent,
   Module,
-  WorkflowDefinition,
-  TaskImplMap,
-  WorkflowExecutor,
-  compileWorkflow,
   WorkflowExecutionOptions,
   compileWorkflows,
   CompileWorkflowsResult

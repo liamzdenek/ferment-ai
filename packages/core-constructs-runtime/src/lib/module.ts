@@ -136,7 +136,7 @@ function createPromptTaskImpl(task: Workflow.Task): TaskImpl<typeof PromptTaskIn
       console.log(`Executing prompt task: ${task.node.id}`);
       console.log(`Input: ${JSON.stringify(ctx.input)}`);
       console.log(`Task:`, task);
-      console.log("Got canCallAndReturn: ", ctx.canCallAndReturn);
+      console.log("Got canCallAndReturn:", ctx.canCallAndReturn);
 
       // Example of calling another task and returning to this task
       if (Object.keys(ctx.canCallAndReturn).length > 0) {

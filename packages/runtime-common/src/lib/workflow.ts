@@ -267,6 +267,8 @@ export namespace Workflow {
      * A description of what the task does
      */
     description?: string;
+
+    taskDef: TaskDef<any, any>;
   }
 
   /**
@@ -343,9 +345,9 @@ export namespace Workflow {
         id: this.node.path,
         name: this.node.id,
         description: this.options.description,
-        taskDefId: this.options.taskDefId || 'default-task',
-        inputType: this.options.inputType || z.any(),
-        outputType: this.options.outputType || z.any()
+        taskDefId: this.taskDef.taskDefId,
+        inputType: this.taskDef.inputType,
+        outputType: this.taskDef.outputType
       };
     }
 
