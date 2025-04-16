@@ -487,9 +487,18 @@ async function* executeTaskAsPromise(
 ): AsyncGenerator<WorkflowLogEvent, void, unknown> {
   const { taskId, returnTo } = taskState;
   
+  console.log("executeTaskAsPromise:", {
+    taskId,
+    hasReturnTo: !!returnTo,
+    returnToTaskId: returnTo?.taskId,
+    stackSize: taskStack.length
+  });
+  
   try {
     // Execute the task function and get the result
+    console.log(`Executing promise-based task ${taskId}`);
     const result = await (taskImpl.execute as TaskExecutePromise<any, any>)(taskCtx);
+    console.log(`Task ${taskId} execution completed with result:`, result);
     
     // Validate output using Zod
     const outputType = taskDef.outputType;
@@ -497,6 +506,8 @@ async function* executeTaskAsPromise(
     
     if (result && result.type === 'result') {
       validatedOutput = validateWithZod(outputType, result.output, taskId, 'output');
+      
+      console.log(`Task ${taskId} completed with validated output:`, validatedOutput);
       
       // Complete the task
       yield {
@@ -506,20 +517,26 @@ async function* executeTaskAsPromise(
         output: validatedOutput
       };
       
+      console.log(`Task ${taskId} complete event yielded`);
+      
       // If this task was called by another task using canCallAndReturn, we need to
       // push the caller task back onto the stack so it can continue execution
       if (returnTo) {
+        console.log(`Task ${taskId} was called by ${returnTo.taskId}, pushing caller back onto stack`);
         // Push the caller task back onto the stack
         taskStack.push({
           taskId: returnTo.taskId,
           input: validatedOutput,
           generator: returnTo.generator
         });
+        
+        console.log(`Stack after pushing caller:`, taskStack.map(t => t.taskId));
       }
       
       // If this task was called by another task, return the result to the caller
       if (returnTo && taskStack.length > 0) {
         const callerTask = taskStack[taskStack.length - 1];
+        console.log(`Setting input of caller task ${callerTask.taskId} to result of ${taskId}`);
         callerTask.input = validatedOutput;
       }
     } else if (result && (result.type as string) === 'call') {
@@ -537,7 +554,8 @@ async function* executeTaskAsPromise(
     }
     
     // Remove the current task from the stack since it's completed
-    taskStack.pop();
+    const poppedTask = taskStack.pop();
+    console.log(`Removed task ${poppedTask?.taskId} from stack, stack size now: ${taskStack.length}`);
   } catch (error) {
     // Handle task error
     yield {
@@ -584,12 +602,22 @@ async function executeTaskAsGenerator(
   const { taskId, input, generator, returnTo } = taskState;
   const events: WorkflowLogEvent[] = [];
   
+  console.log("executeTaskAsGenerator:", {
+    taskId,
+    hasInput: !!input,
+    hasGenerator: !!generator,
+    hasReturnTo: !!returnTo,
+    returnToTaskId: returnTo?.taskId
+  });
+  
   try {
     if (!generator) {
       throw new Error('Generator is undefined');
     }
     
+    console.log(`Resuming generator for task ${taskId} with input:`, input);
     const { value, done } = await generator.next(input);
+    console.log(`Generator for task ${taskId} yielded:`, { value, done });
     
     if (done) {
       // Generator has completed
@@ -601,6 +629,8 @@ async function executeTaskAsGenerator(
       if (value && value.type === 'result') {
         validatedOutput = validateWithZod(outputType, value.output, taskId, 'output');
         
+        console.log(`Task ${taskId} completed with output:`, validatedOutput);
+        
         // Complete the task
         events.push({
           timestamp: Date.now(),
@@ -609,6 +639,7 @@ async function executeTaskAsGenerator(
           output: validatedOutput
         });
         
+        console.log(`Task ${taskId} complete event added, returning events`);
         // No next task, just return the events
         return { events };
       } else if (value && (value.type as string) === 'call') {
@@ -637,7 +668,10 @@ async function executeTaskAsGenerator(
         // Handle call and return (canCallAndReturn)
         const { taskDefId, taskId: toolId, input: toolInput } = value;
         
+        console.log(`Task ${taskId} is calling tool ${toolId} with input:`, toolInput);
+        
         if (workflowDef.tasks[toolId]) {
+          console.log(`Setting up returnTo for tool ${toolId} to return to ${taskId}`);
           // Return the tool task to execute
           return {
             events,
@@ -698,11 +732,18 @@ export function compileWorkflow(workflowDef: WorkflowDefinition, taskImpls: Task
 
   // Return the workflow executor function
   return async function* (options: WorkflowExecutionOptions): AsyncIterable<WorkflowLogEvent> {
+    console.log("=== WORKFLOW EXECUTION START ===");
+    console.log("Workflow:", workflowDef.id);
+    console.log("Entry point:", options.entryPoint);
+    console.log("Available task implementations:", Object.keys(taskImpls));
+    
     // Validate the entry point
     const entryPointTaskId = workflowDef.entryPoints[options.entryPoint];
     if (!entryPointTaskId) {
       throw new Error(`Entry point not found: ${options.entryPoint}`);
     }
+    
+    console.log("Entry point task ID:", entryPointTaskId);
 
     // Start the workflow
     yield {
@@ -716,11 +757,12 @@ export function compileWorkflow(workflowDef: WorkflowDefinition, taskImpls: Task
         { taskId: entryPointTaskId, input: options.input }
       ];
 
-      console.log("Task stack", taskStack);
-      if(taskStack.length > 2) { throw new Error("Stack overflow"); }
+      console.log("Initial task stack:", JSON.stringify(taskStack, null, 2));
+      // Remove stack overflow check to allow proper nesting of tasks
       
       // Execute tasks until the stack is empty
       while (taskStack.length > 0) {
+        console.log("Current stack size:", taskStack.length, "Current task:", taskStack[taskStack.length - 1].taskId);
         const currentTask = taskStack[taskStack.length - 1];
         const { taskId, generator } = currentTask;
         
@@ -815,6 +857,14 @@ export function compileWorkflow(workflowDef: WorkflowDefinition, taskImpls: Task
             yield event;
           }
           
+          console.log("Task execution result:", {
+            taskId: currentTask.taskId,
+            hasNextTask: !!result.nextTask,
+            hasReturnTo: !!currentTask.returnTo,
+            stackLength: taskStack.length,
+            returnToTaskId: currentTask.returnTo?.taskId
+          });
+
           // If the generator returned a next task
           if (result.nextTask) {
             // Remove the current task from the stack
@@ -827,21 +877,32 @@ export function compileWorkflow(workflowDef: WorkflowDefinition, taskImpls: Task
             taskStack.pop();
             
             // If this task was called by another task, return to the caller
-            if (currentTask.returnTo && taskStack.length > 0) {
-              const callerTask = taskStack[taskStack.length - 1];
-              callerTask.input = undefined; // No specific result to return
+            if (currentTask.returnTo) {
+              console.log("Returning to caller task:", currentTask.returnTo.taskId);
+              
+              // Push the caller task back onto the stack
+              taskStack.push({
+                taskId: currentTask.returnTo.taskId,
+                input: result.events.find(e => e.type === 'task_complete')?.output,
+                generator: currentTask.returnTo.generator
+              });
             }
           }
         }
       }
       
       // Complete the workflow when the stack is empty
+      console.log("=== WORKFLOW EXECUTION COMPLETE ===");
+      console.log("Task stack is empty, completing workflow");
+      
       yield {
         timestamp: Date.now(),
         type: 'workflow_complete'
       };
     } catch (error) {
       // Handle workflow error
+      console.log("=== WORKFLOW EXECUTION ERROR ===");
+      console.error("Workflow error:", error);
       yield {
         timestamp: Date.now(),
         type: 'workflow_error',
