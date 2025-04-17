@@ -1,6 +1,6 @@
 import { Construct } from 'constructs';
 import { INVOKE_MODEL_TASK_DEF } from '../task-defs.js';
-import { WorkflowTask, WorkflowTaskOptions } from '@ferment-ai/runtime-common';
+import { WorkflowTask } from '@ferment-ai/runtime-common';
 
 interface OllamaModelProps {
     host: string;

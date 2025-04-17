@@ -26,39 +26,59 @@ export function convertPromiseToGenerator<I extends z.ZodTypeAny, O extends z.Zo
   return res;
 }
 
+
+/**
+ * Usage:
+ * 
+ * const runModel = getTaskCall(ctx, agentContext.props.model);
+ * const result = yield* runModel({
+ *   messages: agentContext.props.initialMessages
+ * });
+ * // result is now the full TaskCallResult with properly typed output
+ */
 export function getTaskCall<I extends z.ZodTypeAny, O extends z.ZodTypeAny>(
   ctx: TaskCtx<z.ZodTypeAny, z.ZodTypeAny>,
-  task: WorkflowTask<I,O>
+  task: WorkflowTask<I, O>
 ) {
-  
-  const maybeConstruct = Object.entries(ctx.taskIdToConstruct).find(([k, v]) => v.node.path === task.node.path)
-
-  if(maybeConstruct === undefined) {
-    throw new Error("Couldn't find a construct with the path: "+task.node.path);
+  const maybeConstruct = Object.entries(ctx.taskIdToConstruct).find(([k, v]) => v.node.path === task.node.path);
+  if (maybeConstruct === undefined) {
+    throw new Error("Couldn't find a construct with the path: " + task.node.path);
   }
-
   const [taskId, construct] = maybeConstruct;
-
-  if(!(isWorkflowTask(construct))) {
+  if (!(isWorkflowTask(construct))) {
     throw new Error("Cannot call a task that doesn't implement WorkflowTask");
   }
-
-  return {
-    getCall(input: z.infer<I>) {
-      const req: TaskCallAndReturnRequest = {
-        type: 'callAndReturn',
-        taskDefId: construct.taskDef.taskDefId,
-        taskId,
-        input
-      };
-      return req;
-    },
-    castRes(res: TaskCallResult | TaskCallError): z.infer<O> {
-      if(res.type === "error") {
-        throw new Error("Failed to call task: "+res.type);
-      }
-      console.log("Got res", res);
-      return construct.taskDef.outputType.parse(res.output);
+  
+  // Return a generator function that can be called with input
+  return function* (input: z.infer<I>): Generator<
+    TaskCallAndReturnRequest, 
+    Omit<TaskCallResult, 'output'> & { output: z.infer<O> }, 
+    TaskCallResult | TaskCallError
+  > {
+    const req: TaskCallAndReturnRequest = {
+      type: 'callAndReturn',
+      taskDefId: construct.taskDef.taskDefId,
+      taskId,
+      input
+    };
+    
+    // Yield the request and get the response
+    const res = yield req;
+    
+    // Handle the response
+    if (res.type === "error") {
+      throw new Error("Failed to call task: " + res.error.message);
     }
-  }
+    
+    console.log("Got res", res);
+    
+    // Parse the output with the output type schema
+    const parsedOutput = construct.taskDef.outputType.parse(res.output);
+    
+    // Return the full result with the correctly typed output
+    return {
+      ...res,
+      output: parsedOutput
+    } as TaskCallResult & { output: z.infer<O> };
+  };
 }

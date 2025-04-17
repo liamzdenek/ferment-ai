@@ -13,12 +13,12 @@ export function createAgentContextTaskImpl(agentContext: AgentContext): TaskImpl
       console.log(`Input: ${JSON.stringify(ctx.input)}`);
 
       const runModel = getTaskCall(ctx, agentContext.props.model);
-
-      const toolRes = runModel.castRes(yield runModel.getCall({
+      const toolRes = yield* runModel({
         messages: agentContext.props.initialMessages
-      }))
+      });
 
       console.log("Got tool res", toolRes);
+      console.log("Got tool res", toolRes.output);
 
       // Return the final result
       return {
@@ -29,7 +29,7 @@ export function createAgentContextTaskImpl(agentContext: AgentContext): TaskImpl
         output: {
           response: `Response from prompt task ${agentContext.node.id}`,
           input: ctx.input,
-          toolRes
+          toolRes: toolRes.output
         }
       };
     }
