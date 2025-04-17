@@ -99,26 +99,6 @@ export class Workflow extends Construct {
  */
 export interface WorkflowTaskOptions {
   /**
-   * The input type for the task
-   */
-  inputType?: z.ZodTypeAny;
-
-  /**
-   * The output type for the task
-   */
-  outputType?: z.ZodTypeAny;
-
-  /**
-   * The task definition ID
-   */
-  taskDefId?: string;
-
-  /**
-   * A description of what the task does
-   */
-  description?: string;
-
-  /**
    * The task definition - required for all tasks
    */
   taskDef: TaskDef<any, any>;
@@ -128,6 +108,12 @@ export interface WorkflowTaskOptions {
  * A task in a workflow
  */
 export class WorkflowTask extends Construct {
+
+  /**
+   * The task definition for this model
+   */
+  public readonly taskDef: TaskDef<any, any>;
+
   /**
    * The next tasks in the workflow
    */
@@ -151,6 +137,7 @@ export class WorkflowTask extends Construct {
     private readonly options: WorkflowTaskOptions
   ) {
     super(scope, id);
+    this.taskDef = options.taskDef;
   }
 
   /**

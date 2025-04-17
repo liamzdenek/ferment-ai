@@ -16,31 +16,31 @@ export const EndTaskOutputSchema = z.any();
 
 // Define task definitions
 export const AGENT_CONTEXT_TASK_DEF: TaskDef<typeof AgentContextInputSchema, typeof AgentContextOutputSchema> = {
-  taskDefId: 'agent-context',
+  taskDefId: 'CoreConstructs::AgentContextTaskDef',
   inputType: AgentContextInputSchema,
   outputType: AgentContextOutputSchema
 };
 
 export const OPENAI_MODEL_TASK_DEF: TaskDef<typeof ModelInputSchema, typeof ModelOutputSchema> = {
-  taskDefId: 'openai-model',
+  taskDefId: 'CoreConstructs::OpenAIModelTaskDef',
   inputType: ModelInputSchema,
   outputType: ModelOutputSchema
 };
 
 export const MODEL_TASK_DEF: TaskDef<typeof ModelInputSchema, typeof ModelOutputSchema> = {
-  taskDefId: 'model',
+  taskDefId: 'CoreConstructs::ModelTaskDef',
   inputType: ModelInputSchema,
   outputType: ModelOutputSchema
 };
 
 export const PROMPT_TASK_DEF: TaskDef<typeof PromptTaskInputSchema, typeof PromptTaskOutputSchema> = {
-  taskDefId: 'prompt-task',
+  taskDefId: 'CoreConstructs::PromptTaskDef',
   inputType: PromptTaskInputSchema,
   outputType: PromptTaskOutputSchema
 };
 
 export const END_TASK_DEF: TaskDef<typeof EndTaskInputSchema, typeof EndTaskOutputSchema> = {
-  taskDefId: 'end-task',
+  taskDefId: 'CoreConstructs::EndTaskDef',
   inputType: EndTaskInputSchema,
   outputType: EndTaskOutputSchema
 };

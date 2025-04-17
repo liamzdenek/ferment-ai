@@ -39,7 +39,7 @@ class TwoAgentModel extends VirtualModel {
 }
 
 // Create a root construct
-const rootConstruct = new RootConstruct('RootConstruct');
+const rootConstruct = new RootConstruct('Root');
 
 // Create the virtual model
 new TwoAgentModel(rootConstruct, 'TwoAgentModel');

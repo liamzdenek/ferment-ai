@@ -1,10 +1,9 @@
 import { Construct } from 'constructs';
-import { FermentConstruct, FermentConstructProps } from './base-construct.js';
 
 /**
  * Properties for the VirtualModel construct
  */
-export interface VirtualModelProps extends FermentConstructProps {
+export interface VirtualModelProps {
   /**
    * The name of the virtual model
    * @default - The construct ID
@@ -19,7 +18,7 @@ export interface VirtualModelProps extends FermentConstructProps {
  * through the Ferment API. A VirtualModel contains one or more
  * AgentContexts, an Entrypoint, and optionally an ExitPoint.
  */
-export class VirtualModel extends FermentConstruct {
+export class VirtualModel extends Construct {
   /**
    * The name of the virtual model
    */
@@ -43,7 +42,7 @@ export class VirtualModel extends FermentConstruct {
    * @param props The construct properties
    */
   constructor(scope: Construct, id: string, props: VirtualModelProps = {}) {
-    super(scope, id, props);
+    super(scope, id);
     this.name = props.name ?? id;
   }
 

@@ -19,14 +19,9 @@ import {
 } from '@ferment-ai/core-constructs-lib';
 import {
   Module,
-  Workflow,
   TaskImpl,
   TaskCtx,
-  TaskCallResult,
   TaskCallAndReturnRequest,
-  TaskCallRequest,
-  TaskExecutePromise,
-  TaskExecuteGenerator,
   WorkflowTask,
   WorkflowEndTask
 } from '@ferment-ai/runtime-common';
@@ -253,6 +248,13 @@ function createWorkflowEndTaskImpl(endTask: WorkflowEndTask): TaskImpl<typeof En
 export function createCoreConstructsModule(): Module {
   return (construct: Construct) => {
     // Check if the construct is an AgentContext
+
+    if(construct instanceof WorkflowTask) {
+      if(construct.taskDef.taskDefId === PROMPT_TASK_DEF.taskDefId) {
+        // TODO
+      }
+    }
+
     if (construct instanceof AgentContext) {
       return createAgentContextTaskImpl(construct);
     }
@@ -273,11 +275,11 @@ export function createCoreConstructsModule(): Module {
       if (construct instanceof WorkflowEndTask) {
         return createWorkflowEndTaskImpl(construct);
       }
-      
+
       return createPromptTaskImpl(construct);
     }
     
-    // No task implementation for this construct
+    // No task implementation for this construct from this module. other modules may have an impl
     return undefined;
   };
 }

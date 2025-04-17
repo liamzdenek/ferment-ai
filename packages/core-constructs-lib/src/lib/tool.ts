@@ -1,5 +1,4 @@
 import { Construct } from 'constructs';
-import { FermentConstruct, FermentConstructProps } from './base-construct.js';
 import { z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import { TaskDef } from '@ferment-ai/runtime-common';
@@ -7,7 +6,7 @@ import { TaskDef } from '@ferment-ai/runtime-common';
 /**
  * Properties for the Tool construct
  */
-export interface ToolProps extends FermentConstructProps {
+export interface ToolProps {
   /**
    * The name of the tool
    */
@@ -28,7 +27,7 @@ export interface ToolProps extends FermentConstructProps {
 export abstract class Tool<
   TInputSchema extends z.ZodType = z.ZodType,
   TOutputSchema extends z.ZodType = z.ZodType
-> extends FermentConstruct {
+> extends Construct {
   /**
    * The name of the tool
    */
@@ -37,7 +36,7 @@ export abstract class Tool<
   /**
    * The description of the tool
    */
-  public override readonly description: string;
+  public readonly description: string;
 
   /**
    * The input schema for the tool
@@ -57,7 +56,7 @@ export abstract class Tool<
    * @param props The construct properties
    */
   constructor(scope: Construct, id: string, props: ToolProps) {
-    super(scope, id, props);
+    super(scope, id);
     this.name = props.name;
     this.description = props.description;
   }

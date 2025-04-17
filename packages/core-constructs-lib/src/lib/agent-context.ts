@@ -1,5 +1,4 @@
 import { Construct } from 'constructs';
-import { FermentConstruct, FermentConstructProps } from './base-construct.js';
 import { SendEmailTool } from './send-email-tool.js';
 import { Workflow, TaskDef, WorkflowTask, WorkflowTaskOptions } from '@ferment-ai/runtime-common';
 import { AGENT_CONTEXT_TASK_DEF, PROMPT_TASK_DEF } from './task-defs.js';
@@ -8,7 +7,7 @@ import { z } from 'zod';
 /**
  * Properties for the AgentContext construct
  */
-export interface AgentContextProps extends FermentConstructProps {
+export interface AgentContextProps {
   /**
    * The prompt template for the agent
    */
@@ -37,7 +36,7 @@ export interface AgentContextProps extends FermentConstructProps {
  * It contains the agent's prompt, model, and tools. The AgentContext
  * is responsible for managing the agent's state and interactions.
  */
-export class AgentContext extends FermentConstruct {
+export class AgentContext extends Construct {
   /**
    * The prompt template for the agent
    */
@@ -147,7 +146,6 @@ export class PromptTask extends WorkflowTask {
   ) {
     super(scope, id, {
       taskDef: PROMPT_TASK_DEF,
-      description: `Prompt task for ${agentContext.node.id}`,
       ...options
     });
     this.agentContext = agentContext;
@@ -166,7 +164,6 @@ export class PromptTask extends WorkflowTask {
         inputType: z.any(),
         outputType: z.any()
       },
-      description: `Send an email to ${this.agentContext.node.id}`
     });
 
     return emailToolTask;

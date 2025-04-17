@@ -1,11 +1,10 @@
 import { Construct } from 'constructs';
-import { FermentConstruct, FermentConstructProps } from './base-construct.js';
 import { MODEL_TASK_DEF, OPENAI_MODEL_TASK_DEF } from './task-defs.js';
 
 /**
  * Properties for the Model construct
  */
-export interface ModelProps extends FermentConstructProps {
+export interface ModelProps {
   /**
    * The model identifier (e.g., "gpt-4", "claude-3-opus")
    */
@@ -34,7 +33,7 @@ export interface ModelProps extends FermentConstructProps {
  * language model, such as the model identifier, API key, and
  * other parameters.
  */
-export abstract class Model extends FermentConstruct {
+export abstract class Model extends Construct {
   /**
    * The model identifier
    */
@@ -68,7 +67,7 @@ export abstract class Model extends FermentConstruct {
    * @param props The construct properties
    */
   constructor(scope: Construct, id: string, props: ModelProps) {
-    super(scope, id, props);
+    super(scope, id);
     this.modelId = props.model;
     this.apiKey = props.apiKey;
     this.baseUrl = props.baseUrl;
