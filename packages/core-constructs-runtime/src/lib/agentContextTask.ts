@@ -8,14 +8,14 @@ export function createAgentContextTaskImpl(agentContext: AgentContext): TaskImpl
   return {
     def: AGENT_CONTEXT_TASK_DEF,
     taskId: agentContext.node.path,
-    execute: async function*(ctx: TaskCtx<typeof AGENT_CONTEXT_TASK_DEF.inputType, typeof AGENT_CONTEXT_TASK_DEF.outputType>) {
+    execute: async function* (ctx: TaskCtx<typeof AGENT_CONTEXT_TASK_DEF.inputType, typeof AGENT_CONTEXT_TASK_DEF.outputType>) {
       console.log(`Executing AgentContext: ${agentContext.node.id}`);
       console.log(`Input: ${JSON.stringify(ctx.input)}`);
-      
+
       const runModel = getTaskCall(ctx, agentContext.props.model);
 
       const toolRes = runModel.castRes(yield runModel.getCall({
-          messages: agentContext.props.initialMessages
+        messages: agentContext.props.initialMessages
       }))
 
       console.log("Got tool res", toolRes);

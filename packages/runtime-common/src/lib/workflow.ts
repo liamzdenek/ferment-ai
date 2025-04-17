@@ -171,6 +171,7 @@ interface TaskExecutionState {
     generator: AsyncGenerator<any, any, any>;
     context: any;
   };
+  result?: TaskCallResult | TaskCallError; // New field to store the task result
 }
 
 /**
@@ -209,6 +210,7 @@ function validateWithZod<T>(schema: z.ZodType<T>, input: any, taskId: string, di
 type TaskGeneratorResult = {
   events: WorkflowLogEvent[];
   nextTask?: TaskExecutionState;
+  result?: TaskCallResult | TaskCallError; // Field to store the task result or request
 };
 
 /**
@@ -256,11 +258,18 @@ async function executeTaskAsGenerator(
       let validatedOutput;
 
       if (value && value.type === 'result') {
+        // Validate the output using Zod
         validatedOutput = validateWithZod(outputType, value.output, taskId, 'output');
 
         //console.log(`Task ${taskId} completed with output:`, validatedOutput);
 
-        // Complete the task
+        // Use the original TaskCallResult but with validated output
+        const taskResult: TaskCallResult = {
+          ...value as TaskCallResult,
+          output: validatedOutput // Replace with validated output
+        };
+
+        // Complete the task (for logging/events)
         events.push({
           timestamp: Date.now(),
           type: 'task_complete',
@@ -270,20 +279,23 @@ async function executeTaskAsGenerator(
         });
 
         //console.log(`Task ${taskId} complete event added, returning events`);
-        // No next task, just return the events
-        return { events };
+        // No next task, just return the events and the original result
+        return { events, result: taskResult };
       } else if (value && (value.type as string) === 'call') {
         // Handle direct call (canCall)
         const { taskDefId, taskId: nextTaskId, input: nextInput } = value;
 
         if (workflowDef.tasks[nextTaskId]) {
           // Return the next task to execute
+          // Note: We don't preserve the request as a result because it's not a result
+          // that will be passed back to a caller
           return {
             events,
             nextTask: {
               taskId: nextTaskId,
               input: nextInput
             }
+            // No result field here because a request is not a result
           };
         } else {
           throw new Error(`Unknown task ID for call: ${nextTaskId}`);
@@ -291,6 +303,7 @@ async function executeTaskAsGenerator(
       }
 
       // Default case, just return the events
+      // No result field here because we don't have a result to preserve
       return { events };
     } else {
       // Generator has yielded a value
@@ -314,6 +327,8 @@ async function executeTaskAsGenerator(
                 context: {}
               }
             }
+            // No result field here because we're not completing a task,
+            // we're suspending it to call another task
           };
         } else {
           throw new Error(`Unknown tool ID for callAndReturn: ${toolId} (Did you forget to add it to getTools()?)`);
@@ -321,10 +336,31 @@ async function executeTaskAsGenerator(
       }
 
       // Default case, just return the events
+      // No result field here because we're not completing a task with a result
       return { events };
     }
   } catch (error) {
-    // Handle task error
+    // Check if the error is already a TaskCallError
+    let taskError: TaskCallError;
+    
+    if (error && typeof error === 'object' && (error as any).type === 'error') {
+      // Use the existing TaskCallError
+      taskError = error as TaskCallError;
+    } else {
+      // Create a new TaskCallError
+      taskError = {
+        type: 'error',
+        taskDefId: taskDef.taskDefId,
+        taskId,
+        input: taskState.input,
+        error: {
+          message: (error as Error).message || 'Unknown error',
+          details: error
+        }
+      };
+    }
+
+    // Handle task error (for logging/events)
     events.push({
       timestamp: Date.now(),
       type: 'task_error',
@@ -332,8 +368,8 @@ async function executeTaskAsGenerator(
       error: error as Error
     });
 
-    // Return the events
-    return { events };
+    // Return the events and the error
+    return { events, result: taskError };
   }
 }
 
@@ -502,10 +538,15 @@ export function compileWorkflow(
             if (currentTask.returnTo) {
               //console.log("Returning to caller task:", currentTask.returnTo.taskId);
 
-              // Push the caller task back onto the stack
+              // Use the preserved TaskCallResult or TaskCallError
+              if (!result.result) {
+                throw new Error(`Task result not preserved for task ${currentTask.taskId}. This is a bug in the workflow compiler.`);
+              }
+              
+              // Push the caller task back onto the stack with the preserved result
               taskStack.push({
                 taskId: currentTask.returnTo.taskId,
-                input: result.events.find(e => e.type === 'task_complete')?.output,
+                input: result.result, // Pass the full TaskCallResult or TaskCallError object
                 generator: currentTask.returnTo.generator
               });
             }
