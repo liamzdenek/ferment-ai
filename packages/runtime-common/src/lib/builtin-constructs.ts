@@ -10,7 +10,7 @@ export interface WorkflowOptions {
   /**
    * The entry point task for the workflow
    */
-  definition: WorkflowTask<any, any>;
+  definition: WorkflowTask<z.ZodTypeAny, z.ZodTypeAny>;
 
   /**
    * A description of what the workflow does
@@ -25,7 +25,7 @@ export class Workflow extends Construct {
   /**
    * The entry point task for the workflow
    */
-  private readonly definition: WorkflowTask<any, any>;
+  private readonly definition: WorkflowTask<z.ZodTypeAny, z.ZodTypeAny>;
 
   /**
    * Creates a new workflow
@@ -75,7 +75,7 @@ export class Workflow extends Construct {
    * @param task The task to start from
    * @param tasks The tasks map to add to
    */
-  private addReachableTasks(task: WorkflowTask<any, any>, tasks: Record<string, TaskDefinition>): void {
+  private addReachableTasks(task: WorkflowTask<z.ZodTypeAny, z.ZodTypeAny>, tasks: Record<string, TaskDefinition>): void {
     // Add next tasks
     for (const nextTask of task.getNextTasks()) {
       if (!tasks[nextTask.node.path]) {
@@ -114,12 +114,12 @@ export abstract class WorkflowTask<I extends z.ZodTypeAny,O extends z.ZodTypeAny
   /**
    * The next tasks in the workflow
    */
-  private readonly nextTasks: WorkflowTask<any, any>[] = [];
+  private readonly nextTasks: WorkflowTask<z.ZodTypeAny, z.ZodTypeAny>[] = [];
 
   /**
    * The tools that can be called by this task
    */
-  private readonly tools: Record<string, WorkflowTask<any, any>> = {};
+  private readonly tools: Record<string, WorkflowTask<z.ZodTypeAny, z.ZodTypeAny>> = {};
 
   /**
    * Creates a new task
@@ -142,7 +142,7 @@ export abstract class WorkflowTask<I extends z.ZodTypeAny,O extends z.ZodTypeAny
    * @param task The task that can be called
    * @returns This task
    */
-  canCall(task: WorkflowTask<any, any>): this {
+  canCall(task: WorkflowTask<z.ZodTypeAny, z.ZodTypeAny>): this {
     this.nextTasks.push(task);
     return this;
   }
@@ -153,10 +153,17 @@ export abstract class WorkflowTask<I extends z.ZodTypeAny,O extends z.ZodTypeAny
    * @param tool The tool that can be called
    * @returns This task
    */
-  canCallAndReturn(tool: WorkflowTask<any, any>): this {
+  canUseTools(tool: WorkflowTask<z.ZodTypeAny, z.ZodTypeAny>): this {
     const toolPath = tool.node.path;
     this.tools[toolPath] = tool;
     return this;
+  }
+
+  /**
+   * @deprecated Use canUseTools instead
+   */
+  canCallAndReturn(tool: WorkflowTask<z.ZodTypeAny, z.ZodTypeAny>): this {
+    return this.canUseTools(tool);
   }
   /**
    * Gets the task definition
@@ -190,7 +197,7 @@ export abstract class WorkflowTask<I extends z.ZodTypeAny,O extends z.ZodTypeAny
    *
    * @returns The next tasks
    */
-  getNextTasks(): WorkflowTask<any, any>[] {
+  getNextTasks(): WorkflowTask<z.ZodTypeAny, z.ZodTypeAny>[] {
     return [...this.nextTasks];
   }
 
@@ -199,19 +206,23 @@ export abstract class WorkflowTask<I extends z.ZodTypeAny,O extends z.ZodTypeAny
    *
    * @returns The tools
    */
-  getTools(): Record<string, WorkflowTask<any, any>> {
+  getTools(): Record<string, WorkflowTask<z.ZodTypeAny, z.ZodTypeAny>> {
     return { ...this.tools };
   }
+}
+
+export function isWorkflowTask(construct: Construct): construct is WorkflowTask<z.ZodTypeAny, z.ZodTypeAny> {
+  return construct instanceof WorkflowTask
 }
 
 /**
  * An end task in a workflow
  */
-export class WorkflowEndTask extends WorkflowTask<any, any> {
+export class WorkflowEndTask extends WorkflowTask<z.ZodTypeAny, z.ZodTypeAny> {
   /**
    * Default task definition for end tasks
    */
-  private static readonly END_TASK_DEF: TaskDef<any, any> = {
+  private static readonly END_TASK_DEF: TaskDef<z.ZodTypeAny, z.ZodTypeAny> = {
     taskDefId: 'end-task',
     inputType: z.any(),
     outputType: z.any()

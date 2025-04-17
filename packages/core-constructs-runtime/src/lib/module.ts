@@ -1,8 +1,6 @@
 import { Construct } from 'constructs';
 import {
   AgentContext,
-  OpenAIModel,
-  Model,
   AGENT_CONTEXT_TASK_DEF,
   OPENAI_MODEL_TASK_DEF,
   MODEL_TASK_DEF,
@@ -28,6 +26,8 @@ import {
   WorkflowEndTask
 } from '@ferment-ai/runtime-common';
 import { createOllamaTaskImpl } from './ollamaTask.js';
+import { z } from 'zod';
+import { createAgentContextTaskImpl } from './agentContextTask.js';
 
 /**
  * Configuration for task execution
@@ -51,46 +51,12 @@ async function delay(ms: number): Promise<void> {
 }
 
 /**
- * Creates a task implementation for an AgentContext
- *
- * @param agentContext The agent context
- * @returns A task implementation
- */
-function createAgentContextTaskImpl(agentContext: AgentContext): TaskImpl<typeof AgentContextInputSchema, typeof AgentContextOutputSchema> {
-  return {
-    def: AGENT_CONTEXT_TASK_DEF,
-    taskId: agentContext.node.path,
-    execute: async (ctx: TaskCtx<typeof AgentContextInputSchema, typeof AgentContextOutputSchema>) => {
-      console.log(`Executing agent context: ${agentContext.node.id}`);
-      console.log(`Prompt: ${agentContext.prompt}`);
-      console.log(`Input: ${JSON.stringify(ctx.input)}`);
-
-      // Add a delay to make execution more visible
-      await delay(TaskConfig.executionDelay);
-
-      // In a real implementation, this would call the model API
-      // For now, just return a dummy response
-      return {
-        type: 'result',
-        taskDefId: ctx.taskDefId,
-        taskId: ctx.taskId,
-        input: ctx.input,
-        output: {
-          response: `Response from ${agentContext.node.id}`,
-          input: ctx.input
-        }
-      };
-    }
-  };
-}
-
-/**
  * Creates a task implementation for an OpenAIModel
  *
  * @param model The OpenAI model
  * @returns A task implementation
  */
-function createOpenAIModelTaskImpl(model: OpenAIModel): TaskImpl<typeof ModelInputSchema, typeof ModelOutputSchema> {
+function OLDcreateOpenAIModelTaskImpl(model: OpenAIModel): TaskImpl<typeof ModelInputSchema, typeof ModelOutputSchema> {
   return {
     def: OPENAI_MODEL_TASK_DEF,
     taskId: model.node.path,
@@ -124,7 +90,7 @@ function createOpenAIModelTaskImpl(model: OpenAIModel): TaskImpl<typeof ModelInp
  * @param model The model
  * @returns A task implementation
  */
-function createModelTaskImpl(model: Model): TaskImpl<typeof ModelInputSchema, typeof ModelOutputSchema> {
+function OLDcreateModelTaskImpl(model: Model): TaskImpl<typeof ModelInputSchema, typeof ModelOutputSchema> {
   return {
     def: MODEL_TASK_DEF,
     taskId: model.node.path,
@@ -158,7 +124,7 @@ function createModelTaskImpl(model: Model): TaskImpl<typeof ModelInputSchema, ty
  * @param task The prompt task
  * @returns A task implementation
  */
-function createPromptTaskImpl(task: WorkflowTask): TaskImpl<typeof PromptTaskInputSchema, typeof PromptTaskOutputSchema> {
+function OLDcreatePromptTaskImpl(task: WorkflowTask<z.ZodTypeAny, z.ZodTypeAny>): TaskImpl<typeof PromptTaskInputSchema, typeof PromptTaskOutputSchema> {
   return {
     def: PROMPT_TASK_DEF,
     taskId: task.node.path,
@@ -166,15 +132,15 @@ function createPromptTaskImpl(task: WorkflowTask): TaskImpl<typeof PromptTaskInp
       //console.log(`Executing prompt task: ${task.node.id}`);
       //console.log(`Input: ${JSON.stringify(ctx.input)}`);
       //console.log(`Task:`, task);
-      //console.log("Got canCallAndReturn:", ctx.canCallAndReturn);
+      //console.log("Got canUseTools:", ctx.canUseTools);
 
       // Add a delay to make execution more visible
       await delay(TaskConfig.executionDelay);
 
       // Example of calling another task and returning to this task
-      if (Object.keys(ctx.canCallAndReturn).length > 0) {
+      if (Object.keys(ctx.canUseTools).length > 0) {
         // Get the first available tool
-        const toolEntry = Object.entries(ctx.canCallAndReturn)[0];
+        const toolEntry = Object.entries(ctx.canUseTools)[0];
         const [toolId, toolDef] = toolEntry;
         
         // Create a tool call request
@@ -216,7 +182,7 @@ function createPromptTaskImpl(task: WorkflowTask): TaskImpl<typeof PromptTaskInp
  * @param endTask The end task
  * @returns A task implementation
  */
-function createWorkflowEndTaskImpl(endTask: WorkflowEndTask): TaskImpl<typeof EndTaskInputSchema, typeof EndTaskOutputSchema> {
+function OLDcreateWorkflowEndTaskImpl(endTask: WorkflowEndTask): TaskImpl<typeof EndTaskInputSchema, typeof EndTaskOutputSchema> {
   return {
     def: END_TASK_DEF,
     taskId: endTask.node.path,

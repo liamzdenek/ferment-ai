@@ -1,4 +1,4 @@
-import { AGENT_CONTEXT_TASK_DEF, AgentContext, InvokeChatModelTaskInputSchema, OllamaModel, OpenAIModel } from '@ferment-ai/core-constructs-lib';
+import { AGENT_CONTEXT_TASK_DEF, AgentContext, InvokeChatModelTaskInputSchema, OllamaModel } from '@ferment-ai/core-constructs-lib';
 import { Construct, RootConstruct } from 'constructs';
 import { createCoreConstructsModule } from '@ferment-ai/core-constructs-runtime';
 import { Journal } from '@ferment-ai/runtime-in-memory';
@@ -30,7 +30,7 @@ class TwoAgentModel extends Construct {
         const endTask = new WorkflowEndTask(this, 'EndTask');
 
         // Set up task relationships
-        seniorEngineerTask.canCallAndReturn(juniorEngineerTask.sendEmailTool());
+        seniorEngineerTask.canUseTools(juniorEngineerTask.sendEmailTool());
         seniorEngineerTask.canCall(endTask);
 
         // Create the workflow

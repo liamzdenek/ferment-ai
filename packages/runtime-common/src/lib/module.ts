@@ -1,5 +1,6 @@
 import { Construct } from 'constructs';
 import { TaskImpl } from './workflow.js';
+import { z } from 'zod';
 
 /**
  * A module is a function that takes a construct and returns a task implementation

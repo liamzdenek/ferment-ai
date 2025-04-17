@@ -44,4 +44,13 @@ export class AgentContext extends WorkflowTask<typeof AGENT_CONTEXT_TASK_DEF.inp
     super(scope, id, {});
     this.props = props;
   }
+
+  override getTools(): Record<string, WorkflowTask<z.ZodTypeAny, z.ZodTypeAny>> {
+    return {
+      ...super.getTools(),
+      // the selected model needs to be usable as a tool
+      // adding it here informs the compiler that it may appear in the call graph
+      [this.props.model.node.path]: this.props.model
+    };
+  }
 }

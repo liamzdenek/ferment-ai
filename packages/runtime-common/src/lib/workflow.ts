@@ -48,7 +48,7 @@ export interface TaskCtx<I extends z.ZodTypeAny, O extends z.ZodTypeAny> {
   input: z.infer<I>;
   output: z.infer<O>;
   canCall: { [taskId: string]: TaskDef<z.ZodTypeAny, z.ZodTypeAny> };
-  canCallAndReturn: { [taskId: string]: TaskDef<z.ZodTypeAny, z.ZodTypeAny> };
+  canUseTools: { [taskId: string]: TaskDef<z.ZodTypeAny, z.ZodTypeAny> };
   taskIdToConstruct: { [taskId: string]: Construct };
 }
 
@@ -115,23 +115,9 @@ export interface TaskImpl<I extends z.ZodTypeAny, O extends z.ZodTypeAny> {
 }
 
 /**
- * A task function that executes a task
- * 
- * @deprecated Use TaskImpl instead
- */
-export type TaskFunction<TInput = any, TOutput = any> = (input: TInput) => Promise<TOutput>;
-
-/**
  * A map of task IDs to task implementations
  */
-export type TaskImplMap = Record<string, TaskImpl<any, any>>;
-
-/**
- * A map of task IDs to task functions
- * 
- * @deprecated Use TaskImplMap instead
- */
-export type TaskFunctionMap = Record<string, TaskFunction>;
+export type TaskImplMap = Record<string, TaskImpl<z.ZodTypeAny, z.ZodTypeAny>>;
 
 /**
  * A workflow execution log event
@@ -193,7 +179,8 @@ interface TaskExecutionState {
  * @param fn The function to check
  * @returns True if the function is an async generator function, false otherwise
  */
-function isAsyncGeneratorFunction(fn: TaskExecuteFunction<any, any>): boolean {
+function isAsyncGeneratorFunction(fn: TaskExecuteFunction<z.ZodTypeAny, z.ZodTypeAny>): boolean {
+  //console.log('fn string', fn.toString());
   return fn.toString().includes('function*') || fn.toString().includes('async function*');
 }
 
@@ -235,7 +222,7 @@ type TaskGeneratorResult = {
  */
 async function executeTaskAsGenerator(
   taskState: TaskExecutionState,
-  taskImpl: TaskImpl<any, any>,
+  taskImpl: TaskImpl<z.ZodTypeAny, z.ZodTypeAny>,
   taskDef: TaskDefinition,
   workflowDef: WorkflowDefinition
 ): Promise<TaskGeneratorResult> {
@@ -308,7 +295,7 @@ async function executeTaskAsGenerator(
     } else {
       // Generator has yielded a value
       if (value && value.type === 'callAndReturn') {
-        // Handle call and return (canCallAndReturn)
+        // Handle call and return (canUseTools)
         const { taskDefId, taskId: toolId, input: toolInput } = value;
 
         //console.log(`Task ${taskId} is calling tool ${toolId} with input:`, toolInput);
@@ -329,7 +316,7 @@ async function executeTaskAsGenerator(
             }
           };
         } else {
-          throw new Error(`Unknown tool ID for callAndReturn: ${toolId}`);
+          throw new Error(`Unknown tool ID for callAndReturn: ${toolId} (Did you forget to add it to getTools()?)`);
         }
       }
 
@@ -357,7 +344,11 @@ async function executeTaskAsGenerator(
  * @param taskImpls A map of task IDs to task implementations
  * @returns A workflow executor function
  */
-export function compileWorkflow(workflowDef: WorkflowDefinition, taskImpls: TaskImplMap): WorkflowExecutor {
+export function compileWorkflow(
+  workflowDef: WorkflowDefinition,
+  taskImpls: TaskImplMap,
+  taskIdToConstruct: { [taskId: string]: Construct } = {}
+): WorkflowExecutor {
   // Validate the workflow definition
   WorkflowDefinitionSchema.parse(workflowDef);
 
@@ -396,11 +387,12 @@ export function compileWorkflow(workflowDef: WorkflowDefinition, taskImpls: Task
     // Yield the event
     yield startEvent;
 
+    // Create a stack for task execution
+    const taskStack: TaskExecutionState[] = [
+      { taskId: entryPointTaskId, input: options.input }
+    ];
+
     try {
-      // Create a stack for task execution
-      const taskStack: TaskExecutionState[] = [
-        { taskId: entryPointTaskId, input: options.input }
-      ];
 
       //console.log("Initial task stack:", JSON.stringify(taskStack, null, 2));
       // Remove stack overflow check to allow proper nesting of tasks
@@ -436,17 +428,17 @@ export function compileWorkflow(workflowDef: WorkflowDefinition, taskImpls: Task
           yield taskStartEvent;
 
           // Create task context
-          const taskCtx: TaskCtx<any, any> = {
+          const taskCtx: TaskCtx<z.ZodTypeAny, z.ZodTypeAny> = {
             taskDefId: currentTaskImpl.def.taskDefId,
             taskId,
             input: validatedInput,
             output: undefined,
             canCall: {},
-            canCallAndReturn: {},
-            taskIdToConstruct: {},
+            canUseTools: {},
+            taskIdToConstruct: taskIdToConstruct,
           };
 
-          // Populate canCall and canCallAndReturn maps based on the task's relationships
+          // Populate canCall and canUseTools maps based on the task's relationships
           // Get the task definition from the workflow
           const taskDef = workflowDef.tasks[taskId];
 
@@ -457,10 +449,10 @@ export function compileWorkflow(workflowDef: WorkflowDefinition, taskImpls: Task
             }
           }
 
-          // Get the tools that this task can call and return to (canCallAndReturn)
+          // Get the tools that this task can call and return to (canUseTools)
           for (const toolTaskId of taskDef.tools) {
             if (taskImpls[toolTaskId]) {
-              taskCtx.canCallAndReturn[toolTaskId] = taskImpls[toolTaskId].def;
+              taskCtx.canUseTools[toolTaskId] = taskImpls[toolTaskId].def;
             }
           }
 
@@ -468,9 +460,9 @@ export function compileWorkflow(workflowDef: WorkflowDefinition, taskImpls: Task
           const executeFunction = currentTaskImpl.execute;
 
           if (!isAsyncGeneratorFunction(executeFunction)) {
-              throw new Error("Unexpected non-generator function in stack?");
+            throw new Error("Unexpected non-generator function in stack?");
           }
-          
+
           // Execute the task as an async generator
           currentTask.generator = executeFunction(taskCtx) as AsyncGenerator<any, any, any>;
 
@@ -537,6 +529,7 @@ export function compileWorkflow(workflowDef: WorkflowDefinition, taskImpls: Task
       // Handle workflow error
       console.log("=== WORKFLOW EXECUTION ERROR ===");
       console.error("Workflow error:", error);
+      console.error("Workflow stack:", taskStack)
 
       // Create workflow error event
       const errorEvent = {

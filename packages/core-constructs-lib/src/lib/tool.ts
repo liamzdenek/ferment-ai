@@ -125,7 +125,7 @@ export class FileTool extends Tool<
   /**
    * The task definition for this file tool
    */
-  public readonly taskDef: TaskDef<any, any> = {
+  public readonly taskDef: TaskDef<z.ZodTypeAny, z.ZodTypeAny> = {
     taskDefId: 'file-tool',
     inputType: this.inputSchema,
     outputType: this.outputSchema
@@ -205,7 +205,7 @@ export class CommandTool extends Tool<
   /**
    * The task definition for this command tool
    */
-  public readonly taskDef: TaskDef<any, any> = {
+  public readonly taskDef: TaskDef<z.ZodTypeAny, z.ZodTypeAny> = {
     taskDefId: 'command-tool',
     inputType: this.inputSchema,
     outputType: this.outputSchema
