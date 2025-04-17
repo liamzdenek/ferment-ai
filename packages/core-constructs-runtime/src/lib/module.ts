@@ -16,7 +16,7 @@ import {
   PromptTaskOutputSchema,
   EndTaskInputSchema,
   EndTaskOutputSchema,
-  OLLAMA_MODEL_TASK_DEF,
+  INVOKE_MODEL_TASK_DEF,
   OllamaModel
 } from '@ferment-ai/core-constructs-lib';
 import {
@@ -254,8 +254,13 @@ export function createCoreConstructsModule(): Module {
     // Check if the construct is an AgentContext
 
     if(construct instanceof WorkflowTask) {
-      if(construct.taskDef.taskDefId === OLLAMA_MODEL_TASK_DEF.taskDefId) {
-        return createOllamaTaskImpl(construct as OllamaModel);
+      switch(construct.taskDef.taskDefId) {
+        case INVOKE_MODEL_TASK_DEF.taskDefId:
+          return createOllamaTaskImpl(construct as OllamaModel); // we cast here instead of using instanceof so that reimplementors of the `-lib` works
+        case AGENT_CONTEXT_TASK_DEF.taskDefId:
+          return createAgentContextTaskImpl(construct as AgentContext);
+        default:
+          //fallthrough
       }
     }
 

@@ -1,6 +1,5 @@
 // Base constructs
 export * from './lib/agent-context.js';
-export * from './lib/model.js';
 export * from './lib/tool.js';
 
 // Tool implementations

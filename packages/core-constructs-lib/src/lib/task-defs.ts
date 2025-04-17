@@ -1,14 +1,14 @@
 import { z } from 'zod';
 import { TaskDef } from '@ferment-ai/runtime-common';
 
-export const OllamaMessageSchema = z.object({
+export const InvokeChatModelMessageSchema = z.object({
   role: z.enum(['user', 'assistant', 'system']),
   content: z.string()
 });
 
 // Input Schema for Ollama Task
-export const OllamaChatTaskInputSchema = z.object({
-  messages: z.array(OllamaMessageSchema),
+export const InvokeChatModelTaskInputSchema = z.object({
+  messages: z.array(InvokeChatModelMessageSchema),
   format: z.object({
     type: z.string(),
     properties: z.record(z.any()),
@@ -20,7 +20,7 @@ export const OllamaChatTaskInputSchema = z.object({
 });
 
 // Output Schema for Ollama Task
-export const OllamaChatTaskOutputSchema = z.object({
+export const InvokeChatModelTaskOutputSchema = z.object({
   message: z.object({
     role: z.string(),
     content: z.string()
@@ -33,10 +33,10 @@ export const OllamaChatTaskOutputSchema = z.object({
   eval_count: z.number().optional()
 });
 
-export const OLLAMA_MODEL_TASK_DEF: TaskDef<typeof OllamaChatTaskInputSchema, typeof OllamaChatTaskOutputSchema> = {
+export const INVOKE_MODEL_TASK_DEF: TaskDef<typeof InvokeChatModelTaskInputSchema, typeof InvokeChatModelTaskOutputSchema> = {
   taskDefId: 'CoreConstructs::OllamaModelTaskDef',
-  inputType: OllamaChatTaskInputSchema,
-  outputType: OllamaChatTaskOutputSchema
+  inputType: InvokeChatModelTaskInputSchema,
+  outputType: InvokeChatModelTaskOutputSchema
 };
 
 

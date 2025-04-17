@@ -1,5 +1,5 @@
 import { Construct } from 'constructs';
-import { OLLAMA_MODEL_TASK_DEF } from '../task-defs.js';
+import { INVOKE_MODEL_TASK_DEF } from '../task-defs.js';
 import { WorkflowTask, WorkflowTaskOptions } from '@ferment-ai/runtime-common';
 
 interface OllamaModelProps {
@@ -7,19 +7,17 @@ interface OllamaModelProps {
     modelName: string;
 }
 
-export class OllamaModel extends WorkflowTask {
+export class OllamaModel extends WorkflowTask<typeof INVOKE_MODEL_TASK_DEF.inputType, typeof INVOKE_MODEL_TASK_DEF.outputType> {
     public readonly props: OllamaModelProps;
+
+    public override readonly taskDef = INVOKE_MODEL_TASK_DEF;
 
     constructor(
         scope: Construct,
         id: string,
-        props: OllamaModelProps & { taskOptions?: Partial<WorkflowTaskOptions> }
+        props: OllamaModelProps
     ) {
-        super(scope, id, {
-            taskDef: OLLAMA_MODEL_TASK_DEF,
-            ...props?.taskOptions
-        })
-        delete props.taskOptions;
+        super(scope, id, {})
         this.props = props;
     }
 }

@@ -1,4 +1,4 @@
-import { AgentContext, OllamaChatTaskInputSchema, OllamaModel, OpenAIModel } from '@ferment-ai/core-constructs-lib';
+import { AGENT_CONTEXT_TASK_DEF, AgentContext, InvokeChatModelTaskInputSchema, OllamaModel, OpenAIModel } from '@ferment-ai/core-constructs-lib';
 import { Construct, RootConstruct } from 'constructs';
 import { createCoreConstructsModule } from '@ferment-ai/core-constructs-runtime';
 import { Journal } from '@ferment-ai/runtime-in-memory';
@@ -41,6 +41,7 @@ class TwoAgentModel extends Construct {
 }
 */
 
+/*
 class SimpleCall extends Construct {
     constructor(scope: Construct, id: string) {
         super(scope, id);
@@ -50,10 +51,55 @@ class SimpleCall extends Construct {
             modelName: "llama3.1:8b"
         });
 
-        const workflow = new Workflow(this, 'TwoAgentWorkflow', {
+        const workflow = new Workflow(this, 'Workflow', {
             definition: testModel
         });
     }
+}
+
+const prompt: z.infer<typeof OllamaChatTaskInputSchema> = {
+    messages: [
+        { role: "user", content: "Hello world!" }
+    ]
+}
+*/
+
+class StatefulCall extends Construct {
+    constructor(scope: Construct, id: string) {
+        super(scope, id);
+    
+        const testModel = new OllamaModel(this, 'TestModel', {
+            host: "ollama:11434",
+            modelName: "llama3.1:8b"
+        });
+
+        const agentCtx = new AgentContext(this, 'AgentContext', {
+            initialMessages: [
+                {
+                    role: "user",
+                    content: "What's the weather in Sacramento?",
+                }
+            ],
+            model: testModel
+        })
+
+        // tool call parser
+        // tool use 
+        // rag
+        // persistent conversation/context
+        // maximum context length (according to specific tokenizer)
+
+
+        const workflow = new Workflow(this, 'Workflow', {
+            definition: agentCtx
+        });
+    }
+}
+
+const prompt: z.infer<typeof AGENT_CONTEXT_TASK_DEF.inputType> = {
+    messages: [
+        { role: "user", content: "Hello world!" }
+    ]
 }
 
 // Create a root construct
@@ -61,13 +107,15 @@ const rootConstruct = new RootConstruct('Root');
 
 // Create the virtual model
 //new TwoAgentModel(rootConstruct, 'TwoAgentModel');
-new SimpleCall(rootConstruct, 'SimpleCall')
+//new SimpleCall(rootConstruct, 'SimpleCall')
+new StatefulCall(rootConstruct, 'SimpleCall')
 
 // Create the journal
 const journal = new Journal([createCoreConstructsModule()], {
     enableCompression: false,
     rootConstruct
 });
+
 
 // Execute the workflow
 async function runWorkflow() {
@@ -81,12 +129,6 @@ async function runWorkflow() {
         // Get the workflow name from the TwoAgentModel
         const workflowName = Object.keys(state.compileResult.workflows)[0];
         console.log('Using workflow:', workflowName);
-
-        const prompt: z.infer<typeof OllamaChatTaskInputSchema> = {
-            messages: [
-                { role: "user", content: "Hello world!" }
-            ]
-        }
         
         for await (const event of journal.executeWorkflow(workflowName, prompt)) {
             console.log('Event:', event);

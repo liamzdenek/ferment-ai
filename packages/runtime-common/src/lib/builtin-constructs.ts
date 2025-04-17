@@ -10,7 +10,7 @@ export interface WorkflowOptions {
   /**
    * The entry point task for the workflow
    */
-  definition: WorkflowTask;
+  definition: WorkflowTask<any, any>;
 
   /**
    * A description of what the workflow does
@@ -25,7 +25,7 @@ export class Workflow extends Construct {
   /**
    * The entry point task for the workflow
    */
-  private readonly definition: WorkflowTask;
+  private readonly definition: WorkflowTask<any, any>;
 
   /**
    * Creates a new workflow
@@ -75,7 +75,7 @@ export class Workflow extends Construct {
    * @param task The task to start from
    * @param tasks The tasks map to add to
    */
-  private addReachableTasks(task: WorkflowTask, tasks: Record<string, TaskDefinition>): void {
+  private addReachableTasks(task: WorkflowTask<any, any>, tasks: Record<string, TaskDefinition>): void {
     // Add next tasks
     for (const nextTask of task.getNextTasks()) {
       if (!tasks[nextTask.node.path]) {
@@ -98,31 +98,28 @@ export class Workflow extends Construct {
  * Options for creating a task
  */
 export interface WorkflowTaskOptions {
-  /**
-   * The task definition - required for all tasks
-   */
-  taskDef: TaskDef<any, any>;
+  _unused?: string;
 }
 
 /**
  * A task in a workflow
  */
-export class WorkflowTask extends Construct {
+export abstract class WorkflowTask<I extends z.ZodTypeAny,O extends z.ZodTypeAny> extends Construct {
 
   /**
    * The task definition for this model
    */
-  public readonly taskDef: TaskDef<any, any>;
+  public abstract readonly taskDef: TaskDef<I, O>;
 
   /**
    * The next tasks in the workflow
    */
-  private readonly nextTasks: WorkflowTask[] = [];
+  private readonly nextTasks: WorkflowTask<any, any>[] = [];
 
   /**
    * The tools that can be called by this task
    */
-  private readonly tools: Record<string, WorkflowTask> = {};
+  private readonly tools: Record<string, WorkflowTask<any, any>> = {};
 
   /**
    * Creates a new task
@@ -137,7 +134,6 @@ export class WorkflowTask extends Construct {
     private readonly options: WorkflowTaskOptions
   ) {
     super(scope, id);
-    this.taskDef = options.taskDef;
   }
 
   /**
@@ -146,7 +142,7 @@ export class WorkflowTask extends Construct {
    * @param task The task that can be called
    * @returns This task
    */
-  canCall(task: WorkflowTask): this {
+  canCall(task: WorkflowTask<any, any>): this {
     this.nextTasks.push(task);
     return this;
   }
@@ -157,7 +153,7 @@ export class WorkflowTask extends Construct {
    * @param tool The tool that can be called
    * @returns This task
    */
-  canCallAndReturn(tool: WorkflowTask): this {
+  canCallAndReturn(tool: WorkflowTask<any, any>): this {
     const toolPath = tool.node.path;
     this.tools[toolPath] = tool;
     return this;
@@ -168,7 +164,7 @@ export class WorkflowTask extends Construct {
    * @returns The task definition
    */
   getDefinition(): TaskDefinition {
-    if (!this.options.taskDef) {
+    if (!this.taskDef) {
       throw new Error(`Task ${this.node.id} does not have a taskDef defined`);
     }
 
@@ -181,10 +177,9 @@ export class WorkflowTask extends Construct {
     return {
       id: this.node.path,
       name: this.node.id,
-      description: this.options.description,
-      taskDefId: this.options.taskDef.taskDefId,
-      inputType: this.options.taskDef.inputType,
-      outputType: this.options.taskDef.outputType,
+      taskDefId: this.taskDef.taskDefId,
+      inputType: this.taskDef.inputType,
+      outputType: this.taskDef.outputType,
       nextTasks,
       tools
     };
@@ -195,7 +190,7 @@ export class WorkflowTask extends Construct {
    *
    * @returns The next tasks
    */
-  getNextTasks(): WorkflowTask[] {
+  getNextTasks(): WorkflowTask<any, any>[] {
     return [...this.nextTasks];
   }
 
@@ -204,7 +199,7 @@ export class WorkflowTask extends Construct {
    *
    * @returns The tools
    */
-  getTools(): Record<string, WorkflowTask> {
+  getTools(): Record<string, WorkflowTask<any, any>> {
     return { ...this.tools };
   }
 }
@@ -212,7 +207,7 @@ export class WorkflowTask extends Construct {
 /**
  * An end task in a workflow
  */
-export class WorkflowEndTask extends WorkflowTask {
+export class WorkflowEndTask extends WorkflowTask<any, any> {
   /**
    * Default task definition for end tasks
    */
@@ -221,6 +216,8 @@ export class WorkflowEndTask extends WorkflowTask {
     inputType: z.any(),
     outputType: z.any()
   };
+
+  public override readonly taskDef = WorkflowEndTask.END_TASK_DEF;
 
   /**
    * Creates a new end task
@@ -235,8 +232,6 @@ export class WorkflowEndTask extends WorkflowTask {
     options?: Partial<WorkflowTaskOptions>
   ) {
     super(scope, id, {
-      description: options?.description || 'End of workflow',
-      taskDef: WorkflowEndTask.END_TASK_DEF,
       ...options
     });
   }

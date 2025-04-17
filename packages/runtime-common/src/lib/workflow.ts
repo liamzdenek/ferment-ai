@@ -49,6 +49,7 @@ export interface TaskCtx<I extends z.ZodTypeAny, O extends z.ZodTypeAny> {
   output: z.infer<O>;
   canCall: { [taskId: string]: TaskDef<z.ZodTypeAny, z.ZodTypeAny> };
   canCallAndReturn: { [taskId: string]: TaskDef<z.ZodTypeAny, z.ZodTypeAny> };
+  taskIdToConstruct: { [taskId: string]: Construct };
 }
 
 /**
@@ -441,7 +442,8 @@ export function compileWorkflow(workflowDef: WorkflowDefinition, taskImpls: Task
             input: validatedInput,
             output: undefined,
             canCall: {},
-            canCallAndReturn: {}
+            canCallAndReturn: {},
+            taskIdToConstruct: {},
           };
 
           // Populate canCall and canCallAndReturn maps based on the task's relationships

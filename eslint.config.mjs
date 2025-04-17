@@ -33,7 +33,8 @@ export default [
                         }
                     ]
                 }
-            ]
+            ],
+            "require-yield": "off",
         }
     },
     {
