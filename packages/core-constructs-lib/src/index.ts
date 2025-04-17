@@ -1,5 +1,4 @@
 // Base constructs
-export * from './lib/virtual-model.js';
 export * from './lib/agent-context.js';
 export * from './lib/model.js';
 export * from './lib/tool.js';
@@ -9,3 +8,4 @@ export * from './lib/send-email-tool.js';
 
 // Task definitions
 export * from './lib/task-defs.js';
+export * from './lib/models/ollama-model.js';

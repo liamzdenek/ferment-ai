@@ -15,7 +15,9 @@ import {
   PromptTaskInputSchema,
   PromptTaskOutputSchema,
   EndTaskInputSchema,
-  EndTaskOutputSchema
+  EndTaskOutputSchema,
+  OLLAMA_MODEL_TASK_DEF,
+  OllamaModel
 } from '@ferment-ai/core-constructs-lib';
 import {
   Module,
@@ -25,6 +27,7 @@ import {
   WorkflowTask,
   WorkflowEndTask
 } from '@ferment-ai/runtime-common';
+import { createOllamaTaskImpl } from './ollamaTask.js';
 
 /**
  * Configuration for task execution
@@ -240,6 +243,7 @@ function createWorkflowEndTaskImpl(endTask: WorkflowEndTask): TaskImpl<typeof En
   };
 }
 
+
 /**
  * Creates a core constructs module
  *
@@ -250,11 +254,12 @@ export function createCoreConstructsModule(): Module {
     // Check if the construct is an AgentContext
 
     if(construct instanceof WorkflowTask) {
-      if(construct.taskDef.taskDefId === PROMPT_TASK_DEF.taskDefId) {
-        // TODO
+      if(construct.taskDef.taskDefId === OLLAMA_MODEL_TASK_DEF.taskDefId) {
+        return createOllamaTaskImpl(construct as OllamaModel);
       }
     }
 
+    /*
     if (construct instanceof AgentContext) {
       return createAgentContextTaskImpl(construct);
     }
@@ -278,6 +283,7 @@ export function createCoreConstructsModule(): Module {
 
       return createPromptTaskImpl(construct);
     }
+      */
     
     // No task implementation for this construct from this module. other modules may have an impl
     return undefined;

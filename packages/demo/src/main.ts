@@ -1,10 +1,11 @@
-import { AgentContext, OpenAIModel, VirtualModel } from '@ferment-ai/core-constructs-lib';
+import { AgentContext, OllamaModel, OpenAIModel } from '@ferment-ai/core-constructs-lib';
 import { Construct, RootConstruct } from 'constructs';
 import { createCoreConstructsModule } from '@ferment-ai/core-constructs-runtime';
 import { Journal } from '@ferment-ai/runtime-in-memory';
 import { Workflow, WorkflowEndTask } from '@ferment-ai/runtime-common';
 
-class TwoAgentModel extends VirtualModel {
+/*
+class TwoAgentModel extends Construct {
     constructor(scope: Construct, id: string) {
         super(scope, id);
 
@@ -37,12 +38,29 @@ class TwoAgentModel extends VirtualModel {
         });
     }
 }
+*/
+
+class SimpleCall extends Construct {
+    constructor(scope: Construct, id: string) {
+        super(scope, id);
+    
+        const testModel = new OllamaModel(this, 'TestModel', {
+            host: "ollama:11434",
+            modelName: "llama3.1:8b"
+        });
+
+        const workflow = new Workflow(this, 'TwoAgentWorkflow', {
+            definition: testModel
+        });
+    }
+}
 
 // Create a root construct
 const rootConstruct = new RootConstruct('Root');
 
 // Create the virtual model
-new TwoAgentModel(rootConstruct, 'TwoAgentModel');
+//new TwoAgentModel(rootConstruct, 'TwoAgentModel');
+new SimpleCall(rootConstruct, 'SimpleCall')
 
 // Create the journal
 const journal = new Journal([createCoreConstructsModule()], {
@@ -63,7 +81,7 @@ async function runWorkflow() {
         const workflowName = Object.keys(state.compileResult.workflows)[0];
         console.log('Using workflow:', workflowName);
         
-        for await (const event of journal.executeWorkflow(workflowName, { message: 'Hello, world!' })) {
+        for await (const event of journal.executeWorkflow(workflowName, { prompt: 'Hello, world!' })) {
             console.log('Event:', event);
         }
         
