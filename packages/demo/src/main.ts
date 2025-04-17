@@ -1,8 +1,9 @@
-import { AgentContext, OllamaModel, OpenAIModel } from '@ferment-ai/core-constructs-lib';
+import { AgentContext, OllamaChatTaskInputSchema, OllamaModel, OpenAIModel } from '@ferment-ai/core-constructs-lib';
 import { Construct, RootConstruct } from 'constructs';
 import { createCoreConstructsModule } from '@ferment-ai/core-constructs-runtime';
 import { Journal } from '@ferment-ai/runtime-in-memory';
 import { Workflow, WorkflowEndTask } from '@ferment-ai/runtime-common';
+import { z } from 'zod';
 
 /*
 class TwoAgentModel extends Construct {
@@ -80,8 +81,14 @@ async function runWorkflow() {
         // Get the workflow name from the TwoAgentModel
         const workflowName = Object.keys(state.compileResult.workflows)[0];
         console.log('Using workflow:', workflowName);
+
+        const prompt: z.infer<typeof OllamaChatTaskInputSchema> = {
+            messages: [
+                { role: "user", content: "Hello world!" }
+            ]
+        }
         
-        for await (const event of journal.executeWorkflow(workflowName, { prompt: 'Hello, world!' })) {
+        for await (const event of journal.executeWorkflow(workflowName, prompt)) {
             console.log('Event:', event);
         }
         

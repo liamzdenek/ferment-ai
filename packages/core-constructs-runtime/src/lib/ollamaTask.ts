@@ -1,40 +1,41 @@
 import { z } from 'zod';
 import axios from 'axios';
-import { OLLAMA_MODEL_TASK_DEF, OllamaModel, OllamaTaskInputSchema, OllamaTaskOutputSchema } from '@ferment-ai/core-constructs-lib';
+import { OLLAMA_MODEL_TASK_DEF, OllamaChatTaskInputSchema, OllamaChatTaskOutputSchema, OllamaModel } from '@ferment-ai/core-constructs-lib';
 import { convertPromiseToGenerator, TaskCtx, TaskImpl } from '@ferment-ai/runtime-common';
 
 
-export function createOllamaTaskImpl(ollamaModel: OllamaModel): TaskImpl<typeof OllamaTaskInputSchema, typeof OllamaTaskOutputSchema> {
+export function createOllamaTaskImpl(ollamaModel: OllamaModel): TaskImpl<typeof OllamaChatTaskInputSchema, typeof OllamaChatTaskOutputSchema> {
   return {
     def: OLLAMA_MODEL_TASK_DEF,
     taskId: ollamaModel.node.path,
-    execute: convertPromiseToGenerator(async (ctx: TaskCtx<typeof OllamaTaskInputSchema, typeof OllamaTaskOutputSchema>) => {
-      console.log(`Executing Ollama task: ${ollamaModel.node.id}`);
+    execute: convertPromiseToGenerator(async (ctx: TaskCtx<typeof OllamaChatTaskInputSchema, typeof OllamaChatTaskOutputSchema>) => {
+      console.log(`Executing Ollama chat task: ${ollamaModel.node.id}`);
       console.log(`Input: ${JSON.stringify(ctx.input)}`);
       
       try {
         // Construct the API URL using the host from model props
-        const apiUrl = `http://${ollamaModel.props.host}/api/generate`;
+        const apiUrl = `http://${ollamaModel.props.host}/api/chat`;
         
         // Prepare the request payload
         const requestPayload = {
           model: ollamaModel.props.modelName,
-          prompt: ctx.input.prompt,
-          stream: ctx.input.stream,
-          format: ctx.input.format
+          messages: ctx.input.messages,
+          stream: false,
+          format: ctx.input.format,
+          options: ctx.input.options
         };
         
-        console.log(`Calling Ollama API at ${apiUrl}`);
+        console.log(`Calling Ollama Chat API at ${apiUrl}`);
         console.log(`Request payload: ${JSON.stringify(requestPayload)}`);
         
-        // Make the API call to Ollama
+        // Make the API call to Ollama chat endpoint
         const response = await axios.post(apiUrl, requestPayload, {
           headers: {
             'Content-Type': 'application/json'
           }
         });
         
-        console.log(`Ollama API response: ${JSON.stringify(response.data)}`);
+        console.log(`Ollama Chat API response: ${JSON.stringify(response.data)}`);
         
         // Return the task result
         return {
@@ -43,18 +44,17 @@ export function createOllamaTaskImpl(ollamaModel: OllamaModel): TaskImpl<typeof 
           taskId: ctx.taskId,
           input: ctx.input,
           output: {
-            response: response.data.response,
+            message: response.data.message,
             model: response.data.model,
             created_at: response.data.created_at,
             done: response.data.done,
             done_reason: response.data.done_reason,
             total_duration: response.data.total_duration,
-            eval_count: response.data.eval_count,
-            context: response.data.context
+            eval_count: response.data.eval_count
           }
         };
       } catch (error) {
-        console.error(`Error calling Ollama API: ${error}`);
+        console.error(`Error calling Ollama Chat API: ${error}`);
         
         // Return an error result
         return {
@@ -63,7 +63,7 @@ export function createOllamaTaskImpl(ollamaModel: OllamaModel): TaskImpl<typeof 
           taskId: ctx.taskId,
           input: ctx.input,
           error: {
-            message: `Failed to call Ollama API: ${(error as any).message}`,
+            message: `Failed to call Ollama Chat API: ${(error as any).message}`,
             details: error
           }
         };

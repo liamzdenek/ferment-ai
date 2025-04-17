@@ -1,33 +1,42 @@
 import { z } from 'zod';
 import { TaskDef } from '@ferment-ai/runtime-common';
 
+export const OllamaMessageSchema = z.object({
+  role: z.enum(['user', 'assistant', 'system']),
+  content: z.string()
+});
+
 // Input Schema for Ollama Task
-export const OllamaTaskInputSchema = z.object({
-  prompt: z.string(),
-  stream: z.boolean().default(false),
+export const OllamaChatTaskInputSchema = z.object({
+  messages: z.array(OllamaMessageSchema),
   format: z.object({
     type: z.string(),
     properties: z.record(z.any()),
     required: z.array(z.string())
+  }).optional(),
+  options: z.object({
+    temperature: z.number()
   }).optional()
 });
 
 // Output Schema for Ollama Task
-export const OllamaTaskOutputSchema = z.object({
-  response: z.string(),
+export const OllamaChatTaskOutputSchema = z.object({
+  message: z.object({
+    role: z.string(),
+    content: z.string()
+  }),
   model: z.string(),
   created_at: z.string(),
   done: z.boolean(),
   done_reason: z.string().optional(),
   total_duration: z.number().optional(),
-  eval_count: z.number().optional(),
-  context: z.array(z.number()).optional()
+  eval_count: z.number().optional()
 });
 
-export const OLLAMA_MODEL_TASK_DEF: TaskDef<typeof OllamaTaskInputSchema, typeof OllamaTaskOutputSchema> = {
+export const OLLAMA_MODEL_TASK_DEF: TaskDef<typeof OllamaChatTaskInputSchema, typeof OllamaChatTaskOutputSchema> = {
   taskDefId: 'CoreConstructs::OllamaModelTaskDef',
-  inputType: OllamaTaskInputSchema,
-  outputType: OllamaTaskOutputSchema
+  inputType: OllamaChatTaskInputSchema,
+  outputType: OllamaChatTaskOutputSchema
 };
 
 
