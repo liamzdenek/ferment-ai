@@ -17,9 +17,6 @@ export function createAgentContextTaskImpl(agentContext: AgentContext): TaskImpl
         messages: agentContext.props.initialMessages
       });
 
-      console.log("Got tool res", toolRes);
-      console.log("Got tool res", toolRes.output);
-
       // Return the final result
       return {
         type: 'result',

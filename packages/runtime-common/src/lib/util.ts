@@ -52,7 +52,7 @@ export function getTaskCall<I extends z.ZodTypeAny, O extends z.ZodTypeAny>(
   // Return a generator function that can be called with input
   return function* (input: z.infer<I>): Generator<
     TaskCallAndReturnRequest, 
-    Omit<TaskCallResult, 'output'> & { output: z.infer<O> }, 
+    Omit<TaskCallResult, 'output' | 'input'> & { input: z.infer<I>, output: z.infer<O> }, 
     TaskCallResult | TaskCallError
   > {
     const req: TaskCallAndReturnRequest = {
