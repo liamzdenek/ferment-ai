@@ -12,7 +12,7 @@ Unlike imperative frameworks, Ferment AI separates declaration from runtime, ena
 
 ## Key Features
 
-- **Declarative Configuration** using AWS CDK constructs for clear, composable system definitions
+- **Declarative Configuration** using AWS CDK-style constructs for clear, composable system definitions
 - **Real-Time Streaming** of all agent interactions for complete transparency
 - **Workflow-Based Architecture** with tasks and defined relationships
 - **Journal System** that executes workflows and maintains authoritative state
@@ -63,8 +63,8 @@ graph TD
 ### Package Structure
 
 - **@ferment-ai/core-constructs-lib**: Core construct library and task definitions
-- **@ferment-ai/runtime-common**: Common interfaces and utilities for runtime packages
-- **@ferment-ai/core-constructs-runtime**: Runtime implementation for constructs
+- **@ferment-ai/core-constructs-runtime**: Runtime implementation for core constructs
+- **@ferment-ai/runtime-common**: Common interfaces and utilities for runtime packages, including the workflow compiler.
 - **@ferment-ai/runtime-in-memory**: In-memory implementation of the Journal
 - **@ferment-ai/demo**: Demo application
 
@@ -72,7 +72,7 @@ The core-constructs-lib and core-constructs-runtime packages form a complementar
 - **core-constructs-lib** defines the constructs and task definitions (the "what")
 - **core-constructs-runtime** implements the runtime behavior of those constructs (the "how")
 
-This separation allows users to bring their own implementation, constructs, or both.
+This separation allows integrators to bring their own implementation, constructs, or both. If you think my core constructs are bad, you can bring your own. The core constructs contain no special privileges; any construct library has the same capability.
 
 # Initial Setup
 ```bash
@@ -263,15 +263,12 @@ try {
 
 #### Performance Considerations
 
-- Use compression for large journal states
-- Consider partial serialization for large workflows
 - Implement caching for frequently used workflows
-- Monitor memory usage during workflow execution
 - Use efficient serialization formats for state storage
 
 ### For L1 Construct Developers
 
-As an L1 construct developer, you'll create new fundamental constructs for Ferment AI by creating your own "-lib" and "-runtime" packages that follow the same pattern as the core packages.
+As an L1 construct developer, you'll create new fundamental constructs for Ferment AI by creating your own "-lib" and "-runtime" packages that follow the same pattern as the `core-construct-*` packages.
 
 #### Creating a New L1 Construct
 
@@ -386,7 +383,7 @@ The module system maps constructs to task implementations, allowing for extensib
 
 As an L2/L3 construct developer, you'll create higher-level, domain-specific constructs by composing L1 constructs.
 
-You should still put these in a library, but you do not need to do anything with Modules or runtime.
+You should still put these in a package named "-lib", but you do not need to create a "-runtime" package (no Module or Task work needed).
 
 You can tell when you're writing a L1 construct because it `extends WorkflowTask<...>`. These constructs use custom logic at runtime, which needs to be implemented in a corresponding runtime library. If you're just composing together pre-existing constructs in a reusable way, you're writing a L2/L3 construct, and no runtime piece is necessary.
 
