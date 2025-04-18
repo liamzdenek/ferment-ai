@@ -12,8 +12,7 @@ export function createAgentContextTaskImpl(agentContext: AgentContext): TaskImpl
       console.log(`Executing AgentContext: ${agentContext.node.id}`);
       console.log(`Input: ${JSON.stringify(ctx.input)}`);
 
-      const runModel = getTaskCall(ctx, agentContext.props.model);
-      const toolRes = yield* runModel({
+      const toolRes = yield* getTaskCall(ctx, agentContext.props.model)({
         messages: agentContext.props.initialMessages
       });
 
