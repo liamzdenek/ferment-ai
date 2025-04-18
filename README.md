@@ -1,101 +1,531 @@
-# FermentAi
+# Ferment AI
 
-<a alt="Nx logo" href="https://nx.dev" target="_blank" rel="noreferrer"><img src="https://raw.githubusercontent.com/nrwl/nx/master/images/nx-logo.png" width="45"></a>
+<img src="./assets/ferment-logo.svg"/>
 
-✨ Your new, shiny [Nx workspace](https://nx.dev) is ready ✨.
+A declarative framework for configuring and executing multi-agent LLM systems with unprecedented clarity and control.
 
-[Learn more about this workspace setup and its capabilities](https://nx.dev/nx-api/node?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects) or run `npx nx graph` to visually explore what was created. Now, let's get you up to speed!
+## Introduction
 
-## Run tasks
+Ferment AI is a powerful framework for configuring and executing multi-agent systems using a declarative approach. Built with a clean separation between definition and execution, it provides a clear, composable way to define complex agent interactions, workflows, and tools.
 
-To run the dev server for your app, use:
+Unlike imperative frameworks, Ferment AI separates declaration from runtime, enabling more maintainable, testable, and extensible agent systems. The workflow-based architecture with a central journal system simplifies state management and enables features like pausing, resuming, and real-time visibility into agent operations.
 
-```sh
-npx nx serve ferment-ai
+## Key Features
+
+- **Declarative Configuration** using AWS CDK constructs for clear, composable system definitions
+- **Real-Time Streaming** of all agent interactions for complete transparency
+- **Workflow-Based Architecture** with tasks and defined relationships
+- **Journal System** that executes workflows and maintains authoritative state
+- **Stateless Operation** with serialization/deserialization of the entire system state
+- **Tool System** integrated with workflows for agent capabilities
+- **Human Intervention** support with cancellation and resumption
+- **Type Safety** with Zod validation for inputs and outputs at both compile time and runtime
+
+## Architecture Overview
+
+### Task-Based Architecture
+
+Ferment AI is built around the concept of tasks, which are units of work in a workflow. Each task has a task definition that specifies its input and output types using Zod schemas.
+
+```mermaid
+graph TD
+    WorkflowTask[WorkflowTask] --> AgentContext[Agent Context]
+    WorkflowTask --> Model[Model]
+    WorkflowTask --> Tool[Tool]
+    WorkflowTask --> WorkflowEndTask[Workflow End Task]
+    Model --> OllamaModel[Ollama Model]
+    Tool --> FileTool[File Tool]
+    Tool --> CommandTool[Command Tool]
 ```
 
-To create a production bundle:
+### Workflow-Based Architecture
 
-```sh
-npx nx build ferment-ai
+```mermaid
+graph TD
+    Journal[Journal] --> CompileResult[Compile Result]
+    CompileResult --> Workflows[Workflows]
+    CompileResult --> TaskImpls[Task Implementations]
+    CompileResult --> Executors[Executors]
+    
+    Workflows -->|Contain| Tasks
+    Tasks -->|Referenced by full path| TaskImpls
+    Executors -->|Execute| Workflows
+    Journal -->|Uses| CompileResult
+    
+    TaskImpls -->|Include| TaskDefs[Task Definitions]
+    TaskImpls -->|Include| ExecuteFunctions[Execute Functions]
+    ExecuteFunctions -->|Can be| AsyncGenerators[Async Generators]
+    ExecuteFunctions -->|Can be| Promises[Promises]
+    AsyncGenerators -->|Can yield| TaskCallRequests[Task Call Requests]
+    AsyncGenerators -->|Can resume with| TaskCallResults[Task Call Results]
 ```
 
-To see all available targets to run for a project, run:
+### Package Structure
 
-```sh
-npx nx show project ferment-ai
+- **@ferment-ai/core-constructs-lib**: Core construct library and task definitions
+- **@ferment-ai/runtime-common**: Common interfaces and utilities for runtime packages
+- **@ferment-ai/core-constructs-runtime**: Runtime implementation for constructs
+- **@ferment-ai/runtime-in-memory**: In-memory implementation of the Journal
+- **@ferment-ai/demo**: Demo application
+
+The core-constructs-lib and core-constructs-runtime packages form a complementary pair:
+- **core-constructs-lib** defines the constructs and task definitions (the "what")
+- **core-constructs-runtime** implements the runtime behavior of those constructs (the "how")
+
+This separation allows users to bring their own implementation, constructs, or both.
+
+# Initial Setup
+```bash
+git clone https://github.com/ferment-ai/ferment.git
+cd ferment
+
+# Install dependencies
+npm install
+
+# Build all packages
+npx nx run-many -t build
+
+# Build the demo
+npx nx build demo
+
+# Run the demo
+npx nx serve demo
 ```
 
-These targets are either [inferred automatically](https://nx.dev/concepts/inferred-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) or defined in the `project.json` or `package.json` files.
+### Basic Usage Example
 
-[More about running tasks in the docs &raquo;](https://nx.dev/features/run-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+Here's a simple example of creating a workflow with a single agent:
 
-## Add new projects
+```typescript
+import { AgentContext, OllamaModel } from '@ferment-ai/core-constructs-lib';
+import { Construct, RootConstruct } from 'constructs';
+import { createCoreConstructsModule } from '@ferment-ai/core-constructs-runtime';
+import { Journal } from '@ferment-ai/runtime-in-memory';
+import { Workflow } from '@ferment-ai/runtime-common';
 
-While you could add new projects to your workspace manually, you might want to leverage [Nx plugins](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) and their [code generation](https://nx.dev/features/generate-code?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) feature.
+// Create a root construct
+const rootConstruct = new RootConstruct('Root');
 
-Use the plugin's generator to create new projects.
+// Create a model and agent context
+const model = new OllamaModel(rootConstruct, 'Model', {
+  host: 'localhost:11434',
+  modelName: 'llama3.1:8b'
+});
 
-To generate a new application, use:
+const agent = new AgentContext(rootConstruct, 'Agent', {
+  initialMessages: [
+    {
+      role: 'user',
+      content: 'Hello, how can you help me today?'
+    }
+  ],
+  model: model
+});
 
-```sh
-npx nx g @nx/node:app demo
+// Create a workflow with the agent as the entry point
+const workflow = new Workflow(rootConstruct, 'Workflow', {
+  definition: agent
+});
+
+// Create a journal and execute the workflow
+const journal = new Journal([createCoreConstructsModule()], {
+  rootConstruct
+});
+
+async function runWorkflow() {
+  const workflowName = Object.keys(journal.toSavedState().compileResult.workflows)[0];
+  
+  for await (const event of journal.executeWorkflow(workflowName, {
+    messages: [
+      { role: 'user', content: 'What is the capital of France?' }
+    ]
+  })) {
+    console.log('Event:', event);
+  }
+}
+
+runWorkflow();
 ```
 
-To generate a new library, use:
+## User Guides
 
-```sh
-npx nx g @nx/node:lib mylib
+### For Workflow Definers
+
+As a workflow definer, you'll create LLM workflows using Ferment AI's declarative configuration system.
+
+#### Using Tools
+
+```typescript
+// Create a file tool
+const fileTool = new FileTool(rootConstruct, 'FileTool', {
+  name: 'file',
+  description: 'Read and write files on the filesystem'
+});
+
+// Create a command tool
+const commandTool = new CommandTool(rootConstruct, 'CommandTool', {
+  name: 'command',
+  description: 'Execute shell commands'
+});
+
+// Create an agent with access to tools
+const agent = new AgentContext(rootConstruct, 'Agent', {
+  model: model,
+  initialMessages: [
+    {
+      role: 'system',
+      content: "You are a helpful assistant with access to file and command tools."
+    }
+  ],
+  tools: [fileTool, commandTool]
+});
+
+// Create the workflow
+const workflow = new Workflow(rootConstruct, 'ToolWorkflow', {
+  definition: agent
+});
 ```
 
-You can use `npx nx list` to get a list of installed plugins. Then, run `npx nx list <plugin-name>` to learn about more specific capabilities of a particular plugin. Alternatively, [install Nx Console](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) to browse plugins and generators in your IDE.
+#### Multi-Agent Systems (WIP)
 
-[Learn more about Nx plugins &raquo;](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) | [Browse the plugin registry &raquo;](https://nx.dev/plugin-registry?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+Multi-agent system support is currently under active development. The API for defining agent interactions is evolving and will be documented in future releases.
 
-## Set up CI!
+#### Best Practices
 
-### Step 1
+- Use descriptive IDs for constructs to make the configuration more readable
+- Define clear task relationships to ensure proper workflow execution
+- Use the appropriate model for each agent based on its responsibilities
+- Provide detailed prompts to guide agent behavior
+- Test workflows with simple inputs before scaling to complex scenarios
 
-To connect to Nx Cloud, run the following command:
+### For Workflow Integrators
 
-```sh
-npx nx connect
+As a workflow integrator, you'll incorporate Ferment AI workflows into your applications.
+
+#### Integrating Workflows
+
+```typescript
+// Create a journal with the necessary modules
+const journal = new Journal([createCoreConstructsModule()], {
+  rootConstruct
+});
+
+// Execute a workflow
+async function executeWorkflow(input) {
+  const workflowName = 'YourWorkflowName';
+  
+  for await (const event of journal.executeWorkflow(workflowName, input)) {
+    // Process events (agent responses, tool calls, etc.)
+    handleEvent(event);
+  }
+  
+  // Get the final state
+  const finalState = journal.toSavedState();
+  return finalState;
+}
+
+// Save and restore state
+function saveWorkflowState() {
+  const state = journal.toSavedState();
+  localStorage.setItem('workflowState', JSON.stringify(state));
+}
+
+function restoreWorkflowState() {
+  const stateJson = localStorage.getItem('workflowState');
+  if (stateJson) {
+    const state = JSON.parse(stateJson);
+    return Journal.fromSavedState(state, [createCoreConstructsModule()]);
+  }
+  return null;
+}
 ```
 
-Connecting to Nx Cloud ensures a [fast and scalable CI](https://nx.dev/ci/intro/why-nx-cloud?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) pipeline. It includes features such as:
+#### Error Handling
 
-- [Remote caching](https://nx.dev/ci/features/remote-cache?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task distribution across multiple machines](https://nx.dev/ci/features/distribute-task-execution?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Automated e2e test splitting](https://nx.dev/ci/features/split-e2e-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task flakiness detection and rerunning](https://nx.dev/ci/features/flaky-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-### Step 2
-
-Use the following command to configure a CI workflow for your workspace:
-
-```sh
-npx nx g ci-workflow
+```typescript
+try {
+  for await (const event of journal.executeWorkflow(workflowName, input)) {
+    if (event.type === 'task_error') {
+      // Handle error events
+      console.error('Workflow error:', event.error);
+      // Implement recovery strategy
+    } else {
+      // Process normal events
+      handleEvent(event);
+    }
+  }
+} catch (error) {
+  // Handle unexpected errors
+  console.error('Unexpected error:', error);
+  // Implement fallback strategy
+}
 ```
 
-[Learn more about Nx on CI](https://nx.dev/ci/intro/ci-with-nx#ready-get-started-with-your-provider?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+#### Performance Considerations
 
-## Install Nx Console
+- Use compression for large journal states
+- Consider partial serialization for large workflows
+- Implement caching for frequently used workflows
+- Monitor memory usage during workflow execution
+- Use efficient serialization formats for state storage
 
-Nx Console is an editor extension that enriches your developer experience. It lets you run tasks, generate code, and improves code autocompletion in your IDE. It is available for VSCode and IntelliJ.
+### For L1 Construct Developers
 
-[Install Nx Console &raquo;](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+As an L1 construct developer, you'll create new fundamental constructs for Ferment AI by creating your own "-lib" and "-runtime" packages that follow the same pattern as the core packages.
 
-## Useful links
+#### Creating a New L1 Construct
 
-Learn more:
+0. Add Zod and @ferment-ai as peer dependencies
 
-- [Learn more about this workspace setup](https://nx.dev/nx-api/node?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects)
-- [Learn about Nx on CI](https://nx.dev/ci/intro/ci-with-nx?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Releasing Packages with Nx release](https://nx.dev/features/manage-releases?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [What are Nx plugins?](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+Because you're creating a library that other binary applications are going to use, you want to enable the end developer to bring their own version of Zod and ferment-ai.
 
-And join the Nx community:
-- [Discord](https://go.nx.dev/community)
-- [Follow us on X](https://twitter.com/nxdevtools) or [LinkedIn](https://www.linkedin.com/company/nrwl)
-- [Our Youtube channel](https://www.youtube.com/@nxdevtools)
-- [Our blog](https://nx.dev/blog?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+Note that you probably do not want to include `runtime-in-memory` as a dependency because you do not necessarily know how the end application is going to be orchestrated.
+
+```typescript
+npm install --save-peer @ferment-ai/runtime-common zod
+```
+
+1. Define a task definition in your "-lib" package:
+
+```typescript
+// In your-lib/src/lib/task-defs.ts
+import { z } from 'zod';
+import { TaskDef } from '@ferment-ai/runtime-common';
+
+export const MY_CUSTOM_TASK_DEF: TaskDef<typeof MyCustomInputSchema, typeof MyCustomOutputSchema> = {
+  taskDefId: 'YourLib::MyCustomTaskDef',
+  inputType: z.object({
+    param1: z.string(),
+    param2: z.number().optional()
+  }),
+  outputType: z.object({
+    result: z.string()
+  })
+};
+```
+
+2. Create a construct class in your "-lib" package:
+
+```typescript
+// In your-lib/src/lib/my-custom-construct.ts
+import { Construct } from 'constructs';
+import { WorkflowTask } from '@ferment-ai/runtime-common';
+import { MY_CUSTOM_TASK_DEF } from './task-defs';
+import { z } from 'zod';
+
+export interface MyCustomConstructProps {
+  name: string;
+  description: string;
+  // Other properties
+}
+
+export class MyCustomConstruct extends WorkflowTask<typeof MY_CUSTOM_TASK_DEF.inputType, typeof MY_CUSTOM_TASK_DEF.outputType> {
+  public readonly props: MyCustomConstructProps;
+  
+  public override readonly taskDef = MY_CUSTOM_TASK_DEF;
+  
+  constructor(scope: Construct, id: string, props: MyCustomConstructProps) {
+    super(scope, id, {});
+    this.props = props;
+    // Initialize other properties
+  }
+  
+  // Add methods as needed
+}
+```
+
+3. Implement the task function in your "-runtime" package:
+
+```typescript
+// In your-runtime/src/lib/my-custom-task.ts
+import { MY_CUSTOM_TASK_DEF } from 'your-lib';
+import { TaskCtx } from '@ferment-ai/runtime-common';
+
+export async function* executeMyCustomTask(
+  ctx: TaskCtx<typeof MY_CUSTOM_TASK_DEF.inputType, typeof MY_CUSTOM_TASK_DEF.outputType>
+) {
+  const { param1, param2 } = ctx.input;
+  
+  // Implement task logic
+  const result = `Processed ${param1} with ${param2 ?? 'default'}`;
+  
+  return { result };
+}
+```
+
+4. Create a module in your "-runtime" package:
+
+```typescript
+// In your-runtime/src/lib/module.ts
+import { Construct } from 'constructs';
+import { Module } from '@ferment-ai/runtime-common';
+import { MyCustomConstruct } from 'your-lib';
+import { executeMyCustomTask } from './my-custom-task';
+
+export function createYourLibModule(): Module {
+  return (construct: Construct) => {
+    if (construct instanceof MyCustomConstruct) {
+      return {
+        def: construct.taskDef,
+        nodePath: construct.node.path,
+        execute: executeMyCustomTask
+      };
+    }
+    
+    // No task implementation for this construct from this module
+    return undefined;
+  };
+}
+```
+
+#### Understanding the Module System
+
+The module system maps constructs to task implementations, allowing for extensibility. Each module is responsible for a specific collection of constructs. The journal uses modules to find the appropriate task implementation for a given construct.
+
+### For L2/L3 Construct Developers
+
+As an L2/L3 construct developer, you'll create higher-level, domain-specific constructs by composing L1 constructs.
+
+You should still put these in a library, but you do not need to do anything with Modules or runtime.
+
+You can tell when you're writing a L1 construct because it `extends WorkflowTask<...>`. These constructs use custom logic at runtime, which needs to be implemented in a corresponding runtime library. If you're just composing together pre-existing constructs in a reusable way, you're writing a L2/L3 construct, and no runtime piece is necessary.
+
+#### Creating an L2/L3 Construct
+
+```typescript
+// Example of an L2 construct for a RAG system
+export class RAGSystem extends Construct {
+  public readonly vectorStore: VectorStore;
+  public readonly retriever: Retriever;
+  public readonly agent: AgentContext;
+  
+  constructor(scope: Construct, id: string, props: RAGSystemProps) {
+    super(scope, id, {});
+    
+    // Create the vector store
+    this.vectorStore = new VectorStore(this, 'VectorStore', {
+      documents: props.documents,
+      embeddingModel: props.embeddingModel
+    });
+    
+    // Create the retriever
+    this.retriever = new Retriever(this, 'Retriever', {
+      vectorStore: this.vectorStore,
+      topK: props.topK ?? 5
+    });
+    
+    // Create the agent with access to the retriever
+    this.agent = new AgentContext(this, 'Agent', {
+      model: props.model,
+      initialMessages: props.initialMessages,
+      tools: [this.retriever]
+    });
+  }
+}
+```
+
+#### Best Practices for L2/L3 Constructs
+
+- Focus on solving specific use cases or domains
+- Provide sensible defaults while allowing customization
+- Expose a simple, intuitive API that hides complexity
+- Document the construct thoroughly with examples
+- Include helper methods for common operations
+- Ensure proper validation of inputs
+- Follow consistent naming conventions
+
+## API Reference
+
+### Core Constructs
+
+- **WorkflowTask**: Base class for all tasks in a workflow
+- **AgentContext**: Environment for a single agent
+- **OllamaModel**: Implementation of the Ollama LLM provider
+- **Tool**: Base class for tools that can be used by agents
+- **WorkflowEndTask**: A specialized task that represents the end of a workflow
+
+### Workflow and Task System
+
+- **Workflow**: A sequence of tasks with defined relationships
+- **TaskDef**: Interface for task definitions
+- **TaskImpl**: Interface for task implementations
+
+### Journal System
+
+- **Journal**: Central executor for workflows
+- **executeWorkflow**: Method to execute a workflow
+- **toSavedState**: Method to serialize the journal state
+- **fromSavedState**: Method to deserialize the journal state
+
+### Module System
+
+- **Module**: Type for modules that map constructs to task implementations
+- **createCoreConstructsModule**: Function to create a module for core constructs
+
+## Contributing
+
+### Development Setup
+
+```bash
+# Clone the repository
+git clone https://github.com/ferment-ai/ferment.git
+cd ferment
+
+# Install dependencies
+npm install
+
+# Build the packages
+npm run build
+
+# Run tests
+npm test
+```
+
+### Coding Standards
+
+- Follow TypeScript best practices
+- Use Zod for schema validation
+- Document all public APIs
+- Write tests for new features
+- Follow the existing architecture patterns
+
+### Pull Request Process
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Write tests for your changes
+5. Ensure all tests pass
+6. Submit a pull request
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## API Reference
+
+### Core Constructs
+
+- **WorkflowTask**: Base class for all tasks in a workflow
+- **AgentContext**: Environment for a single agent
+- **OllamaModel**: Implementation of the Ollama LLM provider
+- **Tool**: Base class for tools that can be used by agents
+- **WorkflowEndTask**: A specialized task that represents the end of a workflow
+
+### Workflow and Task System
+
+- **Workflow**: A sequence of tasks with defined relationships
+- **TaskDef**: Interface for task definitions
+- **TaskImpl**: Interface for task implementations
+
+### Journal System
+
+- **Journal**: Central executor for workflows
+- **executeWorkflow**: Method to execute a workflow
+- **toSavedState**: Method to serialize the journal state
+- **fromSavedState**: Method to deserialize the journal state
+
+### Module System
+
+- **Module**: Type for modules that map constructs to task implementations
+- **createCoreConstructsModule**: Function to create a module for core constructs
