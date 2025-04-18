@@ -1,14 +1,13 @@
-import { z } from 'zod';
 import axios from 'axios';
-import { INVOKE_MODEL_TASK_DEF, InvokeChatModelTaskInputSchema, InvokeChatModelTaskOutputSchema, OllamaModel } from '@ferment-ai/core-constructs-lib';
+import { INVOKE_MODEL_TASK_DEF, OllamaModel } from '@ferment-ai/core-constructs-lib';
 import { convertPromiseToGenerator, TaskCtx, TaskImpl } from '@ferment-ai/runtime-common';
 
 
-export function createOllamaTaskImpl(ollamaModel: OllamaModel): TaskImpl<typeof InvokeChatModelTaskInputSchema, typeof InvokeChatModelTaskOutputSchema> {
+export function createOllamaTaskImpl(ollamaModel: OllamaModel): TaskImpl<typeof INVOKE_MODEL_TASK_DEF.inputType, typeof INVOKE_MODEL_TASK_DEF.outputType> {
   return {
     def: INVOKE_MODEL_TASK_DEF,
     nodePath: ollamaModel.node.path,
-    execute: convertPromiseToGenerator(async (ctx: TaskCtx<typeof InvokeChatModelTaskInputSchema, typeof InvokeChatModelTaskOutputSchema>) => {
+    execute: convertPromiseToGenerator(async (ctx: TaskCtx<typeof INVOKE_MODEL_TASK_DEF.inputType, typeof INVOKE_MODEL_TASK_DEF.outputType>) => {
       console.log(`Executing Ollama chat task: ${ollamaModel.node.id}`);
       console.log(`Input: ${JSON.stringify(ctx.input)}`);
       

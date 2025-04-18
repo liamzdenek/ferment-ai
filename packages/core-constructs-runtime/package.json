@@ -34,9 +34,10 @@
     }
   },
   "dependencies": {
-    "@swc/helpers": "~0.5.11",
-    "@ferment-ai/runtime-common": "*",
     "@ferment-ai/core-constructs-lib": "*",
+    "@ferment-ai/runtime-common": "*",
+    "@modelcontextprotocol/sdk": "^1.10.1",
+    "@swc/helpers": "~0.5.11",
     "constructs": "^10.4.2"
   }
 }

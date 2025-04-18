@@ -1,7 +1,8 @@
 import { Construct } from 'constructs';
 import { WorkflowTask } from '@ferment-ai/runtime-common';
-import { AGENT_CONTEXT_TASK_DEF, INVOKE_MODEL_TASK_DEF, InvokeChatModelMessageSchema } from './task-defs.js';
 import { z } from 'zod';
+import { INVOKE_MODEL_TASK_DEF } from './models/BaseModelTaskDefs.js';
+import { AGENT_CONTEXT_TASK_DEF } from './AgentContextTaskDef.js';
 
 /**
  * Properties for the AgentContext construct
@@ -10,7 +11,7 @@ export interface AgentContextProps {
   /**
    * The prompt template for the agent
    */
-  initialMessages: z.infer<typeof InvokeChatModelMessageSchema>[];
+  initialMessages: z.infer<typeof AGENT_CONTEXT_TASK_DEF.inputType>['messages'][];
 
   /**
    * The context window size for the agent

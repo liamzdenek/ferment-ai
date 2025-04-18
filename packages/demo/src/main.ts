@@ -1,4 +1,4 @@
-import { AGENT_CONTEXT_TASK_DEF, AgentContext, InvokeChatModelTaskInputSchema, OllamaModel } from '@ferment-ai/core-constructs-lib';
+import { AGENT_CONTEXT_TASK_DEF, AgentContext, GET_AVAILABLE_CAPABILITIES_TASK_DEF, InvokeChatModelTaskInputSchema, MCPCapability, MCPCapabilityGetAvailableCapabilities, OllamaModel } from '@ferment-ai/core-constructs-lib';
 import { Construct, RootConstruct } from 'constructs';
 import { createCoreConstructsModule } from '@ferment-ai/core-constructs-runtime';
 import { Journal } from '@ferment-ai/runtime-in-memory';
@@ -64,6 +64,28 @@ const prompt: z.infer<typeof OllamaChatTaskInputSchema> = {
 }
 */
 
+class TestMCP extends Construct {
+    constructor(scope: Construct, id: string) {
+        super(scope, id);
+
+        const mcp = new MCPCapability(this, 'MCPCapability', {
+            transport: {
+                type: 'http',
+                uri: "http://localhost:7000/mcp"
+            }
+        })
+
+
+        const workflow = new Workflow(this, 'Workflow', {
+            definition: mcp.getAvailableCapabilities
+        });
+    }
+}
+
+
+const prompt: z.infer<typeof GET_AVAILABLE_CAPABILITIES_TASK_DEF.inputType> = null;
+
+/*
 class StatefulCall extends Construct {
     constructor(scope: Construct, id: string) {
         super(scope, id);
@@ -101,6 +123,7 @@ const prompt: z.infer<typeof AGENT_CONTEXT_TASK_DEF.inputType> = {
         { role: "user", content: "Hello world!" }
     ]
 }
+*/
 
 // Create a root construct
 const rootConstruct = new RootConstruct('Root');
@@ -108,7 +131,8 @@ const rootConstruct = new RootConstruct('Root');
 // Create the virtual model
 //new TwoAgentModel(rootConstruct, 'TwoAgentModel');
 //new SimpleCall(rootConstruct, 'SimpleCall')
-new StatefulCall(rootConstruct, 'SimpleCall')
+//new StatefulCall(rootConstruct, 'StatefulCall')
+new TestMCP(rootConstruct, 'TestMCP')
 
 // Create the journal
 const journal = new Journal([createCoreConstructsModule()], {

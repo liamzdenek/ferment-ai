@@ -3,15 +3,18 @@ import {
   AgentContext,
   AGENT_CONTEXT_TASK_DEF,
   INVOKE_MODEL_TASK_DEF,
-  OllamaModel
+  OllamaModel,
+  GET_AVAILABLE_CAPABILITIES_TASK_DEF,
+  MCPCapabilityGetAvailableCapabilities
 } from '@ferment-ai/core-constructs-lib';
 import {
   Module,
   WorkflowTask,
 } from '@ferment-ai/runtime-common';
-import { createOllamaTaskImpl } from './ollamaTask.js';
+import { createOllamaTaskImpl } from './OllamaModelTask.js';
 import { z } from 'zod';
-import { createAgentContextTaskImpl } from './agentContextTask.js';
+import { createAgentContextTaskImpl } from './AgentContextTask.js';
+import { createMcpGetAvailableCapabilitiesTaskImpl } from './MCPCapabilityTask.js';
 
 /**
  * Creates a core constructs module
@@ -28,36 +31,12 @@ export function createCoreConstructsModule(): Module {
           return createOllamaTaskImpl(construct as OllamaModel); // we cast here instead of using instanceof so that reimplementors of the `-lib` works
         case AGENT_CONTEXT_TASK_DEF.taskDefId:
           return createAgentContextTaskImpl(construct as AgentContext);
+        case GET_AVAILABLE_CAPABILITIES_TASK_DEF.taskDefId:
+          return createMcpGetAvailableCapabilitiesTaskImpl(construct as MCPCapabilityGetAvailableCapabilities)
         default:
           //fallthrough
       }
     }
-
-    /*
-    if (construct instanceof AgentContext) {
-      return createAgentContextTaskImpl(construct);
-    }
-    
-    // Check if the construct is an OpenAIModel
-    if (construct instanceof OpenAIModel) {
-      return createOpenAIModelTaskImpl(construct);
-    }
-    
-    // Check if the construct is a Model
-    if (construct instanceof Model) {
-      return createModelTaskImpl(construct);
-    }
-    
-    // Check if the construct is a Workflow.Task
-    if (construct instanceof WorkflowTask) {
-      // Check if it's an EndTask
-      if (construct instanceof WorkflowEndTask) {
-        return createWorkflowEndTaskImpl(construct);
-      }
-
-      return createPromptTaskImpl(construct);
-    }
-      */
     
     // No task implementation for this construct from this module. other modules may have an impl
     return undefined;

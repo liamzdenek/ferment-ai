@@ -4,16 +4,16 @@ import { AGENT_CONTEXT_TASK_DEF, AgentContext } from '@ferment-ai/core-construct
 import { getTaskCall, TaskCtx, TaskImpl } from '@ferment-ai/runtime-common';
 
 
-export function createAgentContextTaskImpl(agentContext: AgentContext): TaskImpl<typeof AGENT_CONTEXT_TASK_DEF.inputType, typeof AGENT_CONTEXT_TASK_DEF.outputType> {
+export function createAgentContextTaskImpl(construct: AgentContext): TaskImpl<typeof AGENT_CONTEXT_TASK_DEF.inputType, typeof AGENT_CONTEXT_TASK_DEF.outputType> {
   return {
     def: AGENT_CONTEXT_TASK_DEF,
-    nodePath: agentContext.node.path,
+    nodePath: construct.node.path,
     execute: async function* (ctx: TaskCtx<typeof AGENT_CONTEXT_TASK_DEF.inputType, typeof AGENT_CONTEXT_TASK_DEF.outputType>) {
-      console.log(`Executing AgentContext: ${agentContext.node.id}`);
+      console.log(`Executing AgentContext: ${construct.node.id}`);
       console.log(`Input: ${JSON.stringify(ctx.input)}`);
 
-      const toolRes = yield* getTaskCall(ctx, agentContext.props.model)({
-        messages: agentContext.props.initialMessages
+      const toolRes = yield* getTaskCall(ctx, construct.props.model)({
+        messages: construct.props.initialMessages
       });
 
       // Return the final result
@@ -23,7 +23,7 @@ export function createAgentContextTaskImpl(agentContext: AgentContext): TaskImpl
         nodePath: ctx.nodePath,
         input: ctx.input,
         output: {
-          response: `Response from prompt task ${agentContext.node.id}`,
+          response: `Response from prompt task ${construct.node.id}`,
         }
       };
     }
