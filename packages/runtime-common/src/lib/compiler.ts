@@ -33,7 +33,7 @@ export interface CompileWorkflowsResult {
   executors: Record<string, WorkflowExecutor>;
 
   /**
-   * A map of task IDs to task implementations
+   * A map of node paths to task implementations
    */
   taskImpls: TaskImplMap;
 
@@ -54,7 +54,7 @@ export function compileWorkflows(options: CompileWorkflowsOptions): CompileWorkf
   
   // Map constructs to task implementations
   const taskImpls: TaskImplMap = {};
-  const taskIdToConstruct: { [taskId: string]: Construct } = {};
+  const nodePathToConstruct: { [nodePath: string]: Construct } = {};
   
   //console.log('Mapping constructs to task implementations...');
   for (const construct of rootConstruct.node.findAll()) {
@@ -63,7 +63,7 @@ export function compileWorkflows(options: CompileWorkflowsOptions): CompileWorkf
       if (taskImpl) {
         //console.log(`Found task implementation for construct: ${construct.node.id}, path: ${construct.node.path}`);
         taskImpls[construct.node.path] = taskImpl;
-        taskIdToConstruct[construct.node.path] = construct;
+        nodePathToConstruct[construct.node.path] = construct;
         break;
       }
     }
@@ -79,7 +79,7 @@ export function compileWorkflows(options: CompileWorkflowsOptions): CompileWorkf
   for (const [name, workflowDef] of Object.entries(workflows)) {
     //console.log(`Compiling workflow: ${name}`);
     //console.log('Workflow tasks:', Object.keys(workflowDef.tasks));
-    executors[name] = compileWorkflow(workflowDef, taskImpls, taskIdToConstruct);
+    executors[name] = compileWorkflow(workflowDef, taskImpls, nodePathToConstruct);
   }
   
   return {

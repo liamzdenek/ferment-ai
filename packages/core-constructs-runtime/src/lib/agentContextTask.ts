@@ -7,7 +7,7 @@ import { getTaskCall, TaskCtx, TaskImpl } from '@ferment-ai/runtime-common';
 export function createAgentContextTaskImpl(agentContext: AgentContext): TaskImpl<typeof AGENT_CONTEXT_TASK_DEF.inputType, typeof AGENT_CONTEXT_TASK_DEF.outputType> {
   return {
     def: AGENT_CONTEXT_TASK_DEF,
-    taskId: agentContext.node.path,
+    nodePath: agentContext.node.path,
     execute: async function* (ctx: TaskCtx<typeof AGENT_CONTEXT_TASK_DEF.inputType, typeof AGENT_CONTEXT_TASK_DEF.outputType>) {
       console.log(`Executing AgentContext: ${agentContext.node.id}`);
       console.log(`Input: ${JSON.stringify(ctx.input)}`);
@@ -20,12 +20,10 @@ export function createAgentContextTaskImpl(agentContext: AgentContext): TaskImpl
       return {
         type: 'result',
         taskDefId: ctx.taskDefId,
-        taskId: ctx.taskId,
+        nodePath: ctx.nodePath,
         input: ctx.input,
         output: {
           response: `Response from prompt task ${agentContext.node.id}`,
-          input: ctx.input,
-          toolRes: toolRes.output
         }
       };
     }

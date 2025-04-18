@@ -7,7 +7,7 @@ import { convertPromiseToGenerator, TaskCtx, TaskImpl } from '@ferment-ai/runtim
 export function createOllamaTaskImpl(ollamaModel: OllamaModel): TaskImpl<typeof InvokeChatModelTaskInputSchema, typeof InvokeChatModelTaskOutputSchema> {
   return {
     def: INVOKE_MODEL_TASK_DEF,
-    taskId: ollamaModel.node.path,
+    nodePath: ollamaModel.node.path,
     execute: convertPromiseToGenerator(async (ctx: TaskCtx<typeof InvokeChatModelTaskInputSchema, typeof InvokeChatModelTaskOutputSchema>) => {
       console.log(`Executing Ollama chat task: ${ollamaModel.node.id}`);
       console.log(`Input: ${JSON.stringify(ctx.input)}`);
@@ -41,7 +41,7 @@ export function createOllamaTaskImpl(ollamaModel: OllamaModel): TaskImpl<typeof 
         return {
           type: 'result',
           taskDefId: ctx.taskDefId,
-          taskId: ctx.taskId,
+          nodePath: ctx.nodePath,
           input: ctx.input,
           output: {
             message: response.data.message,
@@ -60,7 +60,7 @@ export function createOllamaTaskImpl(ollamaModel: OllamaModel): TaskImpl<typeof 
         return {
           type: 'error',
           taskDefId: ctx.taskDefId,
-          taskId: ctx.taskId,
+          nodePath: ctx.nodePath,
           input: ctx.input,
           error: {
             message: `Failed to call Ollama Chat API: ${(error as any).message}`,
