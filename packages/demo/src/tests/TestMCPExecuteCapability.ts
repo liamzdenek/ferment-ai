@@ -16,9 +16,10 @@ export class TestMCPExecuteCapability extends TestConstruct {
     */
     public override testPrompt: z.infer<typeof EXECUTE_CAPABILITY_TASK_DEF.inputType> = {
         type: "tool",
-        name: "fetch-weather",
+        name: "calculate-bmi",
         arguments: {
-            "city": "Sacramento, CA"
+            "weightKg": 400,
+            "heightM": 1.2
         }
     };
 
@@ -32,7 +33,7 @@ export class TestMCPExecuteCapability extends TestConstruct {
             }
         });
 
-        const workflow = new Workflow(this, 'Workflow', {
+        const _workflow = new Workflow(this, 'Workflow', {
             definition: mcp.executeCapability
         });
     }

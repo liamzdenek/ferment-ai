@@ -1,5 +1,3 @@
-import { z } from 'zod';
-import axios from 'axios';
 import { AGENT_CONTEXT_TASK_DEF, AgentContext } from '@ferment-ai/core-constructs-lib';
 import { getTaskCall, TaskCtx, TaskImpl } from '@ferment-ai/runtime-common';
 
@@ -24,6 +22,7 @@ export function createAgentContextTaskImpl(construct: AgentContext): TaskImpl<ty
         input: ctx.input,
         output: {
           response: `Response from prompt task ${construct.node.id}`,
+          toolRes
         }
       };
     }

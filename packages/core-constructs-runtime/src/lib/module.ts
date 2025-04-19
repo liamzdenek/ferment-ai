@@ -7,16 +7,18 @@ import {
   GET_AVAILABLE_CAPABILITIES_TASK_DEF,
   MCPCapabilityGetAvailableCapabilities,
   EXECUTE_CAPABILITY_TASK_DEF,
-  MCPCapabilityExecuteCapability
+  MCPCapabilityExecuteCapability,
+  CapableModel,
+  CAPABLE_WORKFLOW_TASK_DEF
 } from '@ferment-ai/core-constructs-lib';
 import {
   Module,
   WorkflowTask,
 } from '@ferment-ai/runtime-common';
 import { createOllamaTaskImpl } from './OllamaModelTask.js';
-import { z } from 'zod';
 import { createAgentContextTaskImpl } from './AgentContextTask.js';
 import { createMcpExecuteCapabilityTaskImpl, createMcpGetAvailableCapabilitiesTaskImpl } from './MCPCapabilityTask.js';
+import { createCapableModelTask } from './CapableModelTask.js';
 
 /**
  * Creates a core constructs module
@@ -38,6 +40,8 @@ export function createCoreConstructsModule(): Module {
           return createMcpGetAvailableCapabilitiesTaskImpl(construct as MCPCapabilityGetAvailableCapabilities);
         case EXECUTE_CAPABILITY_TASK_DEF.taskDefId:
           return createMcpExecuteCapabilityTaskImpl(construct as MCPCapabilityExecuteCapability);
+        case CAPABLE_WORKFLOW_TASK_DEF.taskDefId:
+          return createCapableModelTask(construct as CapableModel);
         default:
           //fallthrough
       }

@@ -35,6 +35,9 @@ export default [
                 }
             ],
             "require-yield": "off",
+            "@typescript-eslint/no-unused-vars": ["warn", {
+                "varsIgnorePattern": "^_"
+            }]
         }
     },
     {

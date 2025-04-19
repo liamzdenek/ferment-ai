@@ -334,7 +334,7 @@ async function executeTaskAsGenerator(
             // we're suspending it to call another task
           };
         } else {
-          throw new Error(`Unknown node path for callAndReturn: ${nodePath} (Did you forget to add it to getTools()?)`);
+          throw new Error(`Unknown node path for callAndReturn: ${nodePath} -> ${nextNodePath} (Did you forget to add it to getTools()?)`);
         }
       }
 
