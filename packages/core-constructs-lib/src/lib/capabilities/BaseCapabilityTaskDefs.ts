@@ -5,17 +5,20 @@ const GetAvailableCapabilitiesInputSchema = z.union([z.void(), z.undefined(), z.
 const GetAvailableCapabilitiesOutputSchema = z.strictObject({
   prompts: z.array(z.strictObject({
     name: z.string(),
+    description: z.string().optional(),
     arguments: z.array(z.strictObject({
       name: z.string(),
       required: z.boolean().optional()
     })).optional()
   })),
   resources: z.array(z.strictObject({
+    name: z.string(),
+    description: z.string().optional(),
     uri: z.string(),
-    name: z.string()
   })),
   tools: z.array(z.strictObject({
     name: z.string(),
+    description: z.string().optional(),
     inputSchema: z.any(),
   }))
 })

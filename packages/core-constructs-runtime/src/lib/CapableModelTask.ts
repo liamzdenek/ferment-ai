@@ -20,7 +20,7 @@ export function createCapableModelTask(construct: CapableModel): TaskImpl<typeof
       for(const capability of construct.props.capabilities) {
         const capabilitiesRes = yield* getTaskCall(ctx, capability.getAvailableCapabilities)()
 
-        // TODO: check for conflicts with duplicate names.
+        // TODO: check for conflicts with duplicate names. Names should be unique across all 3.
         aggregateRes.prompts.push(...capabilitiesRes.output.prompts);
         aggregateRes.resources.push(...capabilitiesRes.output.resources);
         aggregateRes.tools.push(...capabilitiesRes.output.tools);
