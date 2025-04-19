@@ -25,7 +25,18 @@ export const GET_AVAILABLE_CAPABILITIES_TASK_DEF: TaskDef<typeof GetAvailableCap
   outputType: GetAvailableCapabilitiesOutputSchema
 };
 
-const ExecuteCapabilityInputSchema = z.any();
+const ExecuteCapabilityPrompt = z.strictObject({
+  type: z.literal('prompt'),
+  name: z.string(),
+  arguments: z.record(z.string(), z.string())
+})
+
+const ExecuteCapabilityResource = z.strictObject({
+  type: z.literal('resource'),
+  name: z.string(),
+})
+
+const ExecuteCapabilityInputSchema = z.union([ExecuteCapabilityPrompt, ExecuteCapabilityResource]);
 const ExecuteCapabilityOutputSchema = z.any();
 export const EXECUTE_CAPABILITY_TASK_DEF: TaskDef<typeof ExecuteCapabilityInputSchema, typeof ExecuteCapabilityOutputSchema> = {
   taskDefId: 'CoreConstructs::ExecuteCapabilityTaskDef',

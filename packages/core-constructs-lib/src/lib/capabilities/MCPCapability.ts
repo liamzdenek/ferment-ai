@@ -37,7 +37,7 @@ export class MCPCapability extends BaseCapability {
   }
 }
 
-interface MCPCapabilityTaskProps {
+export interface MCPCapabilityTaskProps {
   mcpCapability: MCPCapability;
 }
 

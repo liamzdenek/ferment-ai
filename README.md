@@ -89,7 +89,7 @@ npx nx run-many -t build
 npx nx build demo
 
 # Run the demo
-npx nx serve demo
+npx nx serve demo --args="SimpleCall" # or any of the other demos in LOOKUP in packages/demo/src/main.ts
 ```
 
 ### Basic Usage Example

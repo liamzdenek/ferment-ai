@@ -5,7 +5,9 @@ import {
   INVOKE_MODEL_TASK_DEF,
   OllamaModel,
   GET_AVAILABLE_CAPABILITIES_TASK_DEF,
-  MCPCapabilityGetAvailableCapabilities
+  MCPCapabilityGetAvailableCapabilities,
+  EXECUTE_CAPABILITY_TASK_DEF,
+  MCPCapabilityExecuteCapability
 } from '@ferment-ai/core-constructs-lib';
 import {
   Module,
@@ -14,7 +16,7 @@ import {
 import { createOllamaTaskImpl } from './OllamaModelTask.js';
 import { z } from 'zod';
 import { createAgentContextTaskImpl } from './AgentContextTask.js';
-import { createMcpGetAvailableCapabilitiesTaskImpl } from './MCPCapabilityTask.js';
+import { createMcpExecuteCapabilityTaskImpl, createMcpGetAvailableCapabilitiesTaskImpl } from './MCPCapabilityTask.js';
 
 /**
  * Creates a core constructs module
@@ -27,12 +29,15 @@ export function createCoreConstructsModule(): Module {
 
     if(construct instanceof WorkflowTask) {
       switch(construct.taskDef.taskDefId) {
+        // we cast the constructs here instead of using instanceof so that reimplementors of the `-lib` works
         case INVOKE_MODEL_TASK_DEF.taskDefId:
-          return createOllamaTaskImpl(construct as OllamaModel); // we cast here instead of using instanceof so that reimplementors of the `-lib` works
+          return createOllamaTaskImpl(construct as OllamaModel);
         case AGENT_CONTEXT_TASK_DEF.taskDefId:
           return createAgentContextTaskImpl(construct as AgentContext);
         case GET_AVAILABLE_CAPABILITIES_TASK_DEF.taskDefId:
-          return createMcpGetAvailableCapabilitiesTaskImpl(construct as MCPCapabilityGetAvailableCapabilities)
+          return createMcpGetAvailableCapabilitiesTaskImpl(construct as MCPCapabilityGetAvailableCapabilities);
+        case EXECUTE_CAPABILITY_TASK_DEF.taskDefId:
+          return createMcpExecuteCapabilityTaskImpl(construct as MCPCapabilityExecuteCapability);
         default:
           //fallthrough
       }
