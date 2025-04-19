@@ -89,12 +89,22 @@ export function createMcpExecuteCapabilityTaskImpl(construct: MCPCapabilityExecu
           break;
         }
         case "resource": {
-          const promptRes = await mcp.readResource({
+          const resourceRes = await mcp.readResource({
             name: ctx.input.name,
-            uri: "TODO"
+            uri: ctx.input.uri
           });
           output = {
-            messages: promptRes.messages
+            contents: resourceRes.contents
+          }
+          break;
+        }
+        case "tool": {
+          const toolRes = await mcp.callTool({
+            name: ctx.input.name,
+            arguments: ctx.input.arguments
+          });
+          output = {
+            content: toolRes.content
           }
           break;
         }

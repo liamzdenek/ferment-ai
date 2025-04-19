@@ -37,7 +37,10 @@
           "buildTarget": "@ferment-ai/demo:build",
           "watch": false
         },
-        "dependsOn": [{"projects": "self", "target": "build", "params": "forward"}]
+        "dependsOn": [
+          {"projects": "self", "target": "^build"},
+          {"projects": "self", "target": "build", "params": "forward"}
+        ]
       }
     }
   },

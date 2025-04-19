@@ -5,11 +5,20 @@ import { TestConstruct } from '../TestConstruct.js';
 import { z } from 'zod';
 
 export class TestMCPExecuteCapability extends TestConstruct {
+    /*
     public override testPrompt: z.infer<typeof EXECUTE_CAPABILITY_TASK_DEF.inputType> = {
         type: "prompt",
         name: "review-code",
         arguments: {
             "code": "Math.floor(100 / 0) * 30"
+        }
+    };
+    */
+    public override testPrompt: z.infer<typeof EXECUTE_CAPABILITY_TASK_DEF.inputType> = {
+        type: "tool",
+        name: "fetch-weather",
+        arguments: {
+            "city": "Sacramento, CA"
         }
     };
 

@@ -34,9 +34,16 @@ const ExecuteCapabilityPrompt = z.strictObject({
 const ExecuteCapabilityResource = z.strictObject({
   type: z.literal('resource'),
   name: z.string(),
+  uri: z.string()
 })
 
-const ExecuteCapabilityInputSchema = z.union([ExecuteCapabilityPrompt, ExecuteCapabilityResource]);
+const ExecuteCapabilityTool = z.strictObject({
+  type: z.literal('tool'),
+  name: z.string(),
+  arguments: z.record(z.string(), z.any())
+})
+
+const ExecuteCapabilityInputSchema = z.union([ExecuteCapabilityPrompt, ExecuteCapabilityResource, ExecuteCapabilityTool]);
 const ExecuteCapabilityOutputSchema = z.any();
 export const EXECUTE_CAPABILITY_TASK_DEF: TaskDef<typeof ExecuteCapabilityInputSchema, typeof ExecuteCapabilityOutputSchema> = {
   taskDefId: 'CoreConstructs::ExecuteCapabilityTaskDef',

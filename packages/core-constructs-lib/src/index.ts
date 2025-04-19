@@ -12,4 +12,3 @@ export * from './lib/models/OllamaModel.js';
 export * from './lib/capabilities/BaseCapability.js';
 export * from './lib/capabilities/BaseCapabilityTaskDefs.js';
 export * from './lib/capabilities/MCPCapability.js';
-export * from './lib/capabilities/MCPCapabilityTaskDefs.js';
