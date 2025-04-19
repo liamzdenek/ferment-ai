@@ -12,10 +12,7 @@ export const CapableWorkflowTaskInputSchema = z.object({
 });
 
 export const CapableWorkflowTaskOutputSchema = z.object({
-  message: z.object({
-    role: z.string(),
-    content: z.string()
-  }),
+  messages: z.array(CapableWorkflowTaskMessageSchema),
 });
 
 export const CAPABLE_WORKFLOW_TASK_DEF: TaskDef<typeof CapableWorkflowTaskInputSchema, typeof CapableWorkflowTaskOutputSchema> = {

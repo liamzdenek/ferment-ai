@@ -20,7 +20,7 @@ export function createCapableModelTask(construct: CapableModel): TaskImpl<typeof
       for(const capability of construct.props.capabilities) {
         const capabilitiesRes = yield* getTaskCall(ctx, capability.getAvailableCapabilities)()
 
-        // TODO: check for conflicts with duplicate names. Names should be unique across all 3.
+        // TODO: check for conflicts with duplicate names. Names should be unique within each list (not globally to all lists).
         aggregateRes.prompts.push(...capabilitiesRes.output.prompts);
         aggregateRes.resources.push(...capabilitiesRes.output.resources);
         aggregateRes.tools.push(...capabilitiesRes.output.tools);
@@ -37,16 +37,20 @@ export function createCapableModelTask(construct: CapableModel): TaskImpl<typeof
         messages: formattedPrompt.output.messages,
       });
 
+      const output: z.infer<typeof CAPABLE_WORKFLOW_TASK_DEF.outputType> = {
+        messages: [
+          ...ctx.input.messages,
+          toolRes.output.message
+        ]
+      }
+
       // Return the final result
       return {
         type: 'result',
         taskDefId: ctx.taskDefId,
         nodePath: ctx.nodePath,
         input: ctx.input,
-        output: {
-          response: `Response from prompt task ${construct.node.id}`,
-          toolRes
-        }
+        output
       };
     }
   };
