@@ -9,7 +9,11 @@ import {
   EXECUTE_CAPABILITY_TASK_DEF,
   MCPCapabilityExecuteCapability,
   CapableModel,
-  CAPABLE_WORKFLOW_TASK_DEF
+  CAPABLE_WORKFLOW_TASK_DEF,
+  FORMAT_PROMPT_TASK_DEF,
+  TagCapabilityParserFormatPromptTask,
+  PARSE_MODEL_RESPONSE_TASK_DEF,
+  TagCapabilityParserParseModelResponseTask
 } from '@ferment-ai/core-constructs-lib';
 import {
   Module,
@@ -17,8 +21,9 @@ import {
 } from '@ferment-ai/runtime-common';
 import { createOllamaTaskImpl } from './OllamaModelTask.js';
 import { createAgentContextTaskImpl } from './AgentContextTask.js';
-import { createMcpExecuteCapabilityTaskImpl, createMcpGetAvailableCapabilitiesTaskImpl } from './MCPCapabilityTask.js';
+import { createMcpExecuteCapabilityTaskImpl, createMcpGetAvailableCapabilitiesTaskImpl } from './MCPCapabilityTasks.js';
 import { createCapableModelTask } from './CapableModelTask.js';
+import { createTagCapabilityParserFormatPromptTask, createTagCapabilityParserParseModelResponseTask } from './TagCapabilityParserTasks.js';
 
 /**
  * Creates a core constructs module
@@ -42,6 +47,10 @@ export function createCoreConstructsModule(): Module {
           return createMcpExecuteCapabilityTaskImpl(construct as MCPCapabilityExecuteCapability);
         case CAPABLE_WORKFLOW_TASK_DEF.taskDefId:
           return createCapableModelTask(construct as CapableModel);
+        case FORMAT_PROMPT_TASK_DEF.taskDefId:
+          return createTagCapabilityParserFormatPromptTask(construct as TagCapabilityParserFormatPromptTask);
+        case PARSE_MODEL_RESPONSE_TASK_DEF.taskDefId:
+          return createTagCapabilityParserParseModelResponseTask(construct as TagCapabilityParserParseModelResponseTask);
         default:
           //fallthrough
       }

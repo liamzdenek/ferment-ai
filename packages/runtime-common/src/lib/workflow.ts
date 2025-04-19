@@ -391,8 +391,8 @@ export function compileWorkflow(
   // Validate the workflow definition
   WorkflowDefinitionSchema.parse(workflowDef);
 
-  //console.log('Compiling workflow with tasks:', Object.keys(workflowDef.tasks));
-  //console.log('Available task implementations:', Object.keys(taskImpls));
+  console.log('Compiling workflow with tasks:', Object.keys(workflowDef.tasks));
+  console.log('Available task implementations:', Object.keys(taskImpls));
 
   // Validate that all tasks have corresponding task implementations
   for (const taskPath of Object.keys(workflowDef.tasks)) {

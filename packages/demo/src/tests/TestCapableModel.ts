@@ -1,4 +1,4 @@
-import { CAPABLE_WORKFLOW_TASK_DEF, CapableModel, MCPCapability, OllamaModel } from '@ferment-ai/core-constructs-lib';
+import { CAPABLE_WORKFLOW_TASK_DEF, CapableModel, MCPCapability, OllamaModel, TagCapabilityParser } from '@ferment-ai/core-constructs-lib';
 import { Workflow } from '@ferment-ai/runtime-common';
 import { Construct } from 'constructs';
 import { TestConstruct } from '../TestConstruct.js';
@@ -29,9 +29,12 @@ export class TestCapableModel extends TestConstruct {
             }
         });
 
+        const capabilityParser = new TagCapabilityParser(scope, "CapabilityParser", {});
+
         const capableModel = new CapableModel(scope, "CapableModel", {
             model: testModel,
-            capabilities: [mcp]
+            capabilities: [mcp],
+            capabilityParser
         })
 
         const _workflow = new Workflow(this, 'Workflow', {

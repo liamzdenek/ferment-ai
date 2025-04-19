@@ -4,10 +4,12 @@ import { BaseModel } from '../models/BaseModel.js';
 import { BaseCapability } from './BaseCapability.js';
 import { WorkflowTask } from '@ferment-ai/runtime-common';
 import { z } from 'zod';
+import { BaseCapabilityParser } from '../capabilityParser/BaseCapabilityParser.js';
 
 interface CapableModelProps {
   model: BaseModel
   capabilities: BaseCapability[]
+  capabilityParser: BaseCapabilityParser
 }
 
 export class CapableModel extends CapableWorkflowTask {
@@ -30,6 +32,7 @@ export class CapableModel extends CapableWorkflowTask {
   override getTools(): Record<string, WorkflowTask<z.ZodTypeAny, z.ZodTypeAny>> {
     const tools = {
       ...super.getTools(),
+      ...this.props.capabilityParser.getTools(),
       [this.props.model.node.path]: this.props.model,
     };
 

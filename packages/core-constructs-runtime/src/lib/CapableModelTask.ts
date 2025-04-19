@@ -28,9 +28,13 @@ export function createCapableModelTask(construct: CapableModel): TaskImpl<typeof
       
       console.log("Got aggregate res", aggregateRes);
 
-      const toolRes = yield* getTaskCall(ctx, construct.props.model)({
+      const formattedPrompt = yield* getTaskCall(ctx, construct.props.capabilityParser.formatPrompt)({
         messages: ctx.input.messages,
+        availableCapabilities: aggregateRes
+      });
 
+      const toolRes = yield* getTaskCall(ctx, construct.props.model)({
+        messages: formattedPrompt.output.messages,
       });
 
       // Return the final result
