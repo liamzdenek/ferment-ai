@@ -1,7 +1,5 @@
 import { Construct } from 'constructs';
 import {
-  AgentContext,
-  AGENT_CONTEXT_TASK_DEF,
   INVOKE_MODEL_TASK_DEF,
   OllamaModel,
   GET_AVAILABLE_CAPABILITIES_TASK_DEF,
@@ -20,7 +18,6 @@ import {
   WorkflowTask,
 } from '@ferment-ai/runtime-common';
 import { createOllamaTaskImpl } from './OllamaModelTask.js';
-import { createAgentContextTaskImpl } from './AgentContextTask.js';
 import { createMcpExecuteCapabilityTaskImpl, createMcpGetAvailableCapabilitiesTaskImpl } from './MCPCapabilityTasks.js';
 import { createCapableModelTask } from './CapableModelTask.js';
 import { createTagCapabilityParserFormatPromptTask, createTagCapabilityParserParseModelResponseTask } from './TagCapabilityParserTasks.js';
@@ -39,8 +36,6 @@ export function createCoreConstructsModule(): Module {
         // we cast the constructs here instead of using instanceof so that reimplementors of the `-lib` works
         case INVOKE_MODEL_TASK_DEF.taskDefId:
           return createOllamaTaskImpl(construct as OllamaModel);
-        case AGENT_CONTEXT_TASK_DEF.taskDefId:
-          return createAgentContextTaskImpl(construct as AgentContext);
         case GET_AVAILABLE_CAPABILITIES_TASK_DEF.taskDefId:
           return createMcpGetAvailableCapabilitiesTaskImpl(construct as MCPCapabilityGetAvailableCapabilities);
         case EXECUTE_CAPABILITY_TASK_DEF.taskDefId:

@@ -105,7 +105,7 @@ export function createCapableModelTask(construct: CapableModel): TaskImpl<typeof
         
         // Add the tool result as a new message in the conversation
         conversationMessages.push({
-          role: 'assistant',
+          role: 'user',
           content: `Tool ${req.name} executed with result: ${JSON.stringify(toolResult.output)}`
         });
       }
