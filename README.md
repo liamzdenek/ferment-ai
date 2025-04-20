@@ -413,15 +413,19 @@ npm install --save-peer @ferment-ai/runtime-common zod
 import { z } from 'zod';
 import { TaskDef } from '@ferment-ai/runtime-common';
 
+const MyCustomInputSchema = z.object({
+  param1: z.string(),
+  param2: z.number().optional()
+});
+
+const MyCustomOutputSchema = z.object({
+  result: z.string()
+});
+
 export const MY_CUSTOM_TASK_DEF: TaskDef<typeof MyCustomInputSchema, typeof MyCustomOutputSchema> = {
   taskDefId: 'YourLib::MyCustomTaskDef',
-  inputType: z.object({
-    param1: z.string(),
-    param2: z.number().optional()
-  }),
-  outputType: z.object({
-    result: z.string()
-  })
+  inputType: MyCustomInputSchema,
+  outputType: MyCustomOutputSchema
 };
 ```
 
@@ -432,7 +436,6 @@ export const MY_CUSTOM_TASK_DEF: TaskDef<typeof MyCustomInputSchema, typeof MyCu
 import { Construct } from 'constructs';
 import { WorkflowTask } from '@ferment-ai/runtime-common';
 import { MY_CUSTOM_TASK_DEF } from './task-defs';
-import { z } from 'zod';
 
 export interface MyCustomConstructProps {
   name: string;
@@ -451,7 +454,7 @@ export class MyCustomConstruct extends WorkflowTask<typeof MY_CUSTOM_TASK_DEF.in
     // Initialize other properties
   }
   
-  // Add methods as needed
+  // Add methods as needed. Setters for props, etc.
 }
 ```
 
@@ -459,18 +462,23 @@ export class MyCustomConstruct extends WorkflowTask<typeof MY_CUSTOM_TASK_DEF.in
 
 ```typescript
 // In your-runtime/src/lib/my-custom-task.ts
-import { MY_CUSTOM_TASK_DEF } from 'your-lib';
+import { MyCustomConstruct, MY_CUSTOM_TASK_DEF } from 'your-lib';
 import { TaskCtx } from '@ferment-ai/runtime-common';
 
-export async function* executeMyCustomTask(
-  ctx: TaskCtx<typeof MY_CUSTOM_TASK_DEF.inputType, typeof MY_CUSTOM_TASK_DEF.outputType>
-) {
-  const { param1, param2 } = ctx.input;
-  
-  // Implement task logic
-  const result = `Processed ${param1} with ${param2 ?? 'default'}`;
-  
-  return { result };
+export function createMyCustomTaskImpl(construct: MyCustomConstruct): TaskImpl<typeof MY_CUSTOM_TASK_DEF.inputType, typeof MY_CUSTOM_TASK_DEF.outputType> {
+  return {
+    def: MY_CUSTOM_TASK_DEF,
+    nodePath: construct.node.path,
+    // for a generator function (this should be your default):
+    execute: async function* (ctx: TaskCtx<typeof MY_CUSTOM_TASK_DEF.inputType, typeof MY_CUSTOM_TASK_DEF.outputType>) {
+      // return type: TaskCallResult
+    }
+
+    // or, if you do not need to call other tools, and wish to use a promise:
+    execute: convertPromiseToGenerator(async (ctx: TaskCtx<typeof MY_CUSTOM_TASK_DEF.inputType, typeof MY_CUSTOM_TASK_DEF.outputType>) => {
+      // return type: TaskCallResult
+    })
+  }
 }
 ```
 
@@ -485,12 +493,14 @@ import { executeMyCustomTask } from './my-custom-task';
 
 export function createYourLibModule(): Module {
   return (construct: Construct) => {
-    if (construct instanceof MyCustomConstruct) {
-      return {
-        def: construct.taskDef,
-        nodePath: construct.node.path,
-        execute: executeMyCustomTask
-      };
+    if (construct instanceof WorkflowTask) {
+      switch(construct.taskDef.taskDefId) {
+        // we cast the constructs here instead of using instanceof so that reimplementors of the `-lib` works
+        case INVOKE_MODEL_TASK_DEF.taskDefId:
+          return createMyCustomTaskImpl(construct as MyCustomConstruct);
+        default:
+          //fallthrough
+      }
     }
     
     // No task implementation for this construct from this module

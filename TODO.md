@@ -21,11 +21,12 @@
       2. Then, LLM call to evaluate that response
          1. If that response is rejected, it's fed back in to the initial call
          2. refine until the solution is accepted
-   7. Agent
+   7. Retry
+   8. Agent
       1. LLM performs some action in an environment
       2. Environment provides a response to the Agent
       3. Agent works iteratively until it decides to stop
-   8. https://www.anthropic.com/engineering/building-effective-agents
+   9. https://www.anthropic.com/engineering/building-effective-agents
 
 2. Methodologies
    1. Tool Use
