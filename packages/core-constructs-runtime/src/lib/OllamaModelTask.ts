@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { INVOKE_MODEL_TASK_DEF, OllamaModel } from '@ferment-ai/core-constructs-lib';
 import { convertPromiseToGenerator, TaskCtx, TaskImpl } from '@ferment-ai/runtime-common';
+import { z } from 'zod';
 
 
 export function createOllamaTaskImpl(ollamaModel: OllamaModel): TaskImpl<typeof INVOKE_MODEL_TASK_DEF.inputType, typeof INVOKE_MODEL_TASK_DEF.outputType> {
@@ -35,6 +36,16 @@ export function createOllamaTaskImpl(ollamaModel: OllamaModel): TaskImpl<typeof 
         });
         
         console.log(`Ollama Chat API response: ${JSON.stringify(response.data)}`);
+
+        const output: z.infer<typeof INVOKE_MODEL_TASK_DEF.outputType> = {
+          messages: [response.data.message],
+          model: response.data.model,
+          created_at: response.data.created_at,
+          done: response.data.done,
+          done_reason: response.data.done_reason,
+          total_duration: response.data.total_duration,
+          eval_count: response.data.eval_count
+        }
         
         // Return the task result
         return {
@@ -42,15 +53,7 @@ export function createOllamaTaskImpl(ollamaModel: OllamaModel): TaskImpl<typeof 
           taskDefId: ctx.taskDefId,
           nodePath: ctx.nodePath,
           input: ctx.input,
-          output: {
-            message: response.data.message,
-            model: response.data.model,
-            created_at: response.data.created_at,
-            done: response.data.done,
-            done_reason: response.data.done_reason,
-            total_duration: response.data.total_duration,
-            eval_count: response.data.eval_count
-          }
+          output
         };
       } catch (error) {
         console.error(`Error calling Ollama Chat API: ${error}`);

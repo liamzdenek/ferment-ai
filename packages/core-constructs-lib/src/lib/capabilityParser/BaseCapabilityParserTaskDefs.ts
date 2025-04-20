@@ -1,7 +1,8 @@
 import { TaskDef } from "@ferment-ai/runtime-common";
 import { z } from "zod";
-import { GET_AVAILABLE_CAPABILITIES_TASK_DEF } from "../capabilities/BaseCapabilityTaskDefs.js";
+import { EXECUTE_CAPABILITY_TASK_DEF, GET_AVAILABLE_CAPABILITIES_TASK_DEF } from "../capabilities/BaseCapabilityTaskDefs.js";
 import { CapableWorkflowTaskMessageSchema } from "../workflows/CapableWorkflowTaskDefs.js";
+import { InvokeChatModelMessageSchema } from "../models/BaseModelTaskDefs.js";
 
 const FormatPromptInputSchema = z.strictObject({
   messages: CapableWorkflowTaskMessageSchema.array(),
@@ -18,9 +19,13 @@ export const FORMAT_PROMPT_TASK_DEF: TaskDef<typeof FormatPromptInputSchema, typ
 
 
 const ParseModelResponseInputSchema = z.strictObject({
-
+  availableCapabilities: GET_AVAILABLE_CAPABILITIES_TASK_DEF.outputType,
+  messageHistory: z.array(InvokeChatModelMessageSchema),
+  newMessages: z.array(InvokeChatModelMessageSchema),
 });
-const ParseModelResponseOutputSchema = z.strictObject({});
+const ParseModelResponseOutputSchema = z.strictObject({
+  executionRequests: z.array(EXECUTE_CAPABILITY_TASK_DEF.inputType)
+});
 export const PARSE_MODEL_RESPONSE_TASK_DEF: TaskDef<typeof ParseModelResponseInputSchema, typeof ParseModelResponseOutputSchema> = {
   taskDefId: 'CoreConstructs::ParseModelResponse',
   inputType: ParseModelResponseInputSchema,

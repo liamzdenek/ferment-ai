@@ -58,7 +58,9 @@ async function runWorkflow() {
         console.log('Using workflow:', workflowName);
         
         for await (const event of journal.executeWorkflow(workflowName, i.testPrompt)) {
-            console.log('Event:', event);
+            const logEv = Object.assign({}, event);
+            delete logEv.output;
+            console.log('Event:', logEv, '---->', event.output);
         }
         
         console.log('Workflow execution complete');

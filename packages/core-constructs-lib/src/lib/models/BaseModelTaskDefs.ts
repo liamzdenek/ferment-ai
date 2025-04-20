@@ -21,7 +21,7 @@ export const InvokeChatModelTaskInputSchema = z.object({
 
 // Output Schema for Ollama Task
 export const InvokeChatModelTaskOutputSchema = z.object({
-  message: InvokeChatModelMessageSchema,
+  messages: z.array(InvokeChatModelMessageSchema),
   model: z.string(),
   created_at: z.string(),
   done: z.boolean(),
