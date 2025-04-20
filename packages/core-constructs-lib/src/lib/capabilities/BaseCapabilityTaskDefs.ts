@@ -47,7 +47,9 @@ const ExecuteCapabilityTool = z.strictObject({
 })
 
 const ExecuteCapabilityInputSchema = z.union([ExecuteCapabilityPrompt, ExecuteCapabilityResource, ExecuteCapabilityTool]);
-const ExecuteCapabilityOutputSchema = z.any();
+const ExecuteCapabilityOutputSchema = z.strictObject({
+  result: z.any()
+})
 export const EXECUTE_CAPABILITY_TASK_DEF: TaskDef<typeof ExecuteCapabilityInputSchema, typeof ExecuteCapabilityOutputSchema> = {
   taskDefId: 'CoreConstructs::ExecuteCapabilityTaskDef',
   inputType: ExecuteCapabilityInputSchema,

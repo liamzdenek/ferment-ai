@@ -23,6 +23,7 @@ Reminder:
 - Required parameters MUST be specified
 - Only call one function at a time
 - Put the entire function call reply on one line
+- Do not repeat the xml-like tag or the tool will run a second time
 `.trim();
 
 

@@ -83,7 +83,7 @@ export function createMcpExecuteCapabilityTaskImpl(construct: MCPCapabilityExecu
             arguments: ctx.input.arguments
           });
           output = {
-            messages: promptRes.messages
+            result: promptRes.messages
           }
           break;
         }
@@ -93,7 +93,7 @@ export function createMcpExecuteCapabilityTaskImpl(construct: MCPCapabilityExecu
             uri: ctx.input.uri
           });
           output = {
-            contents: resourceRes.contents
+            result: resourceRes.contents
           }
           break;
         }
@@ -103,7 +103,7 @@ export function createMcpExecuteCapabilityTaskImpl(construct: MCPCapabilityExecu
             arguments: ctx.input.arguments
           });
           output = {
-            content: toolRes.content
+            result: toolRes.content
           }
           break;
         }
