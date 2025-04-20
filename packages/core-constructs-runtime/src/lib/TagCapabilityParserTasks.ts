@@ -107,93 +107,42 @@ export function createTagCapabilityParserParseModelResponseTask(construct: TagCa
 
         const content = message.content;
 
-        // Parse tool invocations: <tool:NAME>JSON</tool>
-        const toolRegex = /<tool:([^>]+)>([^<]+)<\/tool>/g;
-        let toolMatch;
-        while ((toolMatch = toolRegex.exec(content)) !== null) {
-          const fullToolName = toolMatch[1];
-          const toolArgsStr = toolMatch[2];
+        // Unified regex to match all tag types (tool, prompt, resource)
+        // This matches <type:name>content</any-tag> pattern
+        // Using non-greedy matching (?:(?!<\/).)*? to avoid capturing across multiple tags
+        const tagRegex = /<(tool|prompt|resource):([^>]+)>((?:(?!<\/).)*?)<\/[^>]*>/gs;
+        let match;
+
+        while ((match = tagRegex.exec(content)) !== null) {
+          const tagType = match[1]; // tool, prompt, or resource
+          const fullName = match[2];
+          const contentStr = match[3].trim();
           
-          // Strip the prefix (tool:) if present
-          const toolName = fullToolName.includes(':') ? fullToolName.split(':')[1] : fullToolName;
+          // Strip the prefix if present
+          const name = fullName.includes(':') ? fullName.split(':')[1] : fullName;
           
           try {
-            const toolArgs = JSON.parse(toolArgsStr);
-            executionRequests.push({
-              type: 'tool',
-              name: toolName,
-              arguments: toolArgs
-            });
-            console.log(`Found tool invocation: ${fullToolName} -> ${toolName}`);
+            if (tagType === 'resource') {
+              // Resources have URI content, not JSON
+              executionRequests.push({
+                type: 'resource',
+                name,
+                uri: contentStr
+              });
+              console.log(`Found resource invocation: ${fullName} -> ${name}`);
+            } else {
+              // For tool and prompt, parse JSON content
+              const args = JSON.parse(contentStr);
+              executionRequests.push({
+                type: tagType,
+                name,
+                arguments: args
+              });
+              console.log(`Found ${tagType} invocation: ${fullName} -> ${name}`);
+            }
           } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
-            console.error(`Error parsing tool arguments for ${toolName}: ${errorMessage}`);
-          }
-        }
-
-        // Parse prompt invocations: <prompt:NAME>JSON</prompt>
-        const promptRegex = /<prompt:([^>]+)>([^<]+)<\/prompt>/g;
-        let promptMatch;
-        while ((promptMatch = promptRegex.exec(content)) !== null) {
-          const fullPromptName = promptMatch[1];
-          const promptArgsStr = promptMatch[2];
-          
-          // Strip the prefix (prompt:) if present
-          const promptName = fullPromptName.includes(':') ? fullPromptName.split(':')[1] : fullPromptName;
-          
-          try {
-            const promptArgs = JSON.parse(promptArgsStr);
-            executionRequests.push({
-              type: 'prompt',
-              name: promptName,
-              arguments: promptArgs
-            });
-            console.log(`Found prompt invocation: ${fullPromptName} -> ${promptName}`);
-          } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            console.error(`Error parsing prompt arguments for ${promptName}: ${errorMessage}`);
-          }
-        }
-
-        // Parse resource invocations: <resource:NAME>URI</resource>
-        const resourceRegex = /<resource:([^>]+)>([^<]+)<\/resource>/g;
-        let resourceMatch;
-        while ((resourceMatch = resourceRegex.exec(content)) !== null) {
-          const fullResourceName = resourceMatch[1];
-          const resourceUri = resourceMatch[2].trim();
-          
-          // Strip the prefix (resource:) if present
-          const resourceName = fullResourceName.includes(':') ? fullResourceName.split(':')[1] : fullResourceName;
-          
-          executionRequests.push({
-            type: 'resource',
-            name: resourceName,
-            uri: resourceUri
-          });
-          console.log(`Found resource invocation: ${fullResourceName} -> ${resourceName}`);
-        }
-
-        // Alternative format for tool invocations: <function=NAME>JSON</function>
-        const functionRegex = /<function=([^>]+)>([^<]+)<\/function>/g;
-        let functionMatch;
-        while ((functionMatch = functionRegex.exec(content)) !== null) {
-          const fullToolName = functionMatch[1];
-          const toolArgsStr = functionMatch[2];
-          
-          // Strip the prefix if present (though function format typically doesn't use prefixes)
-          const toolName = fullToolName.includes(':') ? fullToolName.split(':')[1] : fullToolName;
-          
-          try {
-            const toolArgs = JSON.parse(toolArgsStr);
-            executionRequests.push({
-              type: 'tool',
-              name: toolName,
-              arguments: toolArgs
-            });
-            console.log(`Found function invocation: ${fullToolName} -> ${toolName}`);
-          } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            console.error(`Error parsing function arguments for ${toolName}: ${errorMessage}`);
+            console.error(`Error parsing ${tagType} content for ${name}: ${errorMessage}`);
           }
         }
       }

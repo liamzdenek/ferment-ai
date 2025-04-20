@@ -28,27 +28,21 @@ export function createCapableModelTask(construct: CapableModel): TaskImpl<typeof
         // Check for conflicts with duplicate names within each list
         for (const prompt of capabilitiesRes.output.prompts) {
           if (availableCapabilities.prompts.some(p => p.name === prompt.name)) {
-            console.warn(`Duplicate prompt name detected: ${prompt.name}. Using the latest definition.`);
-            // Remove the existing prompt with the same name
-            availableCapabilities.prompts = availableCapabilities.prompts.filter(p => p.name !== prompt.name);
+            throw new Error(`Duplicate prompt name detected: ${prompt.name}.`); // TODO: Rename, Blacklist, or Whitelist the tools.
           }
           promptNameToCapabilityMap.set(prompt.name, capability);
         }
 
         for (const resource of capabilitiesRes.output.resources) {
           if (availableCapabilities.resources.some(r => r.name === resource.name)) {
-            console.warn(`Duplicate resource name detected: ${resource.name}. Using the latest definition.`);
-            // Remove the existing resource with the same name
-            availableCapabilities.resources = availableCapabilities.resources.filter(r => r.name !== resource.name);
+            throw new Error(`Duplicate resource name detected: ${resource.name}.`);
           }
           resourceNameToCapabilityMap.set(resource.name, capability);
         }
 
         for (const tool of capabilitiesRes.output.tools) {
           if (availableCapabilities.tools.some(t => t.name === tool.name)) {
-            console.warn(`Duplicate tool name detected: ${tool.name}. Using the latest definition.`);
-            // Remove the existing tool with the same name
-            availableCapabilities.tools = availableCapabilities.tools.filter(t => t.name !== tool.name);
+            throw new Error(`Duplicate tool name detected: ${tool.name}.`);
           }
           toolNameToCapabilityMap.set(tool.name, capability);
         }
