@@ -8,19 +8,44 @@ Ferment AI uses the AWS CDK constructs library to create a hierarchical, composa
 
 ```mermaid
 graph TD
-    Construct[Base Construct] --> FermentConstruct[Ferment Construct]
-    FermentConstruct --> VirtualModel[Virtual Model]
-    FermentConstruct --> AgentContext[Agent Context]
-    FermentConstruct --> Tool[Tool]
-    FermentConstruct --> Model[Model]
-    FermentConstruct --> ExitPoint[Exit Point]
-    Model --> OpenAIModel[OpenAI Model]
-    Model --> AnthropicModel[Anthropic Model]
-    Tool --> FileTool[File Tool]
-    Tool --> CommandTool[Command Tool]
+    %% Base Classes
+    Construct[Construct] --> WorkflowTask[WorkflowTask]
+    Construct --> BaseCapability[BaseCapability]
+    Construct --> BaseCapabilityParser[BaseCapabilityParser]
+    
+    %% WorkflowTask Inheritance
+    WorkflowTask --> CapableWorkflowTask[CapableWorkflowTask]
+    WorkflowTask --> BaseModel[BaseModel]
+    WorkflowTask --> MCPCapabilityGetAvailableCapabilities[MCPCapabilityGetAvailableCapabilities]
+    WorkflowTask --> MCPCapabilityExecuteCapability[MCPCapabilityExecuteCapability]
+    WorkflowTask --> TagCapabilityParserFormatPromptTask[TagCapabilityParserFormatPromptTask]
+    WorkflowTask --> TagCapabilityParserParseModelResponseTask[TagCapabilityParserParseModelResponseTask]
+    
+    %% CapableWorkflowTask Inheritance
+    CapableWorkflowTask --> CapableModel[CapableModel]
+    
+    %% BaseModel Inheritance
+    BaseModel --> OllamaModel[OllamaModel]
+    
+    %% BaseCapability Inheritance
+    BaseCapability --> MCPCapability[MCPCapability]
+    
+    %% BaseCapabilityParser Inheritance
+    BaseCapabilityParser --> TagCapabilityParser[TagCapabilityParser]
+    
+    %% Composition Relationships
+    MCPCapability --o|contains| MCPCapabilityGetAvailableCapabilities
+    MCPCapability --o|contains| MCPCapabilityExecuteCapability
+    
+    TagCapabilityParser --o|contains| TagCapabilityParserFormatPromptTask
+    TagCapabilityParser --o|contains| TagCapabilityParserParseModelResponseTask
+    
+    CapableModel --o|contains| BaseModel
+    CapableModel --o|contains| BaseCapability["BaseCapability[]"]
+    CapableModel --o|contains| BaseCapabilityParser
 ```
 
-- **L1 Constructs**: Core primitives (FermentConstruct, VirtualModel, AgentContext, Tool, etc.)
+- **L1 Constructs**: Core primitives (WorkflowTask, BaseModel, BaseCapability, BaseCapabilityParser, etc.)
 - **L2 Constructs**: Combinations of L1 constructs for common patterns (to be implemented)
 - **L3 Constructs**: High-level, domain-specific constructs (to be implemented)
 
@@ -79,6 +104,18 @@ graph TD
     CoreConstructsLib[Core Constructs Lib] -->|Defines| TaskDefs[Task Definitions]
     CoreConstructsRuntime[Core Constructs Runtime] -->|Implements| TaskImpls[Task Implementations]
     TaskImpls -->|Reference| TaskDefs
+    
+    %% MCP Components
+    MCPCapability[MCP Capability] -->|Uses| MCPClient[MCP Client]
+    MCPClient -->|Connects to| MCPServer[MCP Server]
+    MCPServer -->|Provides| Capabilities[Capabilities]
+    Capabilities -->|Include| Tools[Tools]
+    Capabilities -->|Include| Prompts[Prompts]
+    Capabilities -->|Include| Resources[Resources]
+    
+    %% Integration with Module System
+    MCPCapability -->|Mapped to| MCPTaskImpls[MCP Task Implementations]
+    MCPTaskImpls -->|Added to| Module
 ```
 
 This pattern enables:
@@ -86,6 +123,7 @@ This pattern enables:
 - Extensibility through additional modules
 - Clear separation of concerns
 - Separation of task definitions and implementations
+- Integration with external capability providers through MCP
 
 ## Implementation Patterns
 
@@ -157,55 +195,31 @@ This pattern provides:
 - Entry and exit points for the system
 - Validation of the system configuration
 
-### 3. Agent Context Pattern
+### 3. WorkflowTask-Based Architecture
 
-The `AgentContext` class represents an environment for a single agent:
+The `WorkflowTask` class serves as the base for many components in the system:
 
 ```typescript
-export class AgentContext extends FermentConstruct {
-  public readonly prompt: string;
-  public readonly model: Construct;
-  private readonly _tools: Construct[] = [];
+export abstract class WorkflowTask<I extends z.ZodTypeAny, O extends z.ZodTypeAny> extends Construct {
+  public abstract readonly taskDef: TaskDef<I, O>;
 
-  constructor(scope: Construct, id: string, props: AgentContextProps) {
-    super(scope, id, props);
-    this.prompt = props.prompt;
-    this.model = props.model;
-
-    if (props.tools) {
-      for (const tool of props.tools) {
-        this.addTool(tool);
-      }
-    }
+  constructor(scope: Construct, id: string, props = {}) {
+    super(scope, id);
   }
 
-  public addTool(tool: Construct): AgentContext {
-    this._tools.push(tool);
-    return this;
-  }
-
-  public get tools(): Construct[] {
-    return [...this._tools];
-  }
-
-  public newPromptTask(scope: Construct, id: string, options = {}): Workflow.Task {
-    return new Workflow.Task(scope, id, options);
-  }
-
-  public sendEmailTool(): Construct {
-    return new SendEmailTool(this, `${this.node.id}SendEmailTool`, {
-      name: `Send Email to ${this.node.id}`,
-      description: `Send a message to the ${this.node.id} agent`,
-      targetAgent: this,
-    });
+  getTools(): Record<string, WorkflowTask<z.ZodTypeAny, z.ZodTypeAny>> {
+    return {
+      [this.node.path]: this
+    };
   }
 }
 ```
 
 This pattern provides:
-- A container for agent-specific configuration
-- Management of tools available to the agent
-- Creation of workflow tasks and communication tools
+- A common base class for tasks, models, and capability components
+- Type-safe input and output definitions using Zod
+- Consistent interface for task execution
+- Integration with the workflow system
 
 ### 4. Model Pattern
 
@@ -408,21 +422,131 @@ This pattern provides:
 - Type safety with Zod validation
 - Separation from task implementation
 
+### 10. Model Context Protocol (MCP) Integration Pattern
+
+The Model Context Protocol (MCP) enables communication with external capability servers:
+
+```typescript
+export class MCPCapability extends BaseCapability {
+  public getAvailableCapabilities: WorkflowTask<typeof GET_AVAILABLE_CAPABILITIES_TASK_DEF.inputType, typeof GET_AVAILABLE_CAPABILITIES_TASK_DEF.outputType>;
+  public executeCapability: WorkflowTask<typeof EXECUTE_CAPABILITY_TASK_DEF.inputType, typeof EXECUTE_CAPABILITY_TASK_DEF.outputType>;
+
+  public readonly props: MCPToolProps;
+
+  constructor(scope: Construct, id: string, props: MCPToolProps) {
+    super(scope, id);
+    this.props = props;
+    const subProps: MCPCapabilityTaskProps = {
+      mcpCapability: this
+    }
+    this.getAvailableCapabilities = new MCPCapabilityGetAvailableCapabilities(this, 'GetAvailableCapabilities', subProps);
+    this.executeCapability = new MCPCapabilityExecuteCapability(this, 'ExecuteCapability', subProps);
+  }
+}
+```
+
+This pattern provides:
+- Connection to external MCP servers via HTTP or stdio transports
+- Discovery of available capabilities (tools, prompts, resources)
+- Execution of capabilities with proper input/output handling
+- Integration with the workflow system
+
+### 11. CapableModel Pattern
+
+The `CapableModel` class combines a model with capabilities:
+
+```typescript
+export class CapableModel extends CapableWorkflowTask {
+  public readonly props: CapableModelProps;
+
+  constructor(
+    scope: Construct,
+    id: string,
+    props: CapableModelProps
+  ) {
+    super(scope, id, {})
+    this.props = props;
+  }
+
+  pushCapability(capability: BaseCapability) {
+    this.props.capabilities.push(capability);
+  }
+
+  override getTools(): Record<string, WorkflowTask<z.ZodTypeAny, z.ZodTypeAny>> {
+    const tools = {
+      ...super.getTools(),
+      ...this.props.capabilityParser.getTools(),
+      [this.props.model.node.path]: this.props.model,
+    };
+
+    for(const capability of this.props.capabilities) {
+      Object.assign(tools, capability.getTools());
+    }
+
+    return tools;
+  }
+}
+```
+
+This pattern provides:
+- Combination of a model with capabilities and a capability parser
+- Management of tool execution and result processing
+- Integration with the workflow system
+- Special handling for different capability types
+
+### 12. TagCapabilityParser Pattern
+
+The `TagCapabilityParser` class extracts tool invocations from model responses:
+
+```typescript
+export class TagCapabilityParser extends BaseCapabilityParser {
+  public formatPrompt: WorkflowTask<typeof FORMAT_PROMPT_TASK_DEF.inputType, typeof FORMAT_PROMPT_TASK_DEF.outputType>;
+  public parseModelResponse: WorkflowTask<typeof PARSE_MODEL_RESPONSE_TASK_DEF.inputType, typeof PARSE_MODEL_RESPONSE_TASK_DEF.outputType>;
+
+  public readonly props: TagCapabilityParserProps;
+
+  constructor(scope: Construct, id: string, props?: Partial<TagCapabilityParserProps>) {
+    super(scope, id);
+    this.props = {
+      prompt: DEFAULT_PROMPT_STRING,
+      promptTemplateEngine: 'dot',
+      ...(props ?? {})
+    };
+    const subProps = {
+      tagCapabilityParser: this
+    };
+    this.formatPrompt = new TagCapabilityParserFormatPromptTask(this, 'FormatPrompt', subProps);
+    this.parseModelResponse = new TagCapabilityParserParseModelResponseTask(this, 'ParseModelResponse', subProps);
+  }
+}
+```
+
+This pattern provides:
+- Template-based prompt formatting with available capabilities
+- Regex-based parsing of model responses
+- Support for different invocation formats:
+  - `<tool:NAME>JSON</tool>`
+  - `<prompt:NAME>JSON</prompt>`
+  - `<resource:NAME>URI</resource>`
+  - `<function=NAME>JSON</function>`
+- Prefix handling for capability names
+
 ## Package Structure and Responsibilities
 
 The Ferment AI system is organized into several packages, each with a specific responsibility:
 
 ### 1. Core Constructs Library (`@ferment-ai/core-constructs-lib`)
 
-This package defines the constructs using the AWS CDK Constructs library and task definitions. It defines the relationship between agents and what they have access to, but does NOT define how to actually run the agent.
+This package defines the constructs using the AWS CDK Constructs library and task definitions. It defines the relationship between components and what they have access to, but does NOT define how to actually run them.
 
 Key components:
-- `FermentConstruct`: Base class for all Ferment constructs
-- `VirtualModel`: Top-level container for agent systems
-- `AgentContext`: Environment for a single agent
-- `Model`: Interface for LLM providers
-- `Tool`: Interface for tools that can be used by agents
-- `ExitPoint`: Ending point for a virtual model
+- `WorkflowTask`: Base class for many components
+- `BaseModel`: Base class for model implementations
+- `BaseCapability`: Base class for capability implementations
+- `BaseCapabilityParser`: Base class for capability parser implementations
+- `CapableModel`: Class that combines models with capabilities
+- `MCPCapability`: Class for connecting to MCP servers
+- `TagCapabilityParser`: Class for extracting tool invocations from model responses
 - `TaskDef`: Interface for task definitions
 
 ### 2. Runtime Common (`@ferment-ai/runtime-common`)
@@ -446,7 +570,7 @@ This package defines how to run the constructs at runtime by mapping them to tas
 
 Key components:
 - `createCoreConstructsModule`: Function that creates a module for core constructs
-- Task implementations for each construct type (Model, OpenAIModel, AgentContext, prompt tasks)
+- Task implementations for each construct type (BaseModel, OllamaModel, CapableModel, MCPCapability, TagCapabilityParser)
 
 ### 4. Runtime In-Memory (`@ferment-ai/runtime-in-memory`)
 
@@ -482,7 +606,7 @@ Key components:
 
 11. **Stateless API Design**: The system has no persistence and relies on a stateless API, where each request creates a new journal instance that runs until completion and returns the results.
 
-12. **Task-Based Execution**: Agent calls, tool calls, etc. are represented as tasks with defined relationships, allowing for better tracking and management of operations.
+12. **Task-Based Execution**: Model calls, tool calls, etc. are represented as tasks with defined relationships, allowing for better tracking and management of operations.
 
 13. **Package Structure**: We've organized the codebase into multiple packages to maintain separation of concerns and enable modular development, with clear interfaces between the definition and runtime layers.
 
@@ -493,3 +617,17 @@ Key components:
 16. **TypeScript Configuration**: We've configured TypeScript to use the appropriate module resolution strategy and other compiler options.
 
 17. **Testing with Jest**: We're using Jest for testing, with comprehensive tests for the workflow architecture components.
+
+18. **Model Context Protocol (MCP) Integration**: We've implemented support for the Model Context Protocol, allowing connection to external capability servers.
+
+19. **CapableModel Architecture**: We've created a CapableModel class that combines models with capabilities, enabling tool use in LLM interactions.
+
+20. **TagCapabilityParser Implementation**: We've implemented a TagCapabilityParser that formats prompts with available capabilities and extracts tool invocations from model responses.
+
+21. **Capability Types**: We support three types of capabilities: tools, prompts, and resources, each with different handling.
+
+22. **Prefix Handling**: The TagCapabilityParser adds prefixes to capability names in prompts and strips them when parsing responses.
+
+23. **Transport Options**: The MCPCapability supports both HTTP and stdio transports for connecting to MCP servers.
+
+24. **Deprecation of AgentContext**: We're moving away from the AgentContext pattern in favor of the more flexible CapableModel pattern.

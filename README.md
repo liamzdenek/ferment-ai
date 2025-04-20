@@ -2,69 +2,160 @@
 
 <img src="./assets/ferment-logo.svg"/>
 
-A declarative framework for configuring and executing multi-agent LLM systems with unprecedented clarity and control.
+A declarative framework for configuring and executing model-based LLM systems with unprecedented clarity and control.
 
 ## Introduction
 
-Ferment AI is a powerful framework for configuring and executing multi-agent systems using a declarative approach. Built with a clean separation between definition and execution, it provides a clear, composable way to define complex agent interactions, workflows, and tools.
+Ferment AI is a powerful framework for configuring and executing model-based systems using a declarative approach. Built with a clean separation between definition and execution, it provides a clear, composable way to define complex model interactions, workflows, tools, and capabilities.
 
-Unlike imperative frameworks, Ferment AI separates declaration from runtime, enabling more maintainable, testable, and extensible agent systems. The workflow-based architecture with a central journal system simplifies state management and enables features like pausing, resuming, and real-time visibility into agent operations.
+Unlike imperative frameworks, Ferment AI separates declaration from runtime, enabling more maintainable, testable, and extensible LLM systems. The workflow-based architecture with a central journal system simplifies state management and enables features like pausing, resuming, and real-time visibility into model operations.
 
 ## Key Features
 
 - **Declarative Configuration** using AWS CDK-style constructs for clear, composable system definitions
-- **Real-Time Streaming** of all agent interactions for complete transparency
+- **Real-Time Streaming** of all model interactions for complete transparency
 - **Workflow-Based Architecture** with tasks and defined relationships
 - **Journal System** that executes workflows and maintains authoritative state
 - **Stateless Operation** with serialization/deserialization of the entire system state
-- **Tool System** integrated with workflows for agent capabilities
+- **Capability System** integrated with workflows for model capabilities
+- **Model Context Protocol (MCP)** support for connecting to external capability servers
 - **Human Intervention** support with cancellation and resumption
 - **Type Safety** with Zod validation for inputs and outputs at both compile time and runtime
 
 ## Architecture Overview
 
-### Task-Based Architecture
+### Core Architecture
 
-Ferment AI is built around the concept of tasks, which are units of work in a workflow. Each task has a task definition that specifies its input and output types using Zod schemas.
+```typescript
+// Store the Construct tree
+const rootConstruct = new RootConstruct('Root');
 
-```mermaid
-graph TD
-    WorkflowTask[WorkflowTask] --> AgentContext[Agent Context]
-    WorkflowTask --> Model[Model]
-    WorkflowTask --> Tool[Tool]
-    WorkflowTask --> WorkflowEndTask[Workflow End Task]
-    Model --> OllamaModel[Ollama Model]
-    Tool --> FileTool[File Tool]
-    Tool --> CommandTool[Command Tool]
+// Create a model
+const model = new OllamaModel(rootConstruct, 'Model', {
+  host: 'localhost:11434',
+  modelName: 'llama3.1:8b'
+});
+
+// Create an MCP capability
+const mcpCapability = new MCPCapability(rootConstruct, 'MCPCapability', {
+  transport: {
+    type: 'http', // also supports 'stdio'
+    uri: 'http://localhost:7000/mcp'
+  }
+});
+
+// Create a capability parser
+const capabilityParser = new TagCapabilityParser(rootConstruct, 'CapabilityParser', {});
+
+// Create a capable model
+const capableModel = new CapableModel(rootConstruct, 'CapableModel', {
+  model: model,
+  capabilities: [mcpCapability],
+  capabilityParser
+});
+
+// Create a workflow with the capable model as the entry point
+const workflow = new Workflow(rootConstruct, 'Workflow', {
+  definition: capableModel
+});
 ```
 
-### Workflow-Based Architecture
-
 ```mermaid
 graph TD
-    Journal[Journal] --> CompileResult[Compile Result]
-    CompileResult --> Workflows[Workflows]
-    CompileResult --> TaskImpls[Task Implementations]
-    CompileResult --> Executors[Executors]
+    subgraph "Core Components"
+        CapableModel[CapableModel] --> BaseModel[Model]
+        CapableModel --> Capabilities[Capabilities]
+        CapableModel --> Parser[CapabilityParser]
+        
+        BaseModel --> OllamaModel[OllamaModel]
+        Capabilities --> MCPCapability[MCPCapability]
+        Parser --> TagCapabilityParser[TagCapabilityParser]
+        
+        MCPCapability --> HTTPTransport[HTTP Transport]
+        MCPCapability --> StdioTransport[Stdio Transport]
+    end
     
-    Workflows -->|Contain| Tasks
-    Tasks -->|Referenced by full path| TaskImpls
-    Executors -->|Execute| Workflows
-    Journal -->|Uses| CompileResult
+    subgraph "Workflow System"
+        Workflow[Workflow] --> CapableModel
+        Journal[Journal] --> Workflow
+        Journal --> Modules[Modules]
+    end
     
-    TaskImpls -->|Include| TaskDefs[Task Definitions]
-    TaskImpls -->|Include| ExecuteFunctions[Execute Functions]
-    ExecuteFunctions -->|Can be| AsyncGenerators[Async Generators]
-    ExecuteFunctions -->|Can be| Promises[Promises]
-    AsyncGenerators -->|Can yield| TaskCallRequests[Task Call Requests]
-    AsyncGenerators -->|Can resume with| TaskCallResults[Task Call Results]
+    subgraph "MCP Server"
+        MCPServer[MCP Server]
+        Tools[Tools]
+        Prompts[Prompts]
+        Resources[Resources]
+        
+        MCPServer --> Tools
+        MCPServer --> Prompts
+        MCPServer --> Resources
+    end
+    
+    HTTPTransport -.-> MCPServer
+    StdioTransport -.-> MCPServer
+```
+
+### Workflow Execution
+
+```typescript
+// Create a journal and execute the workflow
+const journal = new Journal([createCoreConstructsModule()], {
+  rootConstruct
+});
+
+// Execute the workflow
+async function runWorkflow() {
+  const workflowName = Object.keys(journal.toSavedState().compileResult.workflows)[0];
+  
+  for await (const event of journal.executeWorkflow(workflowName, {
+    messages: [
+      { role: 'user', content: 'What is the capital of France?' }
+    ]
+  })) {
+    // Handle events (model responses, capability calls, etc.)
+    console.log('Event:', event);
+  }
+}
+
+runWorkflow();
+```
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Journal
+    participant Workflow
+    participant CapableModel
+    participant Model
+    participant MCPCapability
+    participant MCPServer
+    
+    User->>Journal: executeWorkflow()
+    Journal->>Workflow: execute()
+    Workflow->>CapableModel: execute()
+    
+    CapableModel->>Model: generate response
+    Model-->>CapableModel: response with capability invocation
+    
+    CapableModel->>MCPCapability: execute capability
+    MCPCapability->>MCPServer: HTTP/Stdio request
+    MCPServer-->>MCPCapability: capability result
+    MCPCapability-->>CapableModel: result
+    
+    CapableModel->>Model: continue with capability result
+    Model-->>CapableModel: final response
+    
+    CapableModel-->>Workflow: response
+    Workflow-->>Journal: events
+    Journal-->>User: events
 ```
 
 ### Package Structure
 
 - **@ferment-ai/core-constructs-lib**: Core construct library and task definitions
 - **@ferment-ai/core-constructs-runtime**: Runtime implementation for core constructs
-- **@ferment-ai/runtime-common**: Common interfaces and utilities for runtime packages, including the workflow compiler.
+- **@ferment-ai/runtime-common**: Common interfaces and utilities for runtime packages, including the workflow compiler
 - **@ferment-ai/runtime-in-memory**: In-memory implementation of the Journal
 - **@ferment-ai/demo**: Demo application
 
@@ -88,16 +179,19 @@ npx nx run-many -t build
 # Build the demo
 npx nx build demo
 
-# Run the demo
-npx nx serve demo --args="SimpleCall" # or any of the other demos in LOOKUP in packages/demo/src/main.ts
+# Run the demo with a specific test case
+npx nx serve demo --args="SimpleCall"
+npx nx serve demo --args="TestMCPGetCapabilities"
+npx nx serve demo --args="TestMCPExecuteCapability"
+npx nx serve demo --args="TestCapableModel"
 ```
 
 ### Basic Usage Example
 
-Here's a simple example of creating a workflow with a single agent:
+Here's a simple example of creating a workflow with a capable model:
 
 ```typescript
-import { AgentContext, OllamaModel } from '@ferment-ai/core-constructs-lib';
+import { CapableModel, OllamaModel, MCPCapability, TagCapabilityParser } from '@ferment-ai/core-constructs-lib';
 import { Construct, RootConstruct } from 'constructs';
 import { createCoreConstructsModule } from '@ferment-ai/core-constructs-runtime';
 import { Journal } from '@ferment-ai/runtime-in-memory';
@@ -106,25 +200,33 @@ import { Workflow } from '@ferment-ai/runtime-common';
 // Create a root construct
 const rootConstruct = new RootConstruct('Root');
 
-// Create a model and agent context
+// Create a model
 const model = new OllamaModel(rootConstruct, 'Model', {
   host: 'localhost:11434',
   modelName: 'llama3.1:8b'
 });
 
-const agent = new AgentContext(rootConstruct, 'Agent', {
-  initialMessages: [
-    {
-      role: 'user',
-      content: 'Hello, how can you help me today?'
-    }
-  ],
-  model: model
+// Create an MCP capability
+const mcpCapability = new MCPCapability(rootConstruct, 'MCPCapability', {
+  transport: {
+    type: 'http',
+    uri: 'http://localhost:7000/mcp'
+  }
 });
 
-// Create a workflow with the agent as the entry point
+// Create a capability parser
+const capabilityParser = new TagCapabilityParser(rootConstruct, 'CapabilityParser', {});
+
+// Create a capable model
+const capableModel = new CapableModel(rootConstruct, 'CapableModel', {
+  model: model,
+  capabilities: [mcpCapability],
+  capabilityParser
+});
+
+// Create a workflow with the capable model as the entry point
 const workflow = new Workflow(rootConstruct, 'Workflow', {
-  definition: agent
+  definition: capableModel
 });
 
 // Create a journal and execute the workflow
@@ -153,50 +255,72 @@ runWorkflow();
 
 As a workflow definer, you'll create LLM workflows using Ferment AI's declarative configuration system.
 
-#### Using Tools
+#### Using Capabilities
 
 ```typescript
-// Create a file tool
-const fileTool = new FileTool(rootConstruct, 'FileTool', {
-  name: 'file',
-  description: 'Read and write files on the filesystem'
+// Create an MCP capability
+const mcpCapability = new MCPCapability(rootConstruct, 'MCPCapability', {
+  transport: {
+    type: 'http',
+    uri: 'http://localhost:7000/mcp'
+  }
 });
 
-// Create a command tool
-const commandTool = new CommandTool(rootConstruct, 'CommandTool', {
-  name: 'command',
-  description: 'Execute shell commands'
-});
+// Create a capability parser
+const capabilityParser = new TagCapabilityParser(rootConstruct, 'CapabilityParser', {});
 
-// Create an agent with access to tools
-const agent = new AgentContext(rootConstruct, 'Agent', {
+// Create a capable model with access to capabilities
+const capableModel = new CapableModel(rootConstruct, 'CapableModel', {
   model: model,
-  initialMessages: [
-    {
-      role: 'system',
-      content: "You are a helpful assistant with access to file and command tools."
-    }
-  ],
-  tools: [fileTool, commandTool]
+  capabilities: [mcpCapability],
+  capabilityParser
 });
 
 // Create the workflow
-const workflow = new Workflow(rootConstruct, 'ToolWorkflow', {
-  definition: agent
+const workflow = new Workflow(rootConstruct, 'CapabilityWorkflow', {
+  definition: capableModel
 });
 ```
 
-#### Multi-Agent Systems (WIP)
+#### Model Context Protocol (MCP)
 
-Multi-agent system support is currently under active development. The API for defining agent interactions is evolving and will be documented in future releases.
+The Model Context Protocol (MCP) enables communication with external capability servers:
+
+```typescript
+// HTTP transport
+const httpMcpCapability = new MCPCapability(rootConstruct, 'HttpMCPCapability', {
+  transport: {
+    type: 'http',
+    uri: 'http://localhost:7000/mcp'
+  }
+});
+
+// Stdio transport
+const stdioMcpCapability = new MCPCapability(rootConstruct, 'StdioMCPCapability', {
+  transport: {
+    type: 'stdio',
+    command: 'npx',
+    arguments: ['-y', '@modelcontextprotocol/server-sequential-thinking']
+  }
+});
+
+// Add capabilities to a capable model
+const capableModel = new CapableModel(rootConstruct, 'CapableModel', {
+  model: model,
+  capabilities: [httpMcpCapability, stdioMcpCapability],
+  capabilityParser
+});
+```
 
 #### Best Practices
 
 - Use descriptive IDs for constructs to make the configuration more readable
 - Define clear task relationships to ensure proper workflow execution
-- Use the appropriate model for each agent based on its responsibilities
-- Provide detailed prompts to guide agent behavior
+- Use the appropriate model for each capability based on its requirements
+- Provide detailed prompts to guide model behavior
 - Test workflows with simple inputs before scaling to complex scenarios
+- Use the TagCapabilityParser to format prompts with available capabilities
+- Handle capability naming conflicts appropriately
 
 ### For Workflow Integrators
 
@@ -394,7 +518,7 @@ You can tell when you're writing a L1 construct because it `extends WorkflowTask
 export class RAGSystem extends Construct {
   public readonly vectorStore: VectorStore;
   public readonly retriever: Retriever;
-  public readonly agent: AgentContext;
+  public readonly capableModel: CapableModel;
   
   constructor(scope: Construct, id: string, props: RAGSystemProps) {
     super(scope, id, {});
@@ -411,11 +535,19 @@ export class RAGSystem extends Construct {
       topK: props.topK ?? 5
     });
     
-    // Create the agent with access to the retriever
-    this.agent = new AgentContext(this, 'Agent', {
+    // Create the capability parser
+    const capabilityParser = new TagCapabilityParser(this, 'CapabilityParser', {});
+    
+    // Create the retriever capability
+    const retrieverCapability = new CustomCapability(this, 'RetrieverCapability', {
+      retriever: this.retriever
+    });
+    
+    // Create the capable model with access to the retriever
+    this.capableModel = new CapableModel(this, 'CapableModel', {
       model: props.model,
-      initialMessages: props.initialMessages,
-      tools: [this.retriever]
+      capabilities: [retrieverCapability],
+      capabilityParser
     });
   }
 }
@@ -436,16 +568,22 @@ export class RAGSystem extends Construct {
 ### Core Constructs
 
 - **WorkflowTask**: Base class for all tasks in a workflow
-- **AgentContext**: Environment for a single agent
+- **BaseModel**: Base class for model implementations
 - **OllamaModel**: Implementation of the Ollama LLM provider
-- **Tool**: Base class for tools that can be used by agents
-- **WorkflowEndTask**: A specialized task that represents the end of a workflow
+- **BaseCapability**: Base class for capability implementations
+- **MCPCapability**: Implementation of the Model Context Protocol capability
+- **BaseCapabilityParser**: Base class for capability parser implementations
+- **TagCapabilityParser**: Implementation of the tag-based capability parser
+- **CapableModel**: Class that combines models with capabilities
 
 ### Workflow and Task System
 
 - **Workflow**: A sequence of tasks with defined relationships
 - **TaskDef**: Interface for task definitions
 - **TaskImpl**: Interface for task implementations
+- **TaskCtx**: Interface for task context
+- **TaskCallRequest**: Interface for task call requests
+- **TaskCallResult**: Interface for task call results
 
 ### Journal System
 
@@ -453,11 +591,13 @@ export class RAGSystem extends Construct {
 - **executeWorkflow**: Method to execute a workflow
 - **toSavedState**: Method to serialize the journal state
 - **fromSavedState**: Method to deserialize the journal state
+- **addModule**: Method to add a module to the journal
 
 ### Module System
 
 - **Module**: Type for modules that map constructs to task implementations
 - **createCoreConstructsModule**: Function to create a module for core constructs
+- **TaskImplMap**: Type for a map of node paths to task implementations
 
 ## Contributing
 
@@ -499,30 +639,3 @@ npm test
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
-## API Reference
-
-### Core Constructs
-
-- **WorkflowTask**: Base class for all tasks in a workflow
-- **AgentContext**: Environment for a single agent
-- **OllamaModel**: Implementation of the Ollama LLM provider
-- **Tool**: Base class for tools that can be used by agents
-- **WorkflowEndTask**: A specialized task that represents the end of a workflow
-
-### Workflow and Task System
-
-- **Workflow**: A sequence of tasks with defined relationships
-- **TaskDef**: Interface for task definitions
-- **TaskImpl**: Interface for task implementations
-
-### Journal System
-
-- **Journal**: Central executor for workflows
-- **executeWorkflow**: Method to execute a workflow
-- **toSavedState**: Method to serialize the journal state
-- **fromSavedState**: Method to deserialize the journal state
-
-### Module System
-
-- **Module**: Type for modules that map constructs to task implementations
-- **createCoreConstructsModule**: Function to create a module for core constructs

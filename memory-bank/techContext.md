@@ -16,7 +16,7 @@
 
 3. **Zod**
    - Schema validation for runtime type safety
-   - Used for tool input/output validation
+   - Used for capability input/output validation
    - Generates JSON Schema for API documentation
    - Used for workflow and task schema validation
    - Validates inputs and outputs between task calls
@@ -33,11 +33,17 @@
    - Server-Sent Events (SSE) for streaming updates
    - JSON for data serialization
 
-2. **OpenAI API Compatibility Layer**
-   - Adapter for compatibility with existing tools
-   - Support for standard endpoints and formats
+2. **Model Context Protocol (MCP)**
+   - Protocol for connecting to external capability servers
+   - Support for tools, prompts, and resources
+   - HTTP and stdio transport options
+   - Standardized capability discovery and execution
 
-3. **TypeDoc**
+3. **Dot Template Engine**
+   - Used for prompt formatting with available capabilities
+   - Supports dynamic template generation
+
+4. **TypeDoc**
    - Documentation generation from TypeScript code
    - API reference for developers
 
@@ -108,7 +114,7 @@
 
 2. **zod** (^3.0.0)
    - Schema validation library
-   - Used for tool input/output validation
+   - Used for capability input/output validation
    - Used for workflow and task schema validation
    - Validates inputs and outputs between task calls
 
@@ -116,39 +122,49 @@
    - Converts Zod schemas to JSON Schema
    - Used for API documentation
 
-4. **express** (^4.0.0)
+4. **@modelcontextprotocol/sdk**
+   - SDK for the Model Context Protocol
+   - Provides client for connecting to MCP servers
+   - Supports HTTP and stdio transports
+
+5. **dot**
+   - Template engine for prompt formatting
+   - Used by TagCapabilityParser for formatting prompts with available capabilities
+
+6. **express** (^4.0.0)
    - Web framework for Node.js
    - Used for the API server
 
-5. **cors** (^2.0.0)
+7. **cors** (^2.0.0)
    - Cross-Origin Resource Sharing middleware
    - Used for API security
 
-6. **body-parser** (^1.0.0)
+8. **body-parser** (^1.0.0)
    - Request body parsing middleware
    - Used for API request handling
 
-7. **uuid** (^9.0.0)
+9. **uuid** (^9.0.0)
    - UUID generation library
    - Used for creating unique identifiers for tasks and workflows
 
-8. **@ferment-ai/core-constructs-lib**
-   - Core construct library
-   - Defines the relationship between agents and what they have access to
-   - Contains task definitions
+10. **@ferment-ai/core-constructs-lib**
+    - Core construct library
+    - Defines the relationship between components and what they have access to
+    - Contains task definitions
+    - Includes WorkflowTask, BaseModel, BaseCapability, and BaseCapabilityParser
 
-9. **@ferment-ai/runtime-common**
+11. **@ferment-ai/runtime-common**
    - Common interfaces and utilities for runtime packages
    - Defines the Journal interface and related types
    - Contains workflow and task interfaces
    - Defines TaskImpl interface and related types
 
-10. **@ferment-ai/core-constructs-runtime**
+12. **@ferment-ai/core-constructs-runtime**
     - Runtime implementation for constructs
     - Maps constructs to task implementations
     - Implements task execution functions
 
-11. **@ferment-ai/runtime-in-memory**
+13. **@ferment-ai/runtime-in-memory**
     - In-memory implementation of the Journal
     - Executes workflows and maintains state
 
@@ -224,30 +240,40 @@
 
 ### LLM Providers
 
-1. **OpenAI API**
+1. **Ollama API**
+   - Integration with open-source models
+   - Support for local model hosting
+   - Low-latency inference
+
+2. **OpenAI API**
    - Integration with GPT models
    - Support for streaming responses
    - Support for tool use
 
-2. **Anthropic API**
+3. **Anthropic API**
    - Integration with Claude models
    - Support for tool use
 
-3. **Custom Model Providers**
+4. **Custom Model Providers**
    - Extensible interface for additional providers
    - Support for self-hosted models
 
-### External Tools
+### External Capabilities
 
-1. **File System**
+1. **MCP Capabilities**
+   - Tools: Functions that can be called by models
+   - Prompts: Pre-defined prompts that can be used by models
+   - Resources: Data sources that can be accessed by models
+
+2. **File System**
    - Reading/writing files
    - Directory operations
 
-2. **Command Execution**
+3. **Command Execution**
    - Running shell commands
    - Process management
 
-3. **Web APIs**
+4. **Web APIs**
    - HTTP/HTTPS requests
    - Authentication handling
 
@@ -281,7 +307,7 @@ The system now implements a workflow-based architecture with async generator tas
 4. **Module**
    - Maps constructs to task implementations
    - Each module is responsible for a specific type of construct
-   - Provides task implementations for AgentContext, OpenAIModel, and prompt tasks
+   - Provides task implementations for models, capabilities, and capability parsers
    - Allows for extensibility through additional modules
 
 5. **Compiler**
@@ -316,7 +342,9 @@ The system is organized into several packages:
 
 1. **core-constructs-lib**
    - Contains core constructs and task definitions
-   - Defines the relationship between agents and what they have access to
+   - Defines WorkflowTask, BaseModel, BaseCapability, and BaseCapabilityParser
+   - Includes CapableModel, MCPCapability, and TagCapabilityParser
+   - Defines the relationship between components and what they have access to
    - Does not contain runtime implementation
 
 2. **runtime-common**
@@ -371,9 +399,13 @@ The system is organized into several packages:
    - Metrics for performance monitoring
    - Event tracking for workflow execution
 
-## Demo Application
+## Demo Applications
 
-A demo application has been created in 'packages/demo/src/main.ts' that shows how the app will be initialized and navigated. It demonstrates a two-agent model with a junior engineer and senior engineer that can communicate with each other.
+Several demo applications have been created to showcase different aspects of the system:
+
+### Main Demo
+
+A demo application has been created in 'packages/demo/src/main.ts' that shows how the app will be initialized and navigated. It includes several test cases demonstrating different aspects of the system.
 
 To build and run the demo application:
 
@@ -381,14 +413,15 @@ To build and run the demo application:
 # Build the demo application
 npx nx build demo
 
-# Run the demo application
-npx nx serve demo
+# Run the demo application with a specific test case
+npx nx serve demo --args="SimpleCall"
+npx nx serve demo --args="TestMCPGetCapabilities"
+npx nx serve demo --args="TestMCPExecuteCapability"
+npx nx serve demo --args="TestCapableModel"
 ```
 
-The demo application showcases:
-1. Creating a VirtualModel
-2. Setting up agent contexts with different models
-3. Creating workflow tasks for agents
-4. Defining task relationships
-5. Creating a workflow with an entry point task
-6. Using the Journal to execute the workflow
+The demo applications showcase:
+1. **SimpleCall**: Basic workflow execution with task calls
+2. **TestMCPGetCapabilities**: Discovering capabilities from MCP servers
+3. **TestMCPExecuteCapability**: Executing capabilities from MCP servers
+4. **TestCapableModel**: Using CapableModel to combine models with capabilities

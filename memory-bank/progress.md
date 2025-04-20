@@ -4,6 +4,8 @@
 
 The project has undergone a **major refactoring** of the TaskFunction to be an async generator/AsyncIterable function. This enables suspension and resumption of tasks, allowing for more complex workflows with better type safety. We have also moved task definitions to the core-constructs-lib package while keeping task implementations in core-constructs-runtime. The system now supports both promise-based and generator-based task functions, with proper Zod validation for inputs and outputs.
 
+Recently, we've implemented the **Model Context Protocol (MCP)** integration, allowing connection to external capability servers. We've also created the **CapableModel** architecture that combines models with capabilities, enabling tool use in LLM interactions. Additionally, we've implemented the **TagCapabilityParser** that formats prompts with available capabilities and extracts tool invocations from model responses.
+
 ## What Works
 
 1. **Project Structure**: We have set up an Nx monorepo with the following packages:
@@ -15,14 +17,15 @@ The project has undergone a **major refactoring** of the TaskFunction to be an a
    - `@ferment-ai/demo`: Demo application
 
 2. **Core Constructs**: We have implemented the core constructs for the system:
-   - `FermentConstruct`: Base class for all Ferment constructs
-   - `VirtualModel`: Top-level container for agent systems
-   - `AgentContext`: Environment for a single agent
-   - `Model` (with `OpenAIModel` and `AnthropicModel`): LLM provider interfaces
-   - `Tool` (with `FileTool` and `CommandTool`): Tool interfaces
+   - `WorkflowTask`: Base class for many components
+   - `BaseModel`: Base class for model implementations (with `OllamaModel`)
+   - `BaseCapability`: Base class for capability implementations
+   - `BaseCapabilityParser`: Base class for capability parser implementations
+   - `CapableModel`: Class that combines models with capabilities
+   - `MCPCapability`: Class for connecting to MCP servers
+   - `TagCapabilityParser`: Class for extracting tool invocations from model responses
+   - `VirtualModel`: Top-level container for model systems
    - `ExitPoint`: Ending point for a virtual model
-   - `SendEmailTool`: Tool for sending messages between agents
-   - `ExitPointTool`: Tool for finishing virtual model execution
 
 3. **TypeScript Configuration**: We have configured TypeScript for the project, including module resolution and other compiler options.
 
@@ -30,6 +33,8 @@ The project has undergone a **major refactoring** of the TaskFunction to be an a
    - `constructs`: AWS CDK constructs library
    - `zod`: Schema validation library
    - `zod-to-json-schema`: Converts Zod schemas to JSON Schema
+   - `@modelcontextprotocol/sdk`: SDK for the Model Context Protocol
+   - `dot`: Template engine for prompt formatting
 
 5. **Workflow Architecture Design**: We have designed a new architecture based on workflows and tasks:
    - **Journal**: The central executor that runs workflows and maintains state
@@ -125,15 +130,25 @@ The project has undergone a **major refactoring** of the TaskFunction to be an a
 
 ### Phase 3: Integration with Core Constructs (In Progress)
 
-- [x] **AgentContext Integration**
-  - [x] Add newPromptTask method to AgentContext
-  - [x] Implement sendEmailTool method
-  - [ ] Add support for other agent operations
+- [x] **Model Context Protocol Integration**
+  - [x] Implement MCPCapability class
+  - [x] Add support for HTTP and stdio transports
+  - [x] Implement capability discovery and execution
+
+- [x] **CapableModel Implementation**
+  - [x] Create CapableModel class
+  - [x] Implement tool execution and result processing
+  - [x] Add support for different capability types
+
+- [x] **TagCapabilityParser Implementation**
+  - [x] Create TagCapabilityParser class
+  - [x] Implement prompt formatting with available capabilities
+  - [x] Implement parsing of model responses for tool invocations
 
 - [x] **Task Implementation Enhancement**
-  - [x] Create task implementations for agent contexts
   - [x] Create task implementations for models
-  - [x] Create task implementations for prompt tasks
+  - [x] Create task implementations for capabilities
+  - [x] Create task implementations for capability parsers
   - [ ] Create task implementations for tools
   - [ ] Create task implementations for entrypoints and exit points
 
@@ -146,15 +161,16 @@ The project has undergone a **major refactoring** of the TaskFunction to be an a
 
 ### Phase 4: Advanced Features (Planned)
 
-- [ ] **Real Agent Execution**
-  - [ ] Connect task implementations to actual LLM API calls
-  - [ ] Implement proper handling of agent responses
-  - [ ] Add support for streaming responses from agents
+- [ ] **Real Model Execution**
+  - [x] Connect task implementations to actual LLM API calls (OllamaModel)
+  - [ ] Implement proper handling of model responses
+  - [ ] Add support for streaming responses from models
 
 - [ ] **Enhanced Tool System**
-  - [ ] Implement actual tool execution logic
-  - [ ] Add support for tool parameters validation
-  - [ ] Create a mechanism for tools to return results to agents
+  - [x] Implement capability execution logic
+  - [x] Add support for capability parameters validation
+  - [x] Create a mechanism for capabilities to return results to models
+  - [ ] Implement prompt chaining for complex workflows
 
 - [ ] **Additional Task Types**
   - [ ] Create specialized task types for common operations
@@ -180,27 +196,45 @@ The project has undergone a **major refactoring** of the TaskFunction to be an a
 
 ## Recent Improvements
 
-1. **Refactored TaskFunction to Async Generator**:
+1. **Implemented Model Context Protocol (MCP) Integration**:
+   - Created MCPCapability class for connecting to external capability servers
+   - Added support for HTTP and stdio transports
+   - Implemented capability discovery and execution
+   - Added support for three capability types: tools, prompts, and resources
+
+2. **Created CapableModel Architecture**:
+   - Implemented CapableModel class that combines models with capabilities
+   - Added support for tool execution and result processing
+   - Implemented special handling for different capability types
+   - Created composition relationships with BaseModel, BaseCapability[], and BaseCapabilityParser
+
+3. **Implemented TagCapabilityParser**:
+   - Created TagCapabilityParser class for extracting tool invocations from model responses
+   - Implemented template-based prompt formatting with available capabilities
+   - Added support for different invocation formats
+   - Implemented prefix handling for capability names
+
+4. **Refactored TaskFunction to Async Generator**:
    - Updated TaskFunction to be an async generator/AsyncIterable function
    - Added support for yielding control to other tasks and resuming execution
    - Implemented proper type validation between calls using Zod
 
-2. **Moved Task Definitions to core-constructs-lib**:
+5. **Moved Task Definitions to core-constructs-lib**:
    - Created a new task-defs.ts file in core-constructs-lib
    - Moved all task definitions from runtime to lib package
    - Updated imports in core-constructs-runtime to use the new definitions
 
-3. **Enhanced Task Implementation**:
+6. **Enhanced Task Implementation**:
    - Created TaskImpl interface with def, taskId, and execute properties
    - Implemented both promise-based and generator-based task functions
    - Added support for task suspension and resumption
 
-4. **Updated Supporting Files**:
+7. **Updated Supporting Files**:
    - Modified compiler.ts to use TaskImplMap instead of TaskFunctionMap
    - Updated journal.ts to use the new interfaces
    - Ensured all files are compatible with the new architecture
 
-5. **Implemented Task Message Types**:
+8. **Implemented Task Message Types**:
    - Created TaskCallRequest, TaskCallResult, and TaskCallAndReturnRequest interfaces
    - Ensured all message types are serializable as JSON
    - Added proper type validation for message fields
@@ -217,6 +251,12 @@ The project has undergone a **major refactoring** of the TaskFunction to be an a
 
 5. **Serialization Challenges**: Ensuring that all task messages are properly serializable as JSON may require additional work for complex data structures.
 
+6. **Capability Naming Conflicts**: When multiple capabilities have the same name, the system currently uses the latest definition, which may lead to unexpected behavior.
+
+7. **Error Handling in Capability Execution**: Error handling in capability execution needs improvement, especially for external MCP servers.
+
+8. **Deprecation of AgentContext**: We're moving away from the AgentContext pattern in favor of the more flexible CapableModel pattern, which may require migration for existing code.
+
 ## Next Milestones
 
 1. **Complete Task Implementation Enhancement** (Target: Week 1)
@@ -229,15 +269,15 @@ The project has undergone a **major refactoring** of the TaskFunction to be an a
    - Add support for conditional execution
    - Create a mechanism for sharing state between tasks
 
-3. **Implement Real Agent Execution** (Target: Week 2)
-   - Connect task implementations to actual LLM API calls
-   - Implement proper handling of agent responses
-   - Add support for streaming responses from agents
+3. **Implement Real Model Execution** (Target: Week 2)
+   - Connect task implementations to additional LLM API calls (OpenAI, Anthropic)
+   - Implement proper handling of model responses
+   - Add support for streaming responses from models
 
-4. **Enhance Tool System** (Target: Week 2)
-   - Implement actual tool execution logic
-   - Add support for tool parameters validation
-   - Create a mechanism for tools to return results to agents
+4. **Enhance Capability System** (Target: Week 2)
+   - Improve capability execution logic
+   - Enhance capability parameters validation
+   - Implement prompt chaining for complex workflows
 
 5. **Add Support for More Task Types** (Target: Week 3)
    - Create specialized task types for common operations
@@ -263,7 +303,7 @@ The project has undergone a **major refactoring** of the TaskFunction to be an a
 
 ### Main Demo
 
-A demo application has been created in 'packages/demo/src/main.ts' that shows how the app will be initialized and navigated. It demonstrates a two-agent model with a junior engineer and senior engineer that can communicate with each other. This demo uses the new workflow-based architecture.
+A demo application has been created in 'packages/demo/src/main.ts' that shows how the app will be initialized and navigated. It includes several test cases demonstrating different aspects of the system, including MCP capability usage, CapableModel configuration, and tool execution.
 
 To build and run the main demo application:
 

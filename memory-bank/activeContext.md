@@ -2,7 +2,9 @@
 
 ## Current Focus
 
-We are implementing a workflow-based architecture for the Ferment AI system with a major refactoring of the TaskFunction to be an async generator/AsyncIterable function. This architecture allows for defining workflows as sequences of tasks with clear relationships, enabling modular and composable agent systems with improved suspension and resumption capabilities.
+We are implementing a workflow-based architecture for the Ferment AI system with a major refactoring of the TaskFunction to be an async generator/AsyncIterable function. This architecture allows for defining workflows as sequences of tasks with clear relationships, enabling modular and composable model systems with improved suspension and resumption capabilities.
+
+Our current focus is on implementing the **Model Context Protocol (MCP)** integration, allowing connection to external capability servers, and the **CapableModel** architecture that combines models with capabilities, enabling tool use in LLM interactions. We've also implemented the **TagCapabilityParser** that formats prompts with available capabilities and extracts tool invocations from model responses.
 
 1. **Project Structure**: We have set up an Nx monorepo with the following packages:
    - `@ferment-ai/core-constructs-lib`: Core construct library and task definitions
@@ -46,7 +48,7 @@ We are implementing a workflow-based architecture for the Ferment AI system with
 
 2. **Workflow and Task Design**: Workflows are composed of tasks with defined relationships. Tasks can call other tasks and return to the caller, or they can call other tasks and not return (like a directed acyclic graph).
 
-3. **Module Interface**: Modules map constructs to task implementations, allowing for extensibility. Each module is responsible for a specific type of construct, such as agents, models, or tools.
+3. **Module Interface**: Modules map constructs to task implementations, allowing for extensibility. Each module is responsible for a specific type of construct, such as models, capabilities, or capability parsers.
 
 4. **Compiler Implementation**: The compiler extracts workflows from the construct tree by finding workflow constructs and their tasks, or by creating workflows from entrypoints if no workflow constructs are found.
 
@@ -76,32 +78,42 @@ We are implementing a workflow-based architecture for the Ferment AI system with
 
 ## Current Implementation Focus
 
-1. **Task Implementation Enhancement**:
-   - Refining task implementations for different construct types
-   - Ensuring proper error handling and result propagation
-   - Optimizing task execution flow
+1. **Model Context Protocol Integration**:
+   - Refining MCPCapability implementation
+   - Improving capability discovery and execution
+   - Enhancing error handling for external MCP servers
 
-2. **Workflow Execution**:
+2. **CapableModel Implementation**:
+   - Optimizing tool execution and result processing
+   - Improving handling of different capability types
+   - Enhancing the composition of models with capabilities
+
+3. **TagCapabilityParser Implementation**:
+   - Refining prompt formatting with available capabilities
+   - Improving parsing of model responses for tool invocations
+   - Enhancing prefix handling for capability names
+
+4. **Workflow Execution**:
    - Enhancing workflow executor to handle both promise and generator patterns
-   - Improving support for task relationships and tool calls
+   - Improving support for task relationships and capability calls
    - Ensuring proper event generation during execution
 
-3. **State Management**:
+5. **State Management**:
    - Refining serialization and deserialization of the journal state
    - Ensuring proper state propagation between tasks
    - Handling task suspension and resumption state
 
 ## Next Steps
 
-1. **Implement Real Agent Execution**:
-   - Connect task implementations to actual LLM API calls
-   - Implement proper handling of agent responses
-   - Add support for streaming responses from agents
+1. **Implement Real Model Execution**:
+   - Connect task implementations to additional LLM API calls (OpenAI, Anthropic)
+   - Implement proper handling of model responses
+   - Add support for streaming responses from models
 
-2. **Enhance Tool System**:
-   - Implement actual tool execution logic
-   - Add support for tool parameters validation
-   - Create a mechanism for tools to return results to agents
+2. **Enhance Capability System**:
+   - Improve capability execution logic
+   - Enhance capability parameters validation
+   - Implement prompt chaining for complex workflows
 
 3. **Add Support for More Task Types**:
    - Create specialized task types for common operations
@@ -130,7 +142,7 @@ We are implementing a workflow-based architecture for the Ferment AI system with
 
 ## Open Questions
 
-1. **Task Granularity**: How fine-grained should our tasks be? Should we have a single task for an agent, or should we break it down into smaller tasks?
+1. **Task Granularity**: How fine-grained should our tasks be? Should we have a single task for a model, or should we break it down into smaller tasks?
 
 2. **Task Relationships**: What's the best way to represent complex task relationships? Should we have more advanced constructs like conditional execution or loops?
 
@@ -144,10 +156,22 @@ We are implementing a workflow-based architecture for the Ferment AI system with
 
 7. **Workflow Versioning**: How should we handle changes to workflow definitions over time? Should we version workflows, or should we have a more flexible approach?
 
+8. **Capability Naming Conflicts**: How should we handle naming conflicts when multiple capabilities have the same name? Currently, we use the latest definition, but is there a better approach?
+
+9. **Prompt Chaining**: How should we implement prompt chaining for complex workflows? Should we have a dedicated component for this, or should it be part of the CapableModel?
+
+10. **AgentContext Deprecation**: How should we handle the transition from AgentContext to CapableModel? Should we provide migration tools or documentation?
+
 ## Commands
 
 To build and run the demo application:
 
 ```bash
+# Build the demo application
 npx nx build demo
-npx nx serve demo
+
+# Run the demo application with a specific test case
+npx nx serve demo --args="SimpleCall"
+npx nx serve demo --args="TestMCPGetCapabilities"
+npx nx serve demo --args="TestMCPExecuteCapability"
+npx nx serve demo --args="TestCapableModel"
