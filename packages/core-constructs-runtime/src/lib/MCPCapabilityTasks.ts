@@ -64,9 +64,6 @@ export function createMcpExecuteCapabilityTaskImpl(construct: MCPCapabilityExecu
     def: EXECUTE_CAPABILITY_TASK_DEF,
     nodePath: construct.node.path,
     execute: async function* (ctx: TaskCtx<typeof EXECUTE_CAPABILITY_TASK_DEF.inputType, typeof EXECUTE_CAPABILITY_TASK_DEF.outputType>) {
-      console.log(`Executing capabilities: ${construct.node.id}`);
-      console.log(`Input: ${JSON.stringify(ctx.input)}`);
-
       const props = construct.props.mcpCapability.props; // props are stored on the related MCPCapability construct.
 
       const mcp = new Client({ name: "@ferment-ai/core-constructs-runtime", version: "0.0.0" });

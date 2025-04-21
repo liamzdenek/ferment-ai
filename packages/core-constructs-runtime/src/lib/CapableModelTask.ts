@@ -110,9 +110,6 @@ export function createCapableModelTask(construct: CapableModel): TaskImpl<typeof
     def: CAPABLE_WORKFLOW_TASK_DEF,
     nodePath: construct.node.path,
     execute: async function* (ctx: TaskCtx<typeof CAPABLE_WORKFLOW_TASK_DEF.inputType, typeof CAPABLE_WORKFLOW_TASK_DEF.outputType>) {
-      console.log(`Executing AgentContext: ${construct.node.id}`);
-      console.log(`Input: ${JSON.stringify(ctx.input)}`);
-
       // Aggregate capabilities from all capability providers
       const { availableCapabilities, capabilityMap } = yield* aggregateCapabilities(ctx, construct);
 

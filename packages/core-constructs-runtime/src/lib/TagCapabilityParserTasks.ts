@@ -7,9 +7,6 @@ export function createTagCapabilityParserFormatPromptTask(construct: TagCapabili
     def: FORMAT_PROMPT_TASK_DEF,
     nodePath: construct.node.path,
     execute: async function* (ctx: TaskCtx<typeof FORMAT_PROMPT_TASK_DEF.inputType, typeof FORMAT_PROMPT_TASK_DEF.outputType>) {
-      console.log(`Executing tag capability parser format prompt: ${construct.node.id}`);
-      console.log(`Input: ${JSON.stringify(ctx.input)}`);
-
       interface TemplateToolType {
         name: string;
         description?: string;
@@ -76,7 +73,6 @@ export function createTagCapabilityParserFormatPromptTask(construct: TagCapabili
         };
       }
 
-      console.log("Template rendering result:", res);
       console.log("Updated messages", updatedMessages);
 
       // Return the final result with the updated messages

@@ -62,6 +62,7 @@ async function runWorkflow() {
         for await (const event of journal.executeWorkflow(workflowName, i.testPrompt)) {
             const logEv = Object.assign({}, event);
             delete logEv.output;
+            //console.log('Event:', logEv.type, '&', logEv.nodePath, '&', logEv.taskDefId);
             console.log('Event:', logEv, '---->', event.output);
         }
         

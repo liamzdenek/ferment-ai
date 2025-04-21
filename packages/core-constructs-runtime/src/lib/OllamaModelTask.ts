@@ -9,9 +9,6 @@ export function createOllamaTaskImpl(ollamaModel: OllamaModel): TaskImpl<typeof 
     def: INVOKE_MODEL_TASK_DEF,
     nodePath: ollamaModel.node.path,
     execute: convertPromiseToGenerator(async (ctx: TaskCtx<typeof INVOKE_MODEL_TASK_DEF.inputType, typeof INVOKE_MODEL_TASK_DEF.outputType>) => {
-      console.log(`Executing Ollama chat task: ${ollamaModel.node.id}`);
-      console.log(`Input: ${JSON.stringify(ctx.input)}`);
-      
       try {
         // Construct the API URL using the host from model props
         const apiUrl = `http://${ollamaModel.props.host}/api/chat`;
