@@ -439,8 +439,8 @@ export function compileWorkflow(
   // Validate the workflow definition
   WorkflowDefinitionSchema.parse(workflowDef);
   
-  console.log('Compiling workflow with tasks:', Object.keys(workflowDef.tasks));
-  console.log('Available task implementations:', Object.keys(taskImpls));
+  //console.log('Compiling workflow with tasks:', Object.keys(workflowDef.tasks));
+  //console.log('Available task implementations:', Object.keys(taskImpls));
   
   // Validate that all tasks have corresponding task implementations
   for (const taskPath of Object.keys(workflowDef.tasks)) {
@@ -478,15 +478,15 @@ export function compileWorkflow(
     ];
     
     try {
-      console.log("Initial task stack:", JSON.stringify(taskStack, null, 2));
+      //console.log("Initial task stack:", JSON.stringify(taskStack, null, 2));
       
       // Execute tasks until the stack is empty
       while (taskStack.length > 0) {
         const currentTask = taskStack[taskStack.length - 1];
         const { nodePath } = currentTask;
         
-        console.log("Current stack size:", taskStack.length, "Current task:", nodePath);
-        console.log("DEBUG: Task stack:", taskStack.map(t => t.nodePath).join(', '));
+        //console.log("Current stack size:", taskStack.length, "Current task:", nodePath);
+        //console.log("DEBUG: Task stack:", taskStack.map(t => t.nodePath).join(', '));
         
         // Get task implementation and definition
         const taskImpl = taskImpls[nodePath];
@@ -520,10 +520,12 @@ export function compileWorkflow(
           // Mark task as started
           startedTasks.add(nodePath);
           
+          /*
           console.log(`DEBUG: Executing task ${nodePath} with input:`, JSON.stringify({
             hasMessages: !!currentTask.input?.messages,
             messageCount: currentTask.input?.messages?.length
           }));
+          */
         }
         
         // Execute task step
@@ -545,7 +547,7 @@ export function compileWorkflow(
           case 'call':
             // Replace current task with next task
             taskStack = replaceTask(taskStack, result.nextTask);
-            console.log(`Task ${nodePath} is calling task ${result.nextTask.nodePath} with 'call' type`);
+            //console.log(`Task ${nodePath} is calling task ${result.nextTask.nodePath} with 'call' type`);
             break;
             
           case 'callAndReturn':
@@ -554,7 +556,7 @@ export function compileWorkflow(
               ...result.nextTask,
               returnTo: result.returnTo
             });
-            console.log(`Task ${nodePath} is calling task ${result.nextTask.nodePath} with 'callAndReturn' type`);
+            //console.log(`Task ${nodePath} is calling task ${result.nextTask.nodePath} with 'callAndReturn' type`);
             break;
             
           case 'complete': {
@@ -571,7 +573,7 @@ export function compileWorkflow(
               
               // Mark task as completed
               completedTasks.add(nodePath);
-              console.log(`Task ${nodePath} completed with output`);
+              //console.log(`Task ${nodePath} completed with output`);
             } else {
               // Yield task error event
               yield {
@@ -580,13 +582,13 @@ export function compileWorkflow(
                 nodePath,
                 error: new Error(result.result.error.message)
               };
-              console.log(`Task ${nodePath} failed with error: ${result.result.error.message}`);
+              //console.log(`Task ${nodePath} failed with error: ${result.result.error.message}`);
             }
             
             // Pop current task from stack
             const popResult = popTask(taskStack);
             taskStack = popResult[0];
-            console.log(`Popped task ${nodePath} from stack`);
+            //console.log(`Popped task ${nodePath} from stack`);
             
             // Handle return to caller
             if (currentTask.returnTo) {
@@ -599,7 +601,7 @@ export function compileWorkflow(
                   ...taskStack[callerIndex],
                   input: result.result
                 };
-                console.log(`Task ${nodePath} returning to caller ${currentTask.returnTo.nodePath} (already on stack)`);
+                //console.log(`Task ${nodePath} returning to caller ${currentTask.returnTo.nodePath} (already on stack)`);
               } else {
                 // Caller is not on the stack, push it
                 taskStack = pushTask(taskStack, {
@@ -607,7 +609,7 @@ export function compileWorkflow(
                   input: result.result,
                   generator: currentTask.returnTo.generator
                 });
-                console.log(`Task ${nodePath} returning to caller ${currentTask.returnTo.nodePath}`);
+                //console.log(`Task ${nodePath} returning to caller ${currentTask.returnTo.nodePath}`);
               }
             }
             // Handle call from caller
@@ -625,7 +627,7 @@ export function compileWorkflow(
                 
                 // Mark caller as completed
                 completedTasks.add(currentTask.calledFrom);
-                console.log(`Generated completion event for parent task ${currentTask.calledFrom}`);
+                //console.log(`Generated completion event for parent task ${currentTask.calledFrom}`);
               }
             }
             break;
@@ -638,7 +640,7 @@ export function compileWorkflow(
       for (const nodePath of startedTasks) {
         if (!completedTasks.has(nodePath)) {
           incompleteTasks.push(nodePath);
-          console.log(`WARNING: Task ${nodePath} started but didn't complete`);
+          //console.log(`WARNING: Task ${nodePath} started but didn't complete`);
         }
       }
       
@@ -650,7 +652,7 @@ export function compileWorkflow(
         );
       }
       
-      console.log("=== WORKFLOW EXECUTION COMPLETE ===");
+      //console.log("=== WORKFLOW EXECUTION COMPLETE ===");
       
       // Complete workflow
       yield {
