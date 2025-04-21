@@ -1,14 +1,13 @@
-import { BaseCapability, CAPABLE_WORKFLOW_TASK_DEF, CapableModel, GET_AVAILABLE_CAPABILITIES_TASK_DEF, InvokeChatModelMessageSchema } from '@ferment-ai/core-constructs-lib';
+import { BaseCapability, CAPABLE_WORKFLOW_TASK_DEF, CapableModel, GET_AVAILABLE_CAPABILITIES_TASK_DEF, CapableWorkflowTaskMessageSchema } from '@ferment-ai/core-constructs-lib';
 import { getTaskCall, TaskCtx, TaskImpl } from '@ferment-ai/runtime-common';
 import * as z from 'zod';
 
+type CapabilityType = 'tool' | 'prompt' | 'resource';
+type CapabilityMap = Map<CapabilityType, Map<string, BaseCapability>>;
+type CapableWorkflowMessage = z.infer<typeof CapableWorkflowTaskMessageSchema>;
 
 /**
- * Aggregates capabilities from all capability providers and creates mappings from capability names to their respective capabilities.
- *
- * @param ctx The task context
- * @param construct The CapableModel construct
- * @returns An object containing available capabilities and mappings from capability names to their respective capabilities
+ * Aggregates capabilities from all capability providers and creates mappings.
  */
 async function* aggregateCapabilities(
   ctx: TaskCtx<typeof CAPABLE_WORKFLOW_TASK_DEF.inputType, typeof CAPABLE_WORKFLOW_TASK_DEF.outputType>,
@@ -20,21 +19,21 @@ async function* aggregateCapabilities(
     tools: []
   };
 
-  // Create a map of maps for capability types to capability names to their respective capabilities
-  const capabilityMap = new Map<string, Map<string, BaseCapability>>();
-  
-  // Initialize maps for each capability type
-  capabilityMap.set('tool', new Map<string, BaseCapability>());
-  capabilityMap.set('prompt', new Map<string, BaseCapability>());
-  capabilityMap.set('resource', new Map<string, BaseCapability>());
+  // Initialize capability maps for each type
+  const capabilityMap: CapabilityMap = new Map([
+    ['tool', new Map()],
+    ['prompt', new Map()],
+    ['resource', new Map()]
+  ]);
 
-  for(const capability of construct.props.capabilities) {
+  // Process each capability provider
+  for (const capability of construct.props.capabilities) {
     const capabilitiesRes = yield* getTaskCall(ctx, capability.getAvailableCapabilities)();
-
-    // Check for conflicts with duplicate names within each list
+    
+    // Check for conflicts with duplicate names
     for (const prompt of capabilitiesRes.output.prompts) {
       if (availableCapabilities.prompts.some(p => p.name === prompt.name)) {
-        throw new Error(`Duplicate prompt name detected: ${prompt.name}.`); // TODO: Rename, Blacklist, or Whitelist the tools.
+        throw new Error(`Duplicate prompt name detected: ${prompt.name}.`);
       }
       capabilityMap.get('prompt')?.set(prompt.name, capability);
     }
@@ -61,12 +60,51 @@ async function* aggregateCapabilities(
   
   console.log("Got availableCapabilities", availableCapabilities);
   
+  return { availableCapabilities, capabilityMap };
+}
+
+/**
+ * Adds category to messages
+ */
+function categorizeMessages(messages: CapableWorkflowMessage[], category: 'input' | 'intermediate' | 'response'): CapableWorkflowMessage[] {
+  return messages.map(msg => ({
+    ...msg,
+    category
+  }));
+}
+
+/**
+ * Executes a capability and returns the result as a message
+ */
+async function* executeCapability(
+  ctx: TaskCtx<typeof CAPABLE_WORKFLOW_TASK_DEF.inputType, typeof CAPABLE_WORKFLOW_TASK_DEF.outputType>,
+  capability: BaseCapability,
+  request: any
+): AsyncGenerator<any, CapableWorkflowMessage> {
+  const result = yield* getTaskCall(ctx, capability.executeCapability)(request);
+  
   return {
-    availableCapabilities,
-    capabilityMap
+    role: 'user' as const,
+    content: `${request.type} ${request.name} executed with result: ${JSON.stringify(result.output.result)}`,
+    category: 'intermediate' as const
   };
 }
 
+/**
+ * Invokes the model and returns categorized messages
+ */
+async function* invokeModel(
+  ctx: TaskCtx<typeof CAPABLE_WORKFLOW_TASK_DEF.inputType, typeof CAPABLE_WORKFLOW_TASK_DEF.outputType>,
+  model: any,
+  messages: CapableWorkflowMessage[]
+): AsyncGenerator<any, CapableWorkflowMessage[]> {
+  const modelRes = yield* getTaskCall(ctx, model)({ messages });
+  return categorizeMessages(modelRes.output.messages, 'response');
+}
+
+/**
+ * Creates a task implementation for the CapableModel
+ */
 export function createCapableModelTask(construct: CapableModel): TaskImpl<typeof CAPABLE_WORKFLOW_TASK_DEF.inputType, typeof CAPABLE_WORKFLOW_TASK_DEF.outputType> {
   return {
     def: CAPABLE_WORKFLOW_TASK_DEF,
@@ -76,40 +114,33 @@ export function createCapableModelTask(construct: CapableModel): TaskImpl<typeof
       console.log(`Input: ${JSON.stringify(ctx.input)}`);
 
       // Aggregate capabilities from all capability providers
-      const {
-        availableCapabilities,
-        capabilityMap
-      } = yield* aggregateCapabilities(ctx, construct);
+      const { availableCapabilities, capabilityMap } = yield* aggregateCapabilities(ctx, construct);
 
+      // Initialize conversation with categorized input messages
+      let conversation = categorizeMessages(ctx.input.messages, 'input');
+
+      // Format prompt with capabilities and invoke model
       const formattedPrompt = yield* getTaskCall(ctx, construct.props.capabilityParser.formatPrompt)({
-        messages: ctx.input.messages,
+        messages: conversation,
         availableCapabilities
       });
+      
+      // Add model response to conversation
+      const modelResponses = yield* invokeModel(ctx, construct.props.model, formattedPrompt.output.messages as CapableWorkflowMessage[]);
+      conversation = [...conversation, ...modelResponses];
 
-      const modelRes = yield* getTaskCall(ctx, construct.props.model)({
-        messages: formattedPrompt.output.messages,
-      });
-
-      let toolRes = yield* getTaskCall(ctx, construct.props.capabilityParser.parseModelResponse)({
+      // Parse model response for capability requests
+      let executionRequests = (yield* getTaskCall(ctx, construct.props.capabilityParser.parseModelResponse)({
         availableCapabilities,
         messageHistory: ctx.input.messages,
-        newMessages: modelRes.output.messages
-      });
-
-      console.log("Got tool invocation reqs", toolRes.output.executionRequests);
+        newMessages: modelResponses
+      })).output.executionRequests;
       
-      // Maintain a list of messages for the conversation
-      let conversationMessages = [...ctx.input.messages, ...modelRes.output.messages];
+      console.log("Got tool invocation reqs", executionRequests);
       
-      // Continue looping as long as the model keeps producing tool, resource, or prompt invocations
-      let hasCapabilityInvocations = toolRes.output.executionRequests.length > 0;
-      
-      while (hasCapabilityInvocations) {
-        // Process all capability requests from the current model response
-        let executionRequests = toolRes.output.executionRequests;
-        hasCapabilityInvocations = false; // Reset for this iteration
-        
-        // Sort execution requests so that prompts go last
+      // Process capability requests until none remain
+      while (executionRequests.length > 0) {
+        // Sort requests to process prompts last
         executionRequests = [
           ...executionRequests.filter(req => req.type !== 'prompt'),
           ...executionRequests.filter(req => req.type === 'prompt')
@@ -117,85 +148,56 @@ export function createCapableModelTask(construct: CapableModel): TaskImpl<typeof
         
         // Process each capability request
         for (const req of executionRequests) {
-          // Get the right capability based on the request type and name
-          const capability = capabilityMap.get(req.type)?.get(req.name);
+          const capability = capabilityMap.get(req.type as CapabilityType)?.get(req.name);
           
           if (!capability) {
             console.error(`No capability found for ${req.type} with name ${req.name}`);
             continue;
           }
 
-          // Execute the capability
-          const capabilityResult = yield* getTaskCall(ctx, capability.executeCapability)(req);
+          // Execute capability and add result to conversation
+          const resultMessage = yield* executeCapability(ctx, capability, req);
+          conversation.push(resultMessage);
           
-          // Add the result as a new message in the conversation
-          const resultMessage: z.infer<typeof InvokeChatModelMessageSchema> = {
-            role: 'user',
-            content: `${req.type} ${req.name} executed with result: ${JSON.stringify(capabilityResult.output.result)}`
-          };
-          
-          conversationMessages.push(resultMessage);
-          
-          // For prompt capabilities, re-invoke the model without tools and append its response
+          // For prompt capabilities, re-invoke the model without tools
           if (req.type === 'prompt') {
-            // Run the model with the updated conversation
-            const promptModelRes = yield* getTaskCall(ctx, construct.props.model)({
-              messages: conversationMessages,
-            });
-            
-            // Add the model's response to the conversation
-            conversationMessages = [...conversationMessages, ...promptModelRes.output.messages];
+            const promptResponses = yield* invokeModel(ctx, construct.props.model, conversation);
+            conversation = [...conversation, ...promptResponses];
           }
         }
         
-        // If we processed any requests, check if the model produces more tool invocations
-        if (executionRequests.length > 0) {
-          // Format the prompt with available capabilities
-          const formattedPrompt = yield* getTaskCall(ctx, construct.props.capabilityParser.formatPrompt)({
-            messages: conversationMessages,
-            availableCapabilities
-          });
-          
-          // Invoke the model
-          const newModelRes = yield* getTaskCall(ctx, construct.props.model)({
-            messages: formattedPrompt.output.messages,
-          });
-          
-          // Add the model's response to the conversation
-          conversationMessages = [...conversationMessages, ...newModelRes.output.messages];
-          
-          // Parse the model response for tool invocations
-          const newToolRes = yield* getTaskCall(ctx, construct.props.capabilityParser.parseModelResponse)({
-            availableCapabilities,
-            messageHistory: conversationMessages.slice(0, -newModelRes.output.messages.length),
-            newMessages: newModelRes.output.messages
-          });
-          
-          // Check if there are more tool invocations
-          hasCapabilityInvocations = newToolRes.output.executionRequests.length > 0;
-          
-          // Update toolRes for the next iteration
-          if (hasCapabilityInvocations) {
-            toolRes = {
-              ...newToolRes
-            };
-          }
-          
-          console.log("Got tool invocation reqs", toolRes.output.executionRequests);
-        }
+        // Format prompt with updated conversation and invoke model again
+        const formattedPrompt = yield* getTaskCall(ctx, construct.props.capabilityParser.formatPrompt)({
+          messages: conversation,
+          availableCapabilities
+        });
+        
+        const newModelResponses = yield* invokeModel(ctx, construct.props.model, formattedPrompt.output.messages);
+        
+        // Parse model response for new capability requests
+        executionRequests = (yield* getTaskCall(ctx, construct.props.capabilityParser.parseModelResponse)({
+          availableCapabilities,
+          messageHistory: conversation,
+          newMessages: newModelResponses
+        })).output.executionRequests;
+
+        conversation = [...conversation, ...categorizeMessages(newModelResponses, executionRequests.length === 0 ? 'response' : 'intermediate')];
+        
+        console.log("Got tool invocation reqs", executionRequests);
       }
 
-      const output: z.infer<typeof CAPABLE_WORKFLOW_TASK_DEF.outputType> = {
-        messages: conversationMessages
-      }
-
-      // Return the final result
+      // Filter to only include final messages (responses and intermediates)
+      const finalMessages = conversation.filter(msg => {
+        if (!msg.category) return msg.role === 'system';
+        return msg.category === 'response' || msg.category === 'intermediate';
+      });
+      
       return {
         type: 'result',
         taskDefId: ctx.taskDefId,
         nodePath: ctx.nodePath,
         input: ctx.input,
-        output
+        output: { messages: finalMessages }
       };
     }
   };

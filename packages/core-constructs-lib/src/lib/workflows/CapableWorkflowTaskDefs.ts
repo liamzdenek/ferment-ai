@@ -3,9 +3,9 @@ import { TaskDef } from '@ferment-ai/runtime-common';
 
 export const CapableWorkflowTaskMessageSchema = z.object({
   role: z.enum(['user', 'assistant', 'system']),
-  content: z.string()
+  content: z.string(),
+  category: z.enum(['input', 'intermediate', 'response']).optional(),
 });
-
 export const CapableWorkflowTaskInputSchema = z.object({
   messages: z.array(CapableWorkflowTaskMessageSchema),
   forceCapability: z.string().optional(),

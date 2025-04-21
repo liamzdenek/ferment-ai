@@ -1,8 +1,8 @@
 import { TaskDef } from "@ferment-ai/runtime-common";
 import { z } from "zod";
 import { EXECUTE_CAPABILITY_TASK_DEF, GET_AVAILABLE_CAPABILITIES_TASK_DEF } from "../capabilities/BaseCapabilityTaskDefs.js";
-import { CapableWorkflowTaskMessageSchema } from "../workflows/CapableWorkflowTaskDefs.js";
 import { InvokeChatModelMessageSchema } from "../models/BaseModelTaskDefs.js";
+import { CapableWorkflowTaskMessageSchema } from "../workflows/CapableWorkflowTaskDefs.js";
 
 const FormatPromptInputSchema = z.strictObject({
   messages: CapableWorkflowTaskMessageSchema.array(),

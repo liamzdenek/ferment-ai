@@ -1,6 +1,7 @@
-import { FORMAT_PROMPT_TASK_DEF, PARSE_MODEL_RESPONSE_TASK_DEF, TagCapabilityParserFormatPromptTask, TagCapabilityParserParseModelResponseTask } from "@ferment-ai/core-constructs-lib";
+import { CapableWorkflowTaskMessageSchema, FORMAT_PROMPT_TASK_DEF, PARSE_MODEL_RESPONSE_TASK_DEF, TagCapabilityParserFormatPromptTask, TagCapabilityParserParseModelResponseTask } from "@ferment-ai/core-constructs-lib";
 import { TaskImpl, TaskCtx } from "@ferment-ai/runtime-common";
 import dot from 'dot';
+import * as z from 'zod';
 
 export function createTagCapabilityParserFormatPromptTask(construct: TagCapabilityParserFormatPromptTask): TaskImpl<typeof FORMAT_PROMPT_TASK_DEF.inputType, typeof FORMAT_PROMPT_TASK_DEF.outputType> {
   return {
@@ -27,20 +28,27 @@ export function createTagCapabilityParserFormatPromptTask(construct: TagCapabili
         parameters?: any;
       }
 
+      // Type assertion for availableCapabilities
+      const availableCapabilities = ctx.input.availableCapabilities as {
+        tools: { name: string; description?: string; inputSchema: any }[];
+        prompts: { name: string; description?: string; arguments: any }[];
+        resources: { name: string; description?: string }[];
+      };
+
       const tools: TemplateToolType[] = [
-        ...ctx.input.availableCapabilities.tools.map(tool => ({
+        ...availableCapabilities.tools.map(tool => ({
           name: `tool:${tool.name}`,
           description: tool.description ?? "",
           parameters: tool.inputSchema
         })),
 
-        ...ctx.input.availableCapabilities.prompts.map(prompt => ({
+        ...availableCapabilities.prompts.map(prompt => ({
           name: `prompt:${prompt.name}`,
           description: prompt.description ?? "",
           parameters: prompt.arguments
         })),
 
-        ...ctx.input.availableCapabilities.resources.map(resources => ({
+        ...availableCapabilities.resources.map(resources => ({
           name: `resource:${resources.name}`,
           description: resources.description ?? ""
         }))
@@ -50,15 +58,19 @@ export function createTagCapabilityParserFormatPromptTask(construct: TagCapabili
         tools
       })
 
-      // Find the first message in ctx.input.messages with the role "system"
-      const systemMessageIndex = ctx.input.messages.findIndex(msg => msg.role === 'system');
-      const updatedMessages = [...ctx.input.messages];
+      // Type assertion for messages
+      const messages = ctx.input.messages as z.infer<typeof CapableWorkflowTaskMessageSchema>[];
+      
+      // Find the first message with the role "system"
+      const systemMessageIndex = messages.findIndex(msg => msg.role === 'system');
+      const updatedMessages = [...messages];
       
       if (systemMessageIndex === -1) {
         // If no system message exists, create one at the beginning
         updatedMessages.unshift({
           role: 'system',
           content: res
+          // No category needed for system messages
         });
       } else {
         // Append res to the end of the existing system message with a header
