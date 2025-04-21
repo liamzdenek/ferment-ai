@@ -10,8 +10,10 @@ import {
   CAPABLE_WORKFLOW_TASK_DEF,
   FORMAT_PROMPT_TASK_DEF,
   TagCapabilityParserFormatPromptTask,
+  StructuredOutputCapabilityParserFormatPromptTask,
   PARSE_MODEL_RESPONSE_TASK_DEF,
   TagCapabilityParserParseModelResponseTask,
+  StructuredOutputCapabilityParserParseModelResponseTask,
   RENDER_TEMPLATE_TASK_DEF,
   DotTemplateParser
 } from '@ferment-ai/core-constructs-lib';
@@ -23,6 +25,7 @@ import { createOllamaTaskImpl } from './OllamaModelTask.js';
 import { createMcpExecuteCapabilityTaskImpl, createMcpGetAvailableCapabilitiesTaskImpl } from './MCPCapabilityTasks.js';
 import { createCapableModelTask } from './CapableModelTask.js';
 import { createTagCapabilityParserFormatPromptTask, createTagCapabilityParserParseModelResponseTask } from './TagCapabilityParserTasks.js';
+import { createStructuredOutputCapabilityParserFormatPromptTask, createStructuredOutputCapabilityParserParseModelResponseTask } from './StructuredOutputCapabilityParserTasks.js';
 import { createDotTemplateParserTask } from './DotTemplateParserTasks.js';
 
 /**
@@ -46,9 +49,19 @@ export function createCoreConstructsModule(): Module {
         case CAPABLE_WORKFLOW_TASK_DEF.taskDefId:
           return createCapableModelTask(construct as CapableModel);
         case FORMAT_PROMPT_TASK_DEF.taskDefId:
-          return createTagCapabilityParserFormatPromptTask(construct as TagCapabilityParserFormatPromptTask);
+          if (construct instanceof TagCapabilityParserFormatPromptTask) {
+            return createTagCapabilityParserFormatPromptTask(construct);
+          } else if (construct instanceof StructuredOutputCapabilityParserFormatPromptTask) {
+            return createStructuredOutputCapabilityParserFormatPromptTask(construct);
+          }
+          break;
         case PARSE_MODEL_RESPONSE_TASK_DEF.taskDefId:
-          return createTagCapabilityParserParseModelResponseTask(construct as TagCapabilityParserParseModelResponseTask);
+          if (construct instanceof TagCapabilityParserParseModelResponseTask) {
+            return createTagCapabilityParserParseModelResponseTask(construct);
+          } else if (construct instanceof StructuredOutputCapabilityParserParseModelResponseTask) {
+            return createStructuredOutputCapabilityParserParseModelResponseTask(construct);
+          }
+          break;
         case RENDER_TEMPLATE_TASK_DEF.taskDefId:
           return createDotTemplateParserTask(construct as DotTemplateParser);
         default:

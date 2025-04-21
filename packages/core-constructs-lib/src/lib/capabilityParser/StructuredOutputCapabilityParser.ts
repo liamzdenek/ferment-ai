@@ -7,27 +7,154 @@ import { DotTemplateParser } from "../templateParser/DotTemplateParser.js";
 import { z } from "zod";
 
 export interface StructuredOutputCapabilityParserProps {
-  templateParser: BaseTemplateParser,
+  templateParser: BaseTemplateParser;
+  allowMultipleToolUses?: boolean; // Flag to enable multiple tool uses in a single call (default: false)
 }
 
 const DEFAULT_PROMPT_STRING = `
-# Tool Use Instructions
+# Structured Output Instructions
 
-You have access to the following functions:
+You have access to the following capabilities:
+
 {{~it.tools :tool}}
-Use the function '{{=tool.name}}' to '{{=tool.description}}' w/ parameters: {{=JSON.stringify(tool.parameters)}}
+## {{=tool.name}}
+{{=tool.description ? tool.description : ''}}
+Parameters: {{=JSON.stringify(tool.parameters)}}
+
 {{~}}
-If you choose to call a function ONLY reply in the following format with no prefix or suffix:
-<tool_name_here>{"example_name": "example_value"}</tool_name_here>
-Reminder:
-- If looking for real time information use relevant functions before falling back to web search
-- Function calls MUST follow the specified format, start with <name> and end with </name>
-- Required parameters MUST be specified
-- Only call one function at a time
-- Put the entire function call reply on one line
-- Do not repeat the xml-like tag or the tool will run a second time
+
+## Response Format
+
+You must respond with a valid JSON object that follows this structure:
+
+\`\`\`json
+{
+  "action": "tool|prompt|resource|message",
+  "name": "capability_name", // Required for tool, prompt, resource
+  "arguments": {}, // Required for tool, prompt
+  "uri": "resource_uri", // Required for resource
+  "content": "message_content" // Required for message
+}
+\`\`\`
+
+### Examples:
+
+1. To use a tool:
+\`\`\`json
+{
+  "action": "tool",
+  "name": "search",
+  "arguments": {
+    "query": "weather in San Francisco"
+  }
+}
+\`\`\`
+
+2. To use a prompt:
+\`\`\`json
+{
+  "action": "prompt",
+  "name": "summarize",
+  "arguments": {
+    "text": "Long text to summarize..."
+  }
+}
+\`\`\`
+
+3. To access a resource:
+\`\`\`json
+{
+  "action": "resource",
+  "name": "weather",
+  "uri": "weather://san-francisco/current"
+}
+\`\`\`
+
+4. To return a normal message:
+\`\`\`json
+{
+  "action": "message",
+  "content": "This is a normal message response."
+}
+\`\`\`
+
+Remember:
+- Your response must be valid JSON
+- The structure must match the format above
+- Required fields must be included based on the action type
+- Only call one capability at a time
 `.trim();
 
+// Multiple tool uses version of the prompt
+const MULTIPLE_TOOL_USES_PROMPT_STRING = `
+# Structured Output Instructions
+
+You have access to the following capabilities:
+
+{{~it.tools :tool}}
+## {{=tool.name}}
+{{=tool.description ? tool.description : ''}}
+Parameters: {{=JSON.stringify(tool.parameters)}}
+
+{{~}}
+
+## Response Format
+
+You must respond with a valid JSON array of actions. Each action must follow this structure:
+
+\`\`\`json
+[
+  {
+    "action": "tool|prompt|resource|message",
+    "name": "capability_name", // Required for tool, prompt, resource
+    "arguments": {}, // Required for tool, prompt
+    "uri": "resource_uri", // Required for resource
+    "content": "message_content" // Required for message
+  },
+  // More actions can be included here
+]
+\`\`\`
+
+### Examples:
+
+1. Multiple tool uses:
+\`\`\`json
+[
+  {
+    "action": "tool",
+    "name": "search",
+    "arguments": {
+      "query": "weather in San Francisco"
+    }
+  },
+  {
+    "action": "resource",
+    "name": "weather",
+    "uri": "weather://san-francisco/current"
+  },
+  {
+    "action": "message",
+    "content": "I've checked the weather for you."
+  }
+]
+\`\`\`
+
+2. Single message response:
+\`\`\`json
+[
+  {
+    "action": "message",
+    "content": "This is a normal message response."
+  }
+]
+\`\`\`
+
+Remember:
+- Your response must be valid JSON
+- The structure must match the format above
+- Required fields must be included based on the action type
+- You can include multiple actions in your response
+`.trim();
 
 export class StructuredOutputCapabilityParser extends BaseCapabilityParser {
 
@@ -41,11 +168,12 @@ export class StructuredOutputCapabilityParser extends BaseCapabilityParser {
     
     // Create a default DotTemplateParser if not provided
     const templateParser = props?.templateParser || new DotTemplateParser(this, 'DefaultTemplateParser', {
-      template: DEFAULT_PROMPT_STRING
+      template: props?.allowMultipleToolUses ? MULTIPLE_TOOL_USES_PROMPT_STRING : DEFAULT_PROMPT_STRING
     });
     
     this.props = {
       templateParser,
+      allowMultipleToolUses: props?.allowMultipleToolUses ?? false,
       ...(props ?? {})
     };
     

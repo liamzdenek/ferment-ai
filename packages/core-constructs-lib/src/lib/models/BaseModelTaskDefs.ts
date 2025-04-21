@@ -9,7 +9,7 @@ export const InvokeChatModelMessageSchema = z.object({
 // Input Schema for Ollama Task
 export const InvokeChatModelTaskInputSchema = z.object({
   messages: z.array(InvokeChatModelMessageSchema),
-  forceJsonSchema: z.string().optional(),
+  forceJsonSchema: z.any().optional(),
   options: z.object({
     temperature: z.number()
   }).optional()

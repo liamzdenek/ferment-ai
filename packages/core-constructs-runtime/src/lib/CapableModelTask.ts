@@ -1,4 +1,4 @@
-import { BaseCapability, CAPABLE_WORKFLOW_TASK_DEF, CapableModel, GET_AVAILABLE_CAPABILITIES_TASK_DEF, CapableWorkflowTaskMessageSchema, INVOKE_MODEL_TASK_DEF } from '@ferment-ai/core-constructs-lib';
+import { BaseCapability, CAPABLE_WORKFLOW_TASK_DEF, CapableModel, GET_AVAILABLE_CAPABILITIES_TASK_DEF, CapableWorkflowTaskMessageSchema, INVOKE_MODEL_TASK_DEF, BaseModel } from '@ferment-ai/core-constructs-lib';
 import { getTaskCall, TaskCtx, TaskImpl } from '@ferment-ai/runtime-common';
 import * as z from 'zod';
 
@@ -95,7 +95,7 @@ async function* executeCapability(
  */
 async function* invokeModel(
   ctx: TaskCtx<typeof CAPABLE_WORKFLOW_TASK_DEF.inputType, typeof CAPABLE_WORKFLOW_TASK_DEF.outputType>,
-  model: any,
+  model: BaseModel,
   prompt: z.infer<typeof INVOKE_MODEL_TASK_DEF.inputType>
 ): AsyncGenerator<any, CapableWorkflowMessage[]> {
   const modelRes = yield* getTaskCall(ctx, model)(prompt);
@@ -172,13 +172,16 @@ export function createCapableModelTask(construct: CapableModel): TaskImpl<typeof
         const newModelResponses = yield* invokeModel(ctx, construct.props.model, formattedPrompt.output.prompt);
         
         // Parse model response for new capability requests
-        executionRequests = (yield* getTaskCall(ctx, construct.props.capabilityParser.parseModelResponse)({
+        const capParser = (yield* getTaskCall(ctx, construct.props.capabilityParser.parseModelResponse)({
           availableCapabilities,
           messageHistory: conversation,
           newMessages: newModelResponses
-        })).output.executionRequests;
+        }))
+        
+        const msgs = capParser.output.newMessages ?? newModelResponses;
+        executionRequests = capParser.output.executionRequests;
 
-        conversation = [...conversation, ...categorizeMessages(newModelResponses, executionRequests.length === 0 ? 'response' : 'intermediate')];
+        conversation = [...conversation, ...categorizeMessages(msgs, executionRequests.length === 0 ? 'response' : 'intermediate')];
         
         console.log("Got tool invocation reqs", executionRequests);
       }

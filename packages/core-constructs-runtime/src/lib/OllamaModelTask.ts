@@ -56,6 +56,7 @@ export function createOllamaTaskImpl(ollamaModel: OllamaModel): TaskImpl<typeof 
         };
       } catch (error) {
         console.error(`Error calling Ollama Chat API: ${error}`);
+        console.error(error);
         
         // Return an error result
         return {
