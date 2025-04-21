@@ -75,15 +75,19 @@ export function createTagCapabilityParserFormatPromptTask(construct: TagCapabili
 
       console.log("Updated messages", updatedMessages);
 
+      const output: z.infer<typeof FORMAT_PROMPT_TASK_DEF.outputType> = {
+        prompt: {
+          messages: updatedMessages
+        }
+      } 
+
       // Return the final result with the updated messages
       return {
         type: 'result',
         taskDefId: ctx.taskDefId,
         nodePath: ctx.nodePath,
         input: ctx.input,
-        output: {
-          messages: updatedMessages
-        }
+        output
       };
     }
   };

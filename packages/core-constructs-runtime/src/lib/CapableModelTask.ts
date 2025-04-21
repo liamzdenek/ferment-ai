@@ -1,4 +1,4 @@
-import { BaseCapability, CAPABLE_WORKFLOW_TASK_DEF, CapableModel, GET_AVAILABLE_CAPABILITIES_TASK_DEF, CapableWorkflowTaskMessageSchema } from '@ferment-ai/core-constructs-lib';
+import { BaseCapability, CAPABLE_WORKFLOW_TASK_DEF, CapableModel, GET_AVAILABLE_CAPABILITIES_TASK_DEF, CapableWorkflowTaskMessageSchema, INVOKE_MODEL_TASK_DEF } from '@ferment-ai/core-constructs-lib';
 import { getTaskCall, TaskCtx, TaskImpl } from '@ferment-ai/runtime-common';
 import * as z from 'zod';
 
@@ -96,9 +96,9 @@ async function* executeCapability(
 async function* invokeModel(
   ctx: TaskCtx<typeof CAPABLE_WORKFLOW_TASK_DEF.inputType, typeof CAPABLE_WORKFLOW_TASK_DEF.outputType>,
   model: any,
-  messages: CapableWorkflowMessage[]
+  prompt: z.infer<typeof INVOKE_MODEL_TASK_DEF.inputType>
 ): AsyncGenerator<any, CapableWorkflowMessage[]> {
-  const modelRes = yield* getTaskCall(ctx, model)({ messages });
+  const modelRes = yield* getTaskCall(ctx, model)(prompt);
   return categorizeMessages(modelRes.output.messages, 'response');
 }
 
@@ -123,7 +123,7 @@ export function createCapableModelTask(construct: CapableModel): TaskImpl<typeof
       });
       
       // Add model response to conversation
-      const modelResponses = yield* invokeModel(ctx, construct.props.model, formattedPrompt.output.messages as CapableWorkflowMessage[]);
+      const modelResponses = yield* invokeModel(ctx, construct.props.model, formattedPrompt.output.prompt);
       conversation = [...conversation, ...modelResponses];
 
       // Parse model response for capability requests
@@ -158,7 +158,7 @@ export function createCapableModelTask(construct: CapableModel): TaskImpl<typeof
           
           // For prompt capabilities, re-invoke the model without tools
           if (req.type === 'prompt') {
-            const promptResponses = yield* invokeModel(ctx, construct.props.model, conversation);
+            const promptResponses = yield* invokeModel(ctx, construct.props.model, { messages: conversation });
             conversation = [...conversation, ...promptResponses];
           }
         }
@@ -169,7 +169,7 @@ export function createCapableModelTask(construct: CapableModel): TaskImpl<typeof
           availableCapabilities
         });
         
-        const newModelResponses = yield* invokeModel(ctx, construct.props.model, formattedPrompt.output.messages);
+        const newModelResponses = yield* invokeModel(ctx, construct.props.model, formattedPrompt.output.prompt);
         
         // Parse model response for new capability requests
         executionRequests = (yield* getTaskCall(ctx, construct.props.capabilityParser.parseModelResponse)({
@@ -182,19 +182,13 @@ export function createCapableModelTask(construct: CapableModel): TaskImpl<typeof
         
         console.log("Got tool invocation reqs", executionRequests);
       }
-
-      // Filter to only include final messages (responses and intermediates)
-      const finalMessages = conversation.filter(msg => {
-        if (!msg.category) return msg.role === 'system';
-        return msg.category === 'response' || msg.category === 'intermediate';
-      });
       
       return {
         type: 'result',
         taskDefId: ctx.taskDefId,
         nodePath: ctx.nodePath,
         input: ctx.input,
-        output: { messages: finalMessages }
+        output: { messages: conversation }
       };
     }
   };
