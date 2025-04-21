@@ -19,7 +19,7 @@ export class TestCapableModel extends TestConstruct {
 
         const testModel = new OllamaModel(this, 'TestModel', {
             host: "ollama:11434",
-            modelName: "llama3.1:8b"
+            modelName: "deepseek-r1:8b"
         });
 
         const mcp = new MCPCapability(this, 'MCPCapability', {
