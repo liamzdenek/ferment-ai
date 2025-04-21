@@ -18,8 +18,10 @@ export function createOllamaTaskImpl(ollamaModel: OllamaModel): TaskImpl<typeof 
           model: ollamaModel.props.modelName,
           messages: ctx.input.messages,
           stream: false,
-          format: ctx.input.format,
-          options: ctx.input.options
+          format: ctx.input.forceJsonSchema,
+          options: {
+            temperature: ctx.input.options?.temperature
+          }
         };
         
         console.log(`Calling Ollama Chat API at ${apiUrl}`);

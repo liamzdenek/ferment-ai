@@ -3,17 +3,13 @@ import { TaskDef } from '@ferment-ai/runtime-common';
 
 export const InvokeChatModelMessageSchema = z.object({
   role: z.enum(['user', 'assistant', 'system']),
-  content: z.string()
+  content: z.string(),
 });
 
 // Input Schema for Ollama Task
 export const InvokeChatModelTaskInputSchema = z.object({
   messages: z.array(InvokeChatModelMessageSchema),
-  format: z.object({
-    type: z.string(),
-    properties: z.record(z.any()),
-    required: z.array(z.string())
-  }).optional(),
+  forceJsonSchema: z.string().optional(),
   options: z.object({
     temperature: z.number()
   }).optional()
