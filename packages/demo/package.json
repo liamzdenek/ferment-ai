@@ -50,6 +50,7 @@
     "@ferment-ai/core-constructs-runtime": "*",
     "@ferment-ai/runtime-common": "*",
     "@ferment-ai/runtime-in-memory": "*",
+    "@ferment-ai/dad-joke-mcp": "*",
     "constructs": "^10.0.0"
   }
 }

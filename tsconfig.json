@@ -20,6 +20,9 @@
     },
     {
       "path": "./packages/demo"
+    },
+    {
+      "path": "./packages/dad-joke-mcp"
     }
   ]
 }

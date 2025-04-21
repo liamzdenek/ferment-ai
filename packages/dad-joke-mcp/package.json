@@ -1,0 +1,57 @@
+{
+  "name": "@ferment-ai/dad-joke-mcp",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/src/main.js",
+  "module": "./dist/src/main.js",
+  "types": "./dist/src/main.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "development": "./src/main.ts",
+      "types": "./dist/src/main.d.ts",
+      "import": "./dist/src/main.js",
+      "default": "./dist/src/main.js"
+    }
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.10.1"
+  },
+  "nx": {
+    "targets": {
+      "build": {
+        "executor": "@nx/js:swc",
+        "outputs": [
+          "{options.outputPath}"
+        ],
+        "options": {
+          "outputPath": "packages/dad-joke-mcp/dist",
+          "main": "packages/dad-joke-mcp/src/main.ts",
+          "tsConfig": "packages/dad-joke-mcp/tsconfig.app.json",
+          "skipTypeCheck": true,
+          "stripLeadingPaths": true
+        }
+      },
+      "serve": {
+        "executor": "@nx/js:node",
+        "defaultConfiguration": "development",
+        "dependsOn": [
+          "build"
+        ],
+        "options": {
+          "buildTarget": "@ferment-ai/dad-joke-mcp:build",
+          "runBuildTargetDependencies": false
+        },
+        "configurations": {
+          "development": {
+            "buildTarget": "@ferment-ai/dad-joke-mcp:build:development"
+          },
+          "production": {
+            "buildTarget": "@ferment-ai/dad-joke-mcp:build:production"
+          }
+        }
+      }
+    }
+  }
+}

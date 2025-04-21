@@ -3,6 +3,7 @@ import { Workflow } from '@ferment-ai/runtime-common';
 import { Construct } from 'constructs';
 import { TestConstruct } from '../TestConstruct.js';
 import { z } from 'zod';
+import path from 'path';
 
 export class TestMCPGetCapabilities extends TestConstruct {
     public override testPrompt: z.infer<typeof GET_AVAILABLE_CAPABILITIES_TASK_DEF.inputType> = null;
@@ -12,8 +13,9 @@ export class TestMCPGetCapabilities extends TestConstruct {
 
         const mcp = new MCPCapability(this, 'MCPCapability', {
             transport: {
-                type: 'http',
-                uri: "http://localhost:7000/mcp"
+              type: 'stdio',
+              command: 'node',
+              args: [path.join(process.cwd(), './packages/dad-joke-mcp/dist/main.js')]
             }
         });
 

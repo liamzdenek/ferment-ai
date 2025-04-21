@@ -1,13 +1,9 @@
-import { CapableWorkflowTaskMessageSchema, FORMAT_PROMPT_TASK_DEF, InvokeChatModelMessageSchema, PARSE_MODEL_RESPONSE_TASK_DEF, StructuredOutputCapabilityParserFormatPromptTask, StructuredOutputCapabilityParserParseModelResponseTask } from "@ferment-ai/core-constructs-lib";
+import { CapableWorkflowTaskMessageSchema, FORMAT_PROMPT_TASK_DEF, GET_AVAILABLE_CAPABILITIES_TASK_DEF, InvokeChatModelMessageSchema, PARSE_MODEL_RESPONSE_TASK_DEF, StructuredOutputCapabilityParserFormatPromptTask, StructuredOutputCapabilityParserParseModelResponseTask } from "@ferment-ai/core-constructs-lib";
 import { getTaskCall, TaskImpl, TaskCtx } from "@ferment-ai/runtime-common";
 import * as z from 'zod';
 
 // Function to generate JSON schema based on available capabilities
-function generateJsonSchema(availableCapabilities: {
-  tools: { name: string; description?: string; inputSchema: any }[];
-  prompts: { name: string; description?: string; arguments: any }[];
-  resources: { name: string; description?: string }[];
-}, allowMultipleToolUses: boolean) {
+function generateJsonSchema(availableCapabilities: z.infer<typeof GET_AVAILABLE_CAPABILITIES_TASK_DEF.outputType>, allowMultipleToolUses: boolean) {
   // Create a discriminated union with a discrete entry for each tool, prompt, resource, and message
   const oneOfSchemas = [];
   
@@ -77,7 +73,7 @@ function generateJsonSchema(availableCapabilities: {
       properties: {
         action: { type: "string", enum: ["resource"] },
         name: { type: "string", enum: [resource.name] },
-        uri: { type: "string" }
+        uri: { type: "string", enum: [resource.uri] }
       },
       required: ["action", "name", "uri"],
       additionalProperties: false
@@ -112,11 +108,7 @@ export function createStructuredOutputCapabilityParserFormatPromptTask(construct
       }
 
       // Type assertion for availableCapabilities
-      const availableCapabilities = ctx.input.availableCapabilities as {
-        tools: { name: string; description?: string; inputSchema: any }[];
-        prompts: { name: string; description?: string; arguments: any }[];
-        resources: { name: string; description?: string }[];
-      };
+      const availableCapabilities = ctx.input.availableCapabilities;
 
       const tools: TemplateToolType[] = [
         ...availableCapabilities.tools.map(tool => ({

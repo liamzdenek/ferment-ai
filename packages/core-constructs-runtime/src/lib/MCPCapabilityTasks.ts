@@ -6,17 +6,17 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import * as z from 'zod';
 
 const getTransport = (transport: MCPToolProps['transport']): StreamableHTTPClientTransport | StdioClientTransport => {
-  switch(transport.type) {
+  switch (transport.type) {
     case 'http':
       return new StreamableHTTPClientTransport(new URL(transport.uri), {});
     case 'stdio':
       return new StdioClientTransport({
         // command, args, env, stderr, cwd
         command: transport.command,
-        args: transport.args
+        args: transport.args,
       });
     default:
-      throw new Error("Unknown transport type '"+JSON.stringify(transport)+"', unable to connect to MCP server");
+      throw new Error("Unknown transport type '" + JSON.stringify(transport) + "', unable to connect to MCP server");
   }
 }
 
@@ -29,31 +29,53 @@ export function createMcpGetAvailableCapabilitiesTaskImpl(construct: MCPCapabili
       console.log(`Input: ${JSON.stringify(ctx.input)}`);
 
       const props = construct.props.mcpCapability.props; // props are stored on the related MCPCapability construct.
-
-      const mcp = new Client({ name: "@ferment-ai/core-constructs-runtime", version: "0.0.0" });
       const transport = getTransport(props.transport);
+      try {
+        const mcp = new Client({ name: "@ferment-ai/core-constructs-runtime", version: "0.0.0" });
+        await mcp.connect(transport);
 
-      await mcp.connect(transport);
+        const output: z.infer<typeof GET_AVAILABLE_CAPABILITIES_TASK_DEF.outputType> = {
+          prompts: [],
+          resources: [],
+          tools: []
+        }
 
-      const promptsRes = await mcp.listPrompts();
-      const resourcesRes = await mcp.listResources();
-      const toolsRes = await mcp.listTools();
+        const cap = mcp.getServerCapabilities();
+        console.log("Cap", cap);
 
-      const output: z.infer<typeof GET_AVAILABLE_CAPABILITIES_TASK_DEF.outputType> = {
-        prompts: promptsRes.prompts,
-        resources: resourcesRes.resources,
-        tools: toolsRes.tools
+        if (cap?.tools) {
+          const toolRes = await mcp.listTools();
+          output.tools = toolRes.tools;
+        }
+
+        if (cap?.prompts) {
+          const promptsRes = await mcp.listPrompts();
+          output.prompts = promptsRes.prompts;
+        }
+
+        if (cap?.resources) {
+          const resourcesRes = await mcp.listResources();
+          console.log("ResourcesRes", resourcesRes);
+          output.resources.push(...resourcesRes.resources);
+        }
+
+        console.log("Got MCP capabilities", output);
+        // Return the final result
+        return {
+          type: 'result',
+          taskDefId: ctx.taskDefId,
+          nodePath: ctx.nodePath,
+          input: ctx.input,
+          output
+        };
+      } catch(e) {
+        throw new Error("Failed to get MCP Capabilities: "+e);
+      } finally {
+        // due to a bug in the _responseHandlers logic in @mcp/sdk 1.10.1, we have to wait for call stack to
+        // complete before we can safely close the transport. otherwise an exception will throw
+        await new Promise(resolve => setTimeout(resolve, 0));
+        await transport.close();
       }
-
-      console.log("Got MCP capabilities", output);
-      // Return the final result
-      return {
-        type: 'result',
-        taskDefId: ctx.taskDefId,
-        nodePath: ctx.nodePath,
-        input: ctx.input,
-        output
-      };
     }
   };
 }
@@ -69,54 +91,60 @@ export function createMcpExecuteCapabilityTaskImpl(construct: MCPCapabilityExecu
       const mcp = new Client({ name: "@ferment-ai/core-constructs-runtime", version: "0.0.0" });
       const transport = getTransport(props.transport);
 
-      await mcp.connect(transport);
+      try {
+        await mcp.connect(transport);
+        let output: z.infer<typeof EXECUTE_CAPABILITY_TASK_DEF.outputType>
 
-      let output: z.infer<typeof EXECUTE_CAPABILITY_TASK_DEF.outputType>
+        switch (ctx.input.type) {
+          case "prompt": {
+            const promptRes = await mcp.getPrompt({
+              name: ctx.input.name,
+              arguments: ctx.input.arguments
+            });
+            output = {
+              result: promptRes.messages
+            }
+            break;
+          }
+          case "resource": {
+            const resourceRes = await mcp.readResource({
+              name: ctx.input.name,
+              uri: ctx.input.uri
+            });
+            output = {
+              result: resourceRes.contents
+            }
+            break;
+          }
+          case "tool": {
+            const toolRes = await mcp.callTool({
+              name: ctx.input.name,
+              arguments: ctx.input.arguments
+            });
+            output = {
+              result: toolRes.content
+            }
+            break;
+          }
+          default:
+            throw new Error("Unknown MCP capability: " + (ctx.input as any).type);
+        }
 
-      switch(ctx.input.type) {
-        case "prompt": {
-          const promptRes = await mcp.getPrompt({
-            name: ctx.input.name,
-            arguments: ctx.input.arguments
-          });
-          output = {
-            result: promptRes.messages
-          }
-          break;
-        }
-        case "resource": {
-          const resourceRes = await mcp.readResource({
-            name: ctx.input.name,
-            uri: ctx.input.uri
-          });
-          output = {
-            result: resourceRes.contents
-          }
-          break;
-        }
-        case "tool": {
-          const toolRes = await mcp.callTool({
-            name: ctx.input.name,
-            arguments: ctx.input.arguments
-          });
-          output = {
-            result: toolRes.content
-          }
-          break;
-        }
-        default:
-          throw new Error("Unknown MCP capability: "+(ctx.input as any).type);
+        console.log("Got MCP response", JSON.stringify(output, null, 2));
+        // Return the final result
+        return {
+          type: 'result',
+          taskDefId: ctx.taskDefId,
+          nodePath: ctx.nodePath,
+          input: ctx.input,
+          output
+        };
+      } finally {
+        // due to a bug in the _responseHandlers logic in @mcp/sdk 1.10.1, we have to wait for call stack to
+        // complete before we can safely close the transport. otherwise an exception will throw
+        await new Promise(resolve => setTimeout(resolve, 0));
+        await transport.close();
       }
-
-      console.log("Got MCP response", JSON.stringify(output, null, 2));
-      // Return the final result
-      return {
-        type: 'result',
-        taskDefId: ctx.taskDefId,
-        nodePath: ctx.nodePath,
-        input: ctx.input,
-        output
-      };
     }
   };
 }

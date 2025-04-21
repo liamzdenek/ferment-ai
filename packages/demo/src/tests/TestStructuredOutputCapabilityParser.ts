@@ -3,13 +3,19 @@ import { Workflow } from '@ferment-ai/runtime-common';
 import { Construct } from 'constructs';
 import { TestConstruct } from '../TestConstruct.js';
 import { z } from 'zod';
+import path from 'path';
 
 export class TestStructuredOutputCapabilityParser extends TestConstruct {
   public override testPrompt: z.infer<typeof CAPABLE_WORKFLOW_TASK_DEF.inputType> = {
     messages: [
       {
+        role: 'system',
+        content: "You must try to use a tool, resource, or prompt to answer the user's inquiry, if one is a match. " +
+          "You must rely on the tool's output to answer the user's inquiry."
+      },
+      {
         role: "user",
-        content: "What is the BMI of a person that weighs 400 kilograms and is 120 cm high? Use the calculator tool."
+        content: "Can you search for a dad joke about hipsters?"
       }
     ]
   };
@@ -20,17 +26,18 @@ export class TestStructuredOutputCapabilityParser extends TestConstruct {
     const testModel = new OllamaModel(this, 'TestModel', {
       host: "ollama:11434",
       modelName: "deepseek-r1:8b"
-  });
+    });
 
     const mcp = new MCPCapability(this, 'MCPCapability', {
       transport: {
-          type: 'http',
-          uri: "http://localhost:7000/mcp"
+        type: 'stdio',
+        command: 'node',
+        args: [path.join(process.cwd(), './packages/dad-joke-mcp/dist/main.js')]
       }
     });
-    
+
     // Create a single tool use capability parser (default)
-    const singleToolParser = new StructuredOutputCapabilityParser(this, 'SingleToolParser');
+    const singleToolParser = new StructuredOutputCapabilityParser(this, 'StructuredOutputCapabilityParser');
 
     const singleToolModel = new CapableModel(this, 'SingleToolModel', {
       model: testModel,

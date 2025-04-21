@@ -181,7 +181,10 @@ export function createCapableModelTask(construct: CapableModel): TaskImpl<typeof
         const msgs = capParser.output.newMessages ?? newModelResponses;
         executionRequests = capParser.output.executionRequests;
 
-        conversation = [...conversation, ...categorizeMessages(msgs, executionRequests.length === 0 ? 'response' : 'intermediate')];
+        conversation = [
+          ...conversation.map(v => ({ ...v, category: v.category === 'response' ? 'intermediate' : v.category })),
+          ...categorizeMessages(msgs, executionRequests.length === 0 ? 'response' : 'intermediate')
+        ];
         
         console.log("Got tool invocation reqs", executionRequests);
       }

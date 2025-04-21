@@ -5,7 +5,7 @@ import { TestMCPGetCapabilities } from './tests/TestMCPGetCapabilities.js';
 import { TestConstruct } from './TestConstruct.js';
 import { SimpleCall } from './tests/SimpleCall.js';
 import { TestMCPExecuteCapability } from './tests/TestMCPExecuteCapability.js';
-import { TestCapableModel } from './tests/TestCapableModel.js';
+import { TestTagCapabilityParser } from './tests/TestTagCapabilityParser.js';
 import { TestDotTemplateParser } from './tests/TestDotTemplateParser.js';
 import { TestStructuredOutputCapabilityParser } from './tests/TestStructuredOutputCapabilityParser.js';
 
@@ -27,7 +27,7 @@ const LOOKUP: { [cliArg: string]: new (parent: Construct, id: string) => TestCon
     "TestMCPExecuteCapability": TestMCPExecuteCapability,
     "TestDotTemplateParser": TestDotTemplateParser,
 
-    "TestCapableModel": TestCapableModel,
+    "TestTagCapabilityParser": TestTagCapabilityParser,
     "TestStructuredOutputCapabilityParser": TestStructuredOutputCapabilityParser,
 }
 
