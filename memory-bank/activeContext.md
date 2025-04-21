@@ -88,7 +88,14 @@ Our current focus is on implementing the **Model Context Protocol (MCP)** integr
    - Improving handling of different capability types
    - Enhancing the composition of models with capabilities
 
-3. **TagCapabilityParser Implementation**:
+3. **Template Parser Implementation**:
+   - Implemented BaseTemplateParser as an abstract class for template parsing
+   - Created DotTemplateParser as a concrete implementation using the dot template engine
+   - Extracted template parsing logic from capability parsers for better separation of concerns
+   - Updated TagCapabilityParser and StructuredOutputCapabilityParser to use the new template parsers
+   - Added a test case for the DotTemplateParser
+
+4. **TagCapabilityParser Implementation**:
    - Refining prompt formatting with available capabilities
    - Improving parsing of model responses for tool invocations
    - Enhancing prefix handling for capability names
@@ -175,3 +182,4 @@ npx nx serve demo --args="SimpleCall"
 npx nx serve demo --args="TestMCPGetCapabilities"
 npx nx serve demo --args="TestMCPExecuteCapability"
 npx nx serve demo --args="TestCapableModel"
+npx nx serve demo --args="TestDotTemplateParser"

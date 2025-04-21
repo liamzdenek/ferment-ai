@@ -531,6 +531,43 @@ This pattern provides:
   - `<function=NAME>JSON</function>`
 - Prefix handling for capability names
 
+### 13. TemplateParser Pattern
+
+The `BaseTemplateParser` class provides a common interface for template parsing:
+
+```typescript
+export abstract class BaseTemplateParser extends WorkflowTask<typeof RENDER_TEMPLATE_TASK_DEF.inputType, typeof RENDER_TEMPLATE_TASK_DEF.outputType> {
+  public override taskDef = RENDER_TEMPLATE_TASK_DEF;
+
+  constructor(scope: Construct, id: string, props = {}) {
+    super(scope, id, props);
+  }
+}
+```
+
+The `DotTemplateParser` class implements the BaseTemplateParser using the dot template engine:
+
+```typescript
+export class DotTemplateParser extends BaseTemplateParser {
+  public readonly props: DotTemplateParserProps;
+
+  constructor(scope: Construct, id: string, props: DotTemplateParserProps) {
+    super(scope, id, {});
+    this.props = {
+      template: props.template,
+      stripWhitespace: props.stripWhitespace ?? false
+    };
+  }
+}
+```
+
+This pattern provides:
+- Separation of template parsing logic from capability parsers
+- Reusable template rendering functionality
+- Support for different template engines through a common interface
+- Simplified template management with dedicated constructs
+- Improved testability of template rendering logic
+
 ## Package Structure and Responsibilities
 
 The Ferment AI system is organized into several packages, each with a specific responsibility:

@@ -6,6 +6,7 @@ import { TestConstruct } from './TestConstruct.js';
 import { SimpleCall } from './tests/SimpleCall.js';
 import { TestMCPExecuteCapability } from './tests/TestMCPExecuteCapability.js';
 import { TestCapableModel } from './tests/TestCapableModel.js';
+import { TestDotTemplateParser } from './tests/TestDotTemplateParser.js';
 
 // Create a root construct
 const rootConstruct = new RootConstruct('Root');
@@ -23,6 +24,7 @@ const LOOKUP: { [cliArg: string]: new (parent: Construct, id: string) => TestCon
     "SimpleCall": SimpleCall,
     "TestMCPGetCapabilities": TestMCPGetCapabilities,
     "TestMCPExecuteCapability": TestMCPExecuteCapability,
+    "TestDotTemplateParser": TestDotTemplateParser,
 
     "TestCapableModel": TestCapableModel,
 }

@@ -16,3 +16,8 @@ export * from './lib/capabilityParser/TagCapabilityParser.js';
 export * from './lib/capabilityParser/BaseCapabilityParser.js';
 export * from './lib/capabilityParser/BaseCapabilityParserTaskDefs.js';
 export * from './lib/capabilityParser/StructuredOutputCapabilityParser.js';
+
+// Template Parser
+export * from './lib/templateParser/BaseTemplateParser.js';
+export * from './lib/templateParser/BaseTemplateParserTaskDefs.js';
+export * from './lib/templateParser/DotTemplateParser.js';

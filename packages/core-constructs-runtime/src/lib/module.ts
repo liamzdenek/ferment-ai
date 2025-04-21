@@ -11,7 +11,9 @@ import {
   FORMAT_PROMPT_TASK_DEF,
   TagCapabilityParserFormatPromptTask,
   PARSE_MODEL_RESPONSE_TASK_DEF,
-  TagCapabilityParserParseModelResponseTask
+  TagCapabilityParserParseModelResponseTask,
+  RENDER_TEMPLATE_TASK_DEF,
+  DotTemplateParser
 } from '@ferment-ai/core-constructs-lib';
 import {
   Module,
@@ -21,6 +23,7 @@ import { createOllamaTaskImpl } from './OllamaModelTask.js';
 import { createMcpExecuteCapabilityTaskImpl, createMcpGetAvailableCapabilitiesTaskImpl } from './MCPCapabilityTasks.js';
 import { createCapableModelTask } from './CapableModelTask.js';
 import { createTagCapabilityParserFormatPromptTask, createTagCapabilityParserParseModelResponseTask } from './TagCapabilityParserTasks.js';
+import { createDotTemplateParserTask } from './DotTemplateParserTasks.js';
 
 /**
  * Creates a core constructs module
@@ -46,6 +49,8 @@ export function createCoreConstructsModule(): Module {
           return createTagCapabilityParserFormatPromptTask(construct as TagCapabilityParserFormatPromptTask);
         case PARSE_MODEL_RESPONSE_TASK_DEF.taskDefId:
           return createTagCapabilityParserParseModelResponseTask(construct as TagCapabilityParserParseModelResponseTask);
+        case RENDER_TEMPLATE_TASK_DEF.taskDefId:
+          return createDotTemplateParserTask(construct as DotTemplateParser);
         default:
           //fallthrough
       }

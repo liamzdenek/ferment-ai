@@ -21,6 +21,7 @@ Recently, we've implemented the **Model Context Protocol (MCP)** integration, al
    - `BaseModel`: Base class for model implementations (with `OllamaModel`)
    - `BaseCapability`: Base class for capability implementations
    - `BaseCapabilityParser`: Base class for capability parser implementations
+   - `BaseTemplateParser`: Base class for template parser implementations (with `DotTemplateParser`)
    - `CapableModel`: Class that combines models with capabilities
    - `MCPCapability`: Class for connecting to MCP servers
    - `TagCapabilityParser`: Class for extracting tool invocations from model responses
@@ -214,7 +215,14 @@ Recently, we've implemented the **Model Context Protocol (MCP)** integration, al
    - Added support for different invocation formats
    - Implemented prefix handling for capability names
 
-4. **Refactored TaskFunction to Async Generator**:
+4. **Implemented Template Parser**:
+   - Created BaseTemplateParser class as an abstract base for template parsers
+   - Implemented DotTemplateParser using the dot template engine
+   - Extracted template parsing logic from capability parsers
+   - Updated TagCapabilityParser and StructuredOutputCapabilityParser to use template parsers
+   - Added a test case for the DotTemplateParser
+
+5. **Refactored TaskFunction to Async Generator**:
    - Updated TaskFunction to be an async generator/AsyncIterable function
    - Added support for yielding control to other tasks and resuming execution
    - Implemented proper type validation between calls using Zod
@@ -309,7 +317,7 @@ To build and run the main demo application:
 
 ```bash
 npx nx build demo
-npx nx serve demo
+npx nx serve demo --args="TestDotTemplateParser"
 ```
 
 ### HTTP Application Demo

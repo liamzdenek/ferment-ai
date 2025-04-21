@@ -71,6 +71,9 @@ graph TD
         Capabilities --> MCPCapability[MCPCapability]
         Parser --> TagCapabilityParser[TagCapabilityParser]
         
+        TagCapabilityParser --> BaseTemplateParser[BaseTemplateParser]
+        BaseTemplateParser --> DotTemplateParser[DotTemplateParser]
+        
         MCPCapability --> HTTPTransport[HTTP Transport]
         MCPCapability --> StdioTransport[Stdio Transport]
     end
@@ -584,6 +587,8 @@ export class RAGSystem extends Construct {
 - **MCPCapability**: Implementation of the Model Context Protocol capability
 - **BaseCapabilityParser**: Base class for capability parser implementations
 - **TagCapabilityParser**: Implementation of the tag-based capability parser
+- **BaseTemplateParser**: Base class for template parser implementations
+- **DotTemplateParser**: Implementation of the dot template engine parser
 - **CapableModel**: Class that combines models with capabilities
 
 ### Workflow and Task System

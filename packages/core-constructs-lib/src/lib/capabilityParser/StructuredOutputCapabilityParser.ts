@@ -2,10 +2,12 @@ import { WorkflowTask } from "@ferment-ai/runtime-common";
 import { Construct } from "constructs";
 import { BaseCapabilityParser } from "./BaseCapabilityParser.js";
 import { FORMAT_PROMPT_TASK_DEF, PARSE_MODEL_RESPONSE_TASK_DEF } from "./BaseCapabilityParserTaskDefs.js";
+import { BaseTemplateParser } from "../templateParser/BaseTemplateParser.js";
+import { DotTemplateParser } from "../templateParser/DotTemplateParser.js";
+import { z } from "zod";
 
 export interface StructuredOutputCapabilityParserProps {
-  prompt: string,
-  promptTemplateEngine: 'dot',
+  templateParser: BaseTemplateParser,
 }
 
 const DEFAULT_PROMPT_STRING = `
@@ -36,14 +38,21 @@ export class StructuredOutputCapabilityParser extends BaseCapabilityParser {
 
   constructor(scope: Construct, id: string, props?: Partial<StructuredOutputCapabilityParserProps>) {
     super(scope, id);
+    
+    // Create a default DotTemplateParser if not provided
+    const templateParser = props?.templateParser || new DotTemplateParser(this, 'DefaultTemplateParser', {
+      template: DEFAULT_PROMPT_STRING
+    });
+    
     this.props = {
-      prompt: DEFAULT_PROMPT_STRING,
-      promptTemplateEngine: 'dot',
+      templateParser,
       ...(props ?? {})
     };
+    
     const subProps = {
       capabilityParser: this
     };
+    
     this.formatPrompt = new StructuredOutputCapabilityParserFormatPromptTask(this, 'FormatPrompt', subProps);
     this.parseModelResponse = new StructuredOutputCapabilityParserParseModelResponseTask(this, 'ParseModelResponse', subProps);
   }
@@ -58,6 +67,13 @@ export class StructuredOutputCapabilityParserFormatPromptTask extends WorkflowTa
 
   constructor(scope: Construct, id: string, public props: StructuredOutputCapabilityParserTaskProps) {
     super(scope, id, {});
+  }
+
+  override getTools(): Record<string, WorkflowTask<z.ZodTypeAny, z.ZodTypeAny>> {
+    return {
+      ...super.getTools(),
+      [this.props.capabilityParser.props.templateParser.node.path]: this.props.capabilityParser.props.templateParser
+    };
   }
 }
 
