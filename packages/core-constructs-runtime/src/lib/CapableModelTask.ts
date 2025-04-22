@@ -116,6 +116,8 @@ export function createCapableModelTask(construct: CapableModel): TaskImpl<typeof
       // Initialize conversation with categorized input messages
       let conversation = categorizeMessages(ctx.input.messages, 'input');
 
+      const force = ctx.input.force;
+
       // Format prompt with capabilities and invoke model
       const formattedPrompt = yield* getTaskCall(ctx, construct.props.capabilityParser.formatPrompt)({
         messages: conversation,
@@ -188,13 +190,23 @@ export function createCapableModelTask(construct: CapableModel): TaskImpl<typeof
         
         console.log("Got tool invocation reqs", executionRequests);
       }
+
+      let structuredOutput: unknown | undefined = undefined;
+
+      if(force?.type === 'structuredOutput') {
+        const modelResponses = yield* invokeModel(ctx, construct.props.model, {
+          messages: conversation,
+          forceJsonSchema: force.schema
+        });
+        structuredOutput = JSON.parse(modelResponses[modelResponses.length-1].content)
+      }
       
       return {
         type: 'result',
         taskDefId: ctx.taskDefId,
         nodePath: ctx.nodePath,
         input: ctx.input,
-        output: { messages: conversation }
+        output: { messages: conversation, structuredOutput }
       };
     }
   };

@@ -34,7 +34,3 @@ export class Chain extends CapableWorkflowTask {
     };
   }
 }
-
-export class LLMGate extends CapableWorkflowTask {
-
-}

@@ -10,6 +10,7 @@ import { TestDotTemplateParser } from './tests/TestDotTemplateParser.js';
 import { TestStructuredOutputCapabilityParser } from './tests/TestStructuredOutputCapabilityParser.js';
 import { TestPushMessagesTask } from './tests/TestPushMessagesTask.js';
 import { TestChain } from './tests/TestChain.js';
+import { TestLLMGate } from './tests/TestLLMGate.js';
 
 // Create a root construct
 const rootConstruct = new RootConstruct('Root');
@@ -29,6 +30,7 @@ const LOOKUP: { [cliArg: string]: new (parent: Construct, id: string) => TestCon
     "TestMCPExecuteCapability": TestMCPExecuteCapability,
     "TestDotTemplateParser": TestDotTemplateParser,
     "TestPushMessagesTask": TestPushMessagesTask,
+    "TestLLMGate": TestLLMGate,
 
     "TestTagCapabilityParser": TestTagCapabilityParser,
     "TestStructuredOutputCapabilityParser": TestStructuredOutputCapabilityParser,

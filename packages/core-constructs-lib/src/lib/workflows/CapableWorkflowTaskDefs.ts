@@ -8,11 +8,17 @@ export const CapableWorkflowTaskMessageSchema = z.object({
 });
 export const CapableWorkflowTaskInputSchema = z.object({
   messages: z.array(CapableWorkflowTaskMessageSchema),
-  forceCapability: z.string().optional(),
+  force: z.discriminatedUnion('type', [
+    z.strictObject({
+      type: z.literal('structuredOutput'),
+      schema: z.unknown(),
+    })
+  ]).optional()
 });
 
 export const CapableWorkflowTaskOutputSchema = z.object({
   messages: z.array(CapableWorkflowTaskMessageSchema),
+  structuredOutput: z.unknown().optional()
 });
 
 export const CAPABLE_WORKFLOW_TASK_DEF: TaskDef<typeof CapableWorkflowTaskInputSchema, typeof CapableWorkflowTaskOutputSchema> = {

@@ -10,7 +10,8 @@ import {
   StructuredOutputCapabilityParserParseModelResponseTask,
   DotTemplateParser,
   EditMessagesTask,
-  Chain
+  Chain,
+  LLMGate
 } from '@ferment-ai/core-constructs-lib';
 import {
   Module,
@@ -24,6 +25,7 @@ import { createStructuredOutputCapabilityParserFormatPromptTask, createStructure
 import { createDotTemplateParserTask } from './DotTemplateParserTasks.js';
 import { createEditMessagesTask } from './EditMessagesTask.js';
 import { createChainTask } from './ChainTask.js';
+import { createLlmGateTask } from './LLMGateTask.js';
 
 /**
  * Creates a core constructs module
@@ -80,6 +82,9 @@ export function createCoreConstructsModule(): Module {
       }
       if (construct instanceof EditMessagesTask) {
         return createEditMessagesTask(construct);
+      }
+      if(construct instanceof LLMGate) {
+        return createLlmGateTask(construct);
       }
     }
 

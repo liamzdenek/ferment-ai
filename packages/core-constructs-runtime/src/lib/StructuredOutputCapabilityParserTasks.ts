@@ -175,7 +175,7 @@ export function createStructuredOutputCapabilityParserFormatPromptTask(construct
         }
       };
 
-      console.log("Updated messages with JSON schema", output);
+      console.log("Updated messages with JSON schema", JSON.stringify(output));
 
       // Return the final result with the updated messages
       return {
