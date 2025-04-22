@@ -2,6 +2,93 @@ import { z } from 'zod';
 import { Construct } from 'constructs';
 
 /**
+ * Represents an error that occurred during workflow execution
+ * Tracks the call stack, inputs, and constructs involved
+ */
+export class WorkflowError extends Error {
+  public readonly callStack: WorkflowErrorStackFrame[];
+  public readonly originalError?: Error;
+
+  constructor(message: string, options: WorkflowErrorOptions = {}) {
+    super(message);
+    this.name = 'WorkflowError';
+    this.callStack = options.callStack || [];
+    this.originalError = options.originalError;
+  }
+
+  // Add a frame to the call stack
+  public addFrame(frame: WorkflowErrorStackFrame): WorkflowError {
+    this.callStack.unshift(frame);
+    return this;
+  }
+
+  // Serialize the error for transmission
+  public toJSON(): WorkflowErrorJSON {
+    return {
+      name: this.name,
+      message: this.message,
+      stack: this.stack,
+      callStack: this.callStack,
+      originalError: this.originalError ? {
+        name: this.originalError.name,
+        message: this.originalError.message,
+        stack: this.originalError.stack
+      } : undefined
+    };
+  }
+
+  // Create a WorkflowError from a serialized error
+  public static fromJSON(json: WorkflowErrorJSON): WorkflowError {
+    let originalError: Error | undefined = undefined;
+    
+    if (json.originalError) {
+      originalError = new Error(json.originalError.message);
+      originalError.name = json.originalError.name;
+      originalError.stack = json.originalError.stack;
+    }
+    
+    const error = new WorkflowError(json.message, {
+      callStack: json.callStack,
+      originalError
+    });
+    
+    // Restore stack trace if available
+    if (json.stack) {
+      error.stack = json.stack;
+    }
+    
+    return error;
+  }
+}
+
+export interface WorkflowErrorStackFrame {
+  taskDefId: string;
+  nodePath: string;
+  input: any;
+  construct?: {
+    id: string;
+    path: string;
+  };
+}
+
+export interface WorkflowErrorOptions {
+  callStack?: WorkflowErrorStackFrame[];
+  originalError?: Error;
+}
+
+export interface WorkflowErrorJSON {
+  name: string;
+  message: string;
+  stack?: string;
+  callStack: WorkflowErrorStackFrame[];
+  originalError?: {
+    name: string;
+    message: string;
+    stack?: string;
+  };
+}
+
+/**
  * Task definition interface with input and output types
  */
 export interface TaskDef<I extends z.ZodTypeAny, O extends z.ZodTypeAny> {
@@ -62,15 +149,7 @@ export interface TaskCallAndReturnRequest {
   input: any;
 }
 
-/**
- * Task call request
- */
-export interface TaskCallRequest {
-  type: 'call';
-  taskDefId: string;
-  nodePath: string;
-  input: any;
-}
+// 'call' path removed as it's unused
 
 /**
  * Task call result
@@ -93,20 +172,20 @@ export interface TaskCallError {
   input: any;
   error: {
     message: string;
-    details: Error | any;
+    details: WorkflowError | Error | unknown;
   };
 }
 
 /**
  * Task message type union
  */
-export type TaskMessage = TaskCallAndReturnRequest | TaskCallRequest | TaskCallResult;
+export type TaskMessage = TaskCallAndReturnRequest | TaskCallResult;
 
 /**
  * Task execution function types
  */
 export type TaskExecuteFunction<I extends z.ZodTypeAny, O extends z.ZodTypeAny> =
-  (ctx: TaskCtx<I, O>) => AsyncGenerator<TaskCallAndReturnRequest, TaskCallRequest | TaskCallResult | TaskCallError, TaskCallResult | TaskCallError>;
+  (ctx: TaskCtx<I, O>) => AsyncGenerator<TaskCallAndReturnRequest, TaskCallResult | TaskCallError, TaskCallResult | TaskCallError>;
 
 /**
  * Task implementation with definition and execution function
@@ -132,7 +211,7 @@ export interface WorkflowLogEvent {
   taskDefId?: string;
   input?: any;
   output?: any;
-  error?: Error;
+  error?: WorkflowError | Error;
 }
 
 /**
@@ -181,7 +260,6 @@ interface TaskExecutionState {
   input: any;
   generator?: AsyncGenerator<any, any, any>;
   returnTo?: ReturnToInfo;
-  calledFrom?: string; // Track which task called this one using 'call' type
 }
 
 /**
@@ -189,7 +267,6 @@ interface TaskExecutionState {
  */
 type TaskStepResult =
   | { type: 'continue'; state: TaskExecutionState }
-  | { type: 'call'; nextTask: TaskExecutionState }
   | { type: 'callAndReturn'; nextTask: TaskExecutionState; returnTo: ReturnToInfo }
   | { type: 'complete'; result: TaskCallResult | TaskCallError };
 
@@ -326,16 +403,6 @@ async function executeTaskStep(
           type: 'complete', 
           result: { ...value, output: validatedOutput } as TaskCallResult
         };
-      } else if (value && value.type === 'call') {
-        // Handle "call" pattern
-        return { 
-          type: 'call', 
-          nextTask: { 
-            nodePath: value.nodePath, 
-            input: value.input,
-            calledFrom: nodePath 
-          } 
-        };
       } else if (value && value.type === 'error') {
         // Handle error result
         return {
@@ -370,21 +437,40 @@ async function executeTaskStep(
       state: taskState 
     };
   } catch (error) {
-    // Handle errors
+    // Create a WorkflowError if not already one
+    const workflowError = error instanceof WorkflowError
+      ? error
+      : new WorkflowError(
+          error instanceof Error ? error.message : 'Unknown error',
+          { originalError: error instanceof Error ? error : undefined }
+        );
+    
+    // Add current task to the call stack
+    workflowError.addFrame({
+      taskDefId: taskImpl.def.taskDefId,
+      nodePath,
+      input: taskState.input,
+      construct: nodePathToConstruct[nodePath] ? {
+        id: nodePathToConstruct[nodePath].node.id,
+        path: nodePathToConstruct[nodePath].node.path
+      } : undefined
+    });
+    
+    // Create TaskCallError
     const taskError: TaskCallError = {
       type: 'error',
       taskDefId: taskImpl.def.taskDefId,
       nodePath,
       input: taskState.input,
       error: {
-        message: error instanceof Error ? error.message : 'Unknown error',
-        details: error
+        message: workflowError.message,
+        details: workflowError
       }
     };
     
-    return { 
-      type: 'complete', 
-      result: taskError 
+    return {
+      type: 'complete',
+      result: taskError
     };
   }
 }
@@ -549,11 +635,6 @@ export function compileWorkflow(
             taskStack = replaceTask(taskStack, result.state);
             break;
             
-          case 'call':
-            // Replace current task with next task
-            taskStack = replaceTask(taskStack, result.nextTask);
-            //console.log(`Task ${nodePath} is calling task ${result.nextTask.nodePath} with 'call' type`);
-            break;
             
           case 'callAndReturn':
             // Push next task onto stack with return information
@@ -580,13 +661,32 @@ export function compileWorkflow(
               completedTasks.add(nodePath);
               //console.log(`Task ${nodePath} completed with output`);
             } else {
+              // Extract the error
+              const errorDetails = result.result.error.details;
+              const errorMessage = result.result.error.message;
+              
+              // Mark task as completed even though it errored
+              // This prevents the "WORKFLOW BUG" error for tasks that throw exceptions
+              completedTasks.add(nodePath);
+
+              const error = errorDetails instanceof WorkflowError
+                ? errorDetails
+                : new Error(errorMessage);
+              
               // Yield task error event
               yield {
                 timestamp: Date.now(),
                 type: 'task_error',
                 nodePath,
-                error: new Error(result.result.error.message)
+                taskDefId: taskDef.taskDefId,
+                error
               };
+
+              if(taskStack.length === 1) {
+                // we are at the top of the stack so we should error log it:
+                throw error;
+              }
+              
               //console.log(`Task ${nodePath} failed with error: ${result.result.error.message}`);
             }
             
@@ -615,24 +715,6 @@ export function compileWorkflow(
                   generator: currentTask.returnTo.generator
                 });
                 //console.log(`Task ${nodePath} returning to caller ${currentTask.returnTo.nodePath}`);
-              }
-            }
-            // Handle call from caller
-            else if (currentTask.calledFrom) {
-              // Generate completion event for caller
-              const callerTaskDef = workflowDef.tasks[currentTask.calledFrom];
-              if (callerTaskDef) {
-                yield {
-                  timestamp: Date.now(),
-                  type: 'task_complete',
-                  nodePath: currentTask.calledFrom,
-                  taskDefId: callerTaskDef.taskDefId,
-                  output: result.result.type === 'result' ? result.result.output : {}
-                };
-                
-                // Mark caller as completed
-                completedTasks.add(currentTask.calledFrom);
-                //console.log(`Generated completion event for parent task ${currentTask.calledFrom}`);
               }
             }
             break;
@@ -667,13 +749,34 @@ export function compileWorkflow(
     } catch (error) {
       // Handle workflow error
       console.log("=== WORKFLOW EXECUTION ERROR ===");
-      console.error("Workflow error:", error);
-      console.error("Workflow stack:", taskStack);
+      
+      // Create a WorkflowError if not already one
+      const workflowError = error instanceof WorkflowError
+        ? error
+        : new WorkflowError(
+            error instanceof Error ? error.message : 'Unknown workflow error',
+            { originalError: error instanceof Error ? error : undefined }
+          );
+      
+      console.error("Workflow error:", workflowError.message);
+      
+      console.error("Error call stack:");
+      for(const [index, frame] of workflowError.callStack.entries()) {
+        console.error(`  ${index}: ${frame.nodePath} (${frame.taskDefId})`);
+        console.error(`     Input:`);
+        console.error(`       ${JSON.stringify(frame.input, null, 2).replace(/\n/g, '\n       ')}`);
+        
+        if (frame.construct) {
+          console.error(`     Construct: ${frame.construct.id} (${frame.construct.path})`);
+        }
+      }
+      
+      console.error("Workflow stack:", taskStack.map(t => t.nodePath).join(' -> '));
       
       yield {
         timestamp: Date.now(),
         type: 'workflow_error',
-        error: error as Error
+        error: workflowError
       };
     }
   };
