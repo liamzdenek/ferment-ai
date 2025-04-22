@@ -109,7 +109,7 @@ const journal = new Journal([createCoreConstructsModule()], {
 
 // Execute the workflow
 async function runWorkflow() {
-  const workflowName = Object.keys(journal.toSavedState().compileResult.workflows)[0];
+  const workflowName = "Root/Workflow"; // the full path to the Workflow construct
   
   for await (const event of journal.executeWorkflow(workflowName, {
     messages: [
