@@ -1,21 +1,16 @@
 import { Construct } from 'constructs';
 import {
-  INVOKE_MODEL_TASK_DEF,
   OllamaModel,
-  GET_AVAILABLE_CAPABILITIES_TASK_DEF,
   MCPCapabilityGetAvailableCapabilities,
-  EXECUTE_CAPABILITY_TASK_DEF,
   MCPCapabilityExecuteCapability,
   CapableModel,
-  CAPABLE_WORKFLOW_TASK_DEF,
-  FORMAT_PROMPT_TASK_DEF,
   TagCapabilityParserFormatPromptTask,
   StructuredOutputCapabilityParserFormatPromptTask,
-  PARSE_MODEL_RESPONSE_TASK_DEF,
   TagCapabilityParserParseModelResponseTask,
   StructuredOutputCapabilityParserParseModelResponseTask,
-  RENDER_TEMPLATE_TASK_DEF,
-  DotTemplateParser
+  DotTemplateParser,
+  EditMessagesTask,
+  Chain
 } from '@ferment-ai/core-constructs-lib';
 import {
   Module,
@@ -27,6 +22,8 @@ import { createCapableModelTask } from './CapableModelTask.js';
 import { createTagCapabilityParserFormatPromptTask, createTagCapabilityParserParseModelResponseTask } from './TagCapabilityParserTasks.js';
 import { createStructuredOutputCapabilityParserFormatPromptTask, createStructuredOutputCapabilityParserParseModelResponseTask } from './StructuredOutputCapabilityParserTasks.js';
 import { createDotTemplateParserTask } from './DotTemplateParserTasks.js';
+import { createEditMessagesTask } from './EditMessagesTask.js';
+import { createChainTask } from './ChainTask.js';
 
 /**
  * Creates a core constructs module
@@ -35,40 +32,57 @@ import { createDotTemplateParserTask } from './DotTemplateParserTasks.js';
  */
 export function createCoreConstructsModule(): Module {
   return (construct: Construct) => {
-    // Check if the construct is an AgentContext
+    // Check if the construct is a WorkflowTask
+    if (construct instanceof WorkflowTask) {
+      // Ollama model check
+      if (construct instanceof OllamaModel) {
+        return createOllamaTaskImpl(construct);
+      }
 
-    if(construct instanceof WorkflowTask) {
-      switch(construct.taskDef.taskDefId) {
-        // we cast the constructs here instead of using instanceof so that reimplementors of the `-lib` works
-        case INVOKE_MODEL_TASK_DEF.taskDefId:
-          return createOllamaTaskImpl(construct as OllamaModel);
-        case GET_AVAILABLE_CAPABILITIES_TASK_DEF.taskDefId:
-          return createMcpGetAvailableCapabilitiesTaskImpl(construct as MCPCapabilityGetAvailableCapabilities);
-        case EXECUTE_CAPABILITY_TASK_DEF.taskDefId:
-          return createMcpExecuteCapabilityTaskImpl(construct as MCPCapabilityExecuteCapability);
-        case CAPABLE_WORKFLOW_TASK_DEF.taskDefId:
-          return createCapableModelTask(construct as CapableModel);
-        case FORMAT_PROMPT_TASK_DEF.taskDefId:
-          if (construct instanceof TagCapabilityParserFormatPromptTask) {
-            return createTagCapabilityParserFormatPromptTask(construct);
-          } else if (construct instanceof StructuredOutputCapabilityParserFormatPromptTask) {
-            return createStructuredOutputCapabilityParserFormatPromptTask(construct);
-          }
-          break;
-        case PARSE_MODEL_RESPONSE_TASK_DEF.taskDefId:
-          if (construct instanceof TagCapabilityParserParseModelResponseTask) {
-            return createTagCapabilityParserParseModelResponseTask(construct);
-          } else if (construct instanceof StructuredOutputCapabilityParserParseModelResponseTask) {
-            return createStructuredOutputCapabilityParserParseModelResponseTask(construct);
-          }
-          break;
-        case RENDER_TEMPLATE_TASK_DEF.taskDefId:
-          return createDotTemplateParserTask(construct as DotTemplateParser);
-        default:
-          //fallthrough
+      // MCP capabilities checks
+      if (construct instanceof MCPCapabilityGetAvailableCapabilities) {
+        return createMcpGetAvailableCapabilitiesTaskImpl(construct);
+      }
+
+      if (construct instanceof MCPCapabilityExecuteCapability) {
+        return createMcpExecuteCapabilityTaskImpl(construct);
+      }
+
+      // Capable model and push messages tasks
+      if (construct instanceof CapableModel) {
+        return createCapableModelTask(construct);
+      }
+
+      // Tag Capability
+      if (construct instanceof TagCapabilityParserFormatPromptTask) {
+        return createTagCapabilityParserFormatPromptTask(construct);
+      }
+      if (construct instanceof TagCapabilityParserParseModelResponseTask) {
+        return createTagCapabilityParserParseModelResponseTask(construct);
+      }
+
+      // Structured Output Capability
+      if (construct instanceof StructuredOutputCapabilityParserFormatPromptTask) {
+        return createStructuredOutputCapabilityParserFormatPromptTask(construct);
+      }
+      if (construct instanceof StructuredOutputCapabilityParserParseModelResponseTask) {
+        return createStructuredOutputCapabilityParserParseModelResponseTask(construct);
+      }
+
+      // Template parsers
+      if (construct instanceof DotTemplateParser) {
+        return createDotTemplateParserTask(construct);
+      }
+
+      // Workflows
+      if(construct instanceof Chain) {
+        return createChainTask(construct);
+      }
+      if (construct instanceof EditMessagesTask) {
+        return createEditMessagesTask(construct);
       }
     }
-    
+
     // No task implementation for this construct from this module. other modules may have an impl
     return undefined;
   };

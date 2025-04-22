@@ -100,9 +100,6 @@ export function createTagCapabilityParserParseModelResponseTask(construct: TagCa
     def: PARSE_MODEL_RESPONSE_TASK_DEF,
     nodePath: construct.node.path,
     execute: async function* (ctx: TaskCtx<typeof PARSE_MODEL_RESPONSE_TASK_DEF.inputType, typeof PARSE_MODEL_RESPONSE_TASK_DEF.outputType>) {
-      console.log(`Executing parse model response: ${construct.node.id}`);
-      console.log(`Input: ${JSON.stringify(ctx.input)}`);
-
       // Extract all execution requests from the new messages
       const executionRequests = [];
 

@@ -8,6 +8,8 @@ import { TestMCPExecuteCapability } from './tests/TestMCPExecuteCapability.js';
 import { TestTagCapabilityParser } from './tests/TestTagCapabilityParser.js';
 import { TestDotTemplateParser } from './tests/TestDotTemplateParser.js';
 import { TestStructuredOutputCapabilityParser } from './tests/TestStructuredOutputCapabilityParser.js';
+import { TestPushMessagesTask } from './tests/TestPushMessagesTask.js';
+import { TestChain } from './tests/TestChain.js';
 
 // Create a root construct
 const rootConstruct = new RootConstruct('Root');
@@ -26,9 +28,12 @@ const LOOKUP: { [cliArg: string]: new (parent: Construct, id: string) => TestCon
     "TestMCPGetCapabilities": TestMCPGetCapabilities,
     "TestMCPExecuteCapability": TestMCPExecuteCapability,
     "TestDotTemplateParser": TestDotTemplateParser,
+    "TestPushMessagesTask": TestPushMessagesTask,
 
     "TestTagCapabilityParser": TestTagCapabilityParser,
     "TestStructuredOutputCapabilityParser": TestStructuredOutputCapabilityParser,
+
+    "TestChain": TestChain
 }
 
 const cliArg = process.argv[2];

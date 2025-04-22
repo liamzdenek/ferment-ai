@@ -25,8 +25,8 @@ export function createMcpGetAvailableCapabilitiesTaskImpl(construct: MCPCapabili
     def: GET_AVAILABLE_CAPABILITIES_TASK_DEF,
     nodePath: construct.node.path,
     execute: async function* (ctx: TaskCtx<typeof GET_AVAILABLE_CAPABILITIES_TASK_DEF.inputType, typeof GET_AVAILABLE_CAPABILITIES_TASK_DEF.outputType>) {
-      console.log(`Executing get available capabilities: ${construct.node.id}`);
-      console.log(`Input: ${JSON.stringify(ctx.input)}`);
+      //console.log(`Executing get available capabilities: ${construct.node.id}`);
+      //console.log(`Input: ${JSON.stringify(ctx.input)}`);
 
       const props = construct.props.mcpCapability.props; // props are stored on the related MCPCapability construct.
       const transport = getTransport(props.transport);
@@ -41,7 +41,7 @@ export function createMcpGetAvailableCapabilitiesTaskImpl(construct: MCPCapabili
         }
 
         const cap = mcp.getServerCapabilities();
-        console.log("Cap", cap);
+        //console.log("Cap", cap);
 
         if (cap?.tools) {
           const toolRes = await mcp.listTools();
@@ -55,11 +55,10 @@ export function createMcpGetAvailableCapabilitiesTaskImpl(construct: MCPCapabili
 
         if (cap?.resources) {
           const resourcesRes = await mcp.listResources();
-          console.log("ResourcesRes", resourcesRes);
           output.resources.push(...resourcesRes.resources);
         }
 
-        console.log("Got MCP capabilities", output);
+        //console.log("Got MCP capabilities", output);
         // Return the final result
         return {
           type: 'result',

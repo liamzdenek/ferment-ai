@@ -36,7 +36,7 @@ const transport: StdioServerTransport = new StdioServerTransport();
 const setupServer = async () => {
   // Static resource
   server.resource(
-    "dadjoke",
+    "random_dad_joke",
     "dadjoke://get",
     { description: "Gets a new random dad joke" },
     async (_uri) => {
@@ -162,7 +162,7 @@ const setupServer = async () => {
 
   // Add a tool for searching dad jokes
   server.tool(
-    "search_jokes",
+    "search_dad_jokes",
     "Search for dad jokes by term",
     {
       term: z.string().describe("Search term to find jokes")

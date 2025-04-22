@@ -1,15 +1,10 @@
 import { Construct } from "constructs";
 import { CapableWorkflowTask } from "./CapableWorkflowTask.js";
 import { z } from "zod";
-import { CapableWorkflowTaskMessageSchema } from "./CapableWorkflowTaskDefs.js";
-
-export interface ChainLink {
-  capableTask: CapableWorkflowTask,
-  messages?: z.infer<typeof CapableWorkflowTaskMessageSchema>[]
-}
+import { WorkflowTask } from "@ferment-ai/runtime-common";
 
 export interface ChainProps {
-  links: Array<ChainLink>
+  links: Array<CapableWorkflowTask>
 }
 
 export class Chain extends CapableWorkflowTask {
@@ -28,8 +23,15 @@ export class Chain extends CapableWorkflowTask {
     };
   }
 
-  pushLink(link: ChainLink) {
+  pushLink(link: CapableWorkflowTask) {
     this.props.links.push(link)
+  }
+
+  override getTools(): Record<string, WorkflowTask<z.ZodTypeAny, z.ZodTypeAny>> {
+    return {
+      ...super.getTools(),
+      ...(Object.fromEntries(this.props.links.map(link => [link.node.path, link] as const)))
+    };
   }
 }
 

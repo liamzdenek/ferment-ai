@@ -194,9 +194,6 @@ export function createStructuredOutputCapabilityParserParseModelResponseTask(con
     def: PARSE_MODEL_RESPONSE_TASK_DEF,
     nodePath: construct.node.path,
     execute: async function* (ctx: TaskCtx<typeof PARSE_MODEL_RESPONSE_TASK_DEF.inputType, typeof PARSE_MODEL_RESPONSE_TASK_DEF.outputType>) {
-      console.log(`Executing parse model response: ${construct.node.id}`);
-      console.log(`Input: ${JSON.stringify(ctx.input)}`);
-
       // Extract all execution requests from the new messages
       const executionRequests = [];
       const newMessages: z.infer<typeof InvokeChatModelMessageSchema>[] = [];
@@ -241,7 +238,7 @@ export function createStructuredOutputCapabilityParserParseModelResponseTask(con
                   name: action.name,
                   arguments: action.arguments
                 });
-                newMessages.push(message);
+                newMessages.push({ ...message, content: message.content.trim() });
                 console.log(`Found tool invocation: ${action.name}`);
                 break;
                 
@@ -255,7 +252,7 @@ export function createStructuredOutputCapabilityParserParseModelResponseTask(con
                   name: action.name,
                   arguments: action.arguments
                 });
-                newMessages.push(message);
+                newMessages.push({ ...message, content: message.content.trim() });
                 console.log(`Found prompt invocation: ${action.name}`);
                 break;
                 
@@ -269,7 +266,7 @@ export function createStructuredOutputCapabilityParserParseModelResponseTask(con
                   name: action.name,
                   uri: action.uri
                 });
-                newMessages.push(message);
+                newMessages.push({ ...message, content: message.content.trim() });
                 console.log(`Found resource invocation: ${action.name}`);
                 break;
                 
