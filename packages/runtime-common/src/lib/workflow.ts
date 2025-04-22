@@ -491,6 +491,11 @@ export function compileWorkflow(
         // Get task implementation and definition
         const taskImpl = taskImpls[nodePath];
         const taskDef = workflowDef.tasks[nodePath];
+
+        if(!taskDef) {
+          // TODO: update the "id" to be the full nodePath of the originator. We'll need to make changes to the taskStack to support this
+          throw new Error("You did not set up getTools() for a request that you're trying to make. Construct id="+workflowDef.name+" is trying to call path="+nodePath+", which has not been configured at compile time");
+        }
         
         // Start task if not already started
         if (!currentTask.generator && !startedTasks.has(nodePath)) {
