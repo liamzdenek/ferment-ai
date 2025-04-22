@@ -1,4 +1,4 @@
-import { CapableWorkflowTaskMessageSchema, FORMAT_PROMPT_TASK_DEF, PARSE_MODEL_RESPONSE_TASK_DEF, RENDER_TEMPLATE_TASK_DEF, TagCapabilityParserFormatPromptTask, TagCapabilityParserParseModelResponseTask } from "@ferment-ai/core-constructs-lib";
+import { CapableWorkflowTaskMessageSchema, FORMAT_PROMPT_TASK_DEF, PARSE_MODEL_RESPONSE_TASK_DEF, TagCapabilityParserFormatPromptTask, TagCapabilityParserParseModelResponseTask } from "@ferment-ai/core-constructs-lib";
 import { getTaskCall, TaskImpl, TaskCtx } from "@ferment-ai/runtime-common";
 import * as z from 'zod';
 

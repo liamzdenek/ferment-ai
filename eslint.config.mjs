@@ -36,8 +36,12 @@ export default [
             ],
             "require-yield": "off",
             "@typescript-eslint/no-unused-vars": ["warn", {
-                "varsIgnorePattern": "^_"
-            }]
+                "varsIgnorePattern": "^_",
+                "argsIgnorePattern": "^_",
+                "caughtErrorsIgnorePattern": "^_",
+                "destructuredArrayIgnorePattern": "^_"
+            }],
+            "@typescript-eslint/no-explicit-any": "off"
         }
     },
     {

@@ -2,7 +2,7 @@ import { Construct } from "constructs";
 import { CapableWorkflowTask } from "./CapableWorkflowTask.js";
 import { z } from "zod";
 import { CapableWorkflowTaskMessageSchema } from "./CapableWorkflowTaskDefs.js";
-import { BaseTemplateParser } from "../templateParser/BaseTemplateParser.js";
+//import { BaseTemplateParser } from "../templateParser/BaseTemplateParser.js";
 
 export interface EditMessagesTaskProps {
   messagesUnshift?: z.infer<typeof CapableWorkflowTaskMessageSchema>[]
