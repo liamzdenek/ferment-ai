@@ -13,6 +13,8 @@ async function* aggregateCapabilities(
   ctx: TaskCtx<typeof CAPABLE_WORKFLOW_TASK_DEF.inputType, typeof CAPABLE_WORKFLOW_TASK_DEF.outputType>,
   construct: CapableModel
 ) {
+  const forceCapability = ctx.input.forceCapability;
+
   const availableCapabilities: z.infer<typeof GET_AVAILABLE_CAPABILITIES_TASK_DEF.outputType> = {
     prompts: [],
     resources: [],
@@ -60,7 +62,43 @@ async function* aggregateCapabilities(
   
   console.log("Got availableCapabilities", availableCapabilities);
   
-  return { availableCapabilities, capabilityMap };
+  // If forceCapability is defined, filter the capabilities to only include that one
+  if (forceCapability) {
+    const { type, name, capabilityNodePath } = forceCapability;
+    
+    // Filter each capability type
+    availableCapabilities.prompts = type === 'prompt'
+      ? availableCapabilities.prompts.filter(p => p.name === name)
+      : [];
+      
+    availableCapabilities.resources = type === 'resource'
+      ? availableCapabilities.resources.filter(r => r.name === name)
+      : [];
+      
+    availableCapabilities.tools = type === 'tool'
+      ? availableCapabilities.tools.filter(t => t.name === name)
+      : [];
+    
+    // Check if any matching capability was found
+    const capabilityExists = (
+      availableCapabilities.prompts.length > 0 ||
+      availableCapabilities.resources.length > 0 ||
+      availableCapabilities.tools.length > 0
+    );
+    
+    // Throw error if capability doesn't exist
+    if (!capabilityExists) {
+      throw new Error(`Forced capability ${type}:${name} not found in available capabilities.`);
+    }
+    
+    // Check if the capability provider matches the capabilityNodePath
+    const forceCapabilityConstruct = capabilityMap.get(type)?.get(name);
+    if (!forceCapabilityConstruct || forceCapabilityConstruct.node.path !== capabilityNodePath) {
+      throw new Error(`Forced capability ${type}:${name} exists but with different path than ${capabilityNodePath}.`);
+    }
+  }
+  
+  return { availableCapabilities, capabilityMap, forceCapability };
 }
 
 /**
@@ -111,17 +149,16 @@ export function createCapableModelTask(construct: CapableModel): TaskImpl<typeof
     nodePath: construct.node.path,
     execute: async function* (ctx: TaskCtx<typeof CAPABLE_WORKFLOW_TASK_DEF.inputType, typeof CAPABLE_WORKFLOW_TASK_DEF.outputType>) {
       // Aggregate capabilities from all capability providers
-      const { availableCapabilities, capabilityMap } = yield* aggregateCapabilities(ctx, construct);
+      const { forceCapability, availableCapabilities, capabilityMap } = yield* aggregateCapabilities(ctx, construct);
 
       // Initialize conversation with categorized input messages
       let conversation = categorizeMessages(ctx.input.messages, 'input');
 
-      const force = ctx.input.force;
-
       // Format prompt with capabilities and invoke model
       const formattedPrompt = yield* getTaskCall(ctx, construct.props.capabilityParser.formatPrompt)({
         messages: conversation,
-        availableCapabilities
+        availableCapabilities,
+        forceCapability
       });
       
       // Add model response to conversation
@@ -168,7 +205,8 @@ export function createCapableModelTask(construct: CapableModel): TaskImpl<typeof
         // Format prompt with updated conversation and invoke model again
         const formattedPrompt = yield* getTaskCall(ctx, construct.props.capabilityParser.formatPrompt)({
           messages: conversation,
-          availableCapabilities
+          availableCapabilities,
+          forceCapability
         });
         
         const newModelResponses = yield* invokeModel(ctx, construct.props.model, formattedPrompt.output.prompt);
@@ -190,23 +228,13 @@ export function createCapableModelTask(construct: CapableModel): TaskImpl<typeof
         
         console.log("Got tool invocation reqs", executionRequests);
       }
-
-      let structuredOutput: unknown | undefined = undefined;
-
-      if(force?.type === 'structuredOutput') {
-        const modelResponses = yield* invokeModel(ctx, construct.props.model, {
-          messages: conversation,
-          forceJsonSchema: force.schema
-        });
-        structuredOutput = JSON.parse(modelResponses[modelResponses.length-1].content)
-      }
       
       return {
         type: 'result',
         taskDefId: ctx.taskDefId,
         nodePath: ctx.nodePath,
         input: ctx.input,
-        output: { messages: conversation, structuredOutput }
+        output: { messages: conversation }
       };
     }
   };

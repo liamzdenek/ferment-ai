@@ -40,23 +40,23 @@ export class WorkflowError extends Error {
   // Create a WorkflowError from a serialized error
   public static fromJSON(json: WorkflowErrorJSON): WorkflowError {
     let originalError: Error | undefined = undefined;
-    
+
     if (json.originalError) {
       originalError = new Error(json.originalError.message);
       originalError.name = json.originalError.name;
       originalError.stack = json.originalError.stack;
     }
-    
+
     const error = new WorkflowError(json.message, {
       callStack: json.callStack,
       originalError
     });
-    
+
     // Restore stack trace if available
     if (json.stack) {
       error.stack = json.stack;
     }
-    
+
     return error;
   }
 }
@@ -319,7 +319,7 @@ function createTaskContext(
 ): TaskCtx<z.ZodTypeAny, z.ZodTypeAny> {
   const { nodePath, input } = taskState;
   const taskDef = workflowDef.tasks[nodePath];
-  
+
   // Create the base task context
   const taskCtx: TaskCtx<z.ZodTypeAny, z.ZodTypeAny> = {
     taskDefId: taskImpl.def.taskDefId,
@@ -330,20 +330,20 @@ function createTaskContext(
     canUseTools: {},
     nodePathToConstruct,
   };
-  
+
   // Populate canCall and canUseTools maps
   for (const nextNodePath of taskDef.nextTasks) {
     if (taskImpls[nextNodePath]) {
       taskCtx.canCall[nextNodePath] = taskImpls[nextNodePath].def;
     }
   }
-  
+
   for (const toolNodePath of taskDef.tools) {
     if (taskImpls[toolNodePath]) {
       taskCtx.canUseTools[toolNodePath] = taskImpls[toolNodePath].def;
     }
   }
-  
+
   return taskCtx;
 }
 
@@ -366,26 +366,26 @@ async function executeTaskStep(
 ): Promise<TaskStepResult> {
   const { nodePath, input, generator } = taskState;
   const taskDef = workflowDef.tasks[nodePath];
-  
+
   try {
     // Initialize generator if needed
     if (!generator) {
       // Create task context
       const taskCtx = createTaskContext(taskState, taskImpl, workflowDef, taskImpls, nodePathToConstruct);
-      
+
       // Initialize generator
       const newGenerator = taskImpl.execute(taskCtx);
-      
+
       // Return updated state
-      return { 
-        type: 'continue', 
-        state: { ...taskState, generator: newGenerator } 
+      return {
+        type: 'continue',
+        state: { ...taskState, generator: newGenerator }
       };
     }
-    
+
     // Advance generator
     const { value, done } = await generator.next(input);
-    
+
     // Handle generator completion
     if (done) {
       // Handle different result types
@@ -397,10 +397,10 @@ async function executeTaskStep(
           nodePath,
           'output'
         );
-        
+
         // Return result
-        return { 
-          type: 'complete', 
+        return {
+          type: 'complete',
           result: { ...value, output: validatedOutput } as TaskCallResult
         };
       } else if (value && value.type === 'error') {
@@ -410,19 +410,19 @@ async function executeTaskStep(
           result: value as TaskCallError
         };
       }
-      
+
       // Default case (should not happen with proper typing)
       throw new Error(`Unexpected result type from task ${nodePath}: ${value?.type}`);
     }
-    
+
     // Handle generator yield
     if (value && value.type === 'callAndReturn') {
       // Handle "callAndReturn" pattern
-      return { 
-        type: 'callAndReturn', 
-        nextTask: { 
-          nodePath: value.nodePath, 
-          input: value.input 
+      return {
+        type: 'callAndReturn',
+        nextTask: {
+          nodePath: value.nodePath,
+          input: value.input
         },
         returnTo: {
           nodePath,
@@ -430,21 +430,21 @@ async function executeTaskStep(
         }
       };
     }
-    
+
     // Default case (continue)
-    return { 
-      type: 'continue', 
-      state: taskState 
+    return {
+      type: 'continue',
+      state: taskState
     };
   } catch (error) {
     // Create a WorkflowError if not already one
     const workflowError = error instanceof WorkflowError
       ? error
       : new WorkflowError(
-          error instanceof Error ? error.message : 'Unknown error',
-          { originalError: error instanceof Error ? error : undefined }
-        );
-    
+        error instanceof Error ? error.message : 'Unknown error',
+        { originalError: error instanceof Error ? error : undefined }
+      );
+
     // Add current task to the call stack
     workflowError.addFrame({
       taskDefId: taskImpl.def.taskDefId,
@@ -455,7 +455,7 @@ async function executeTaskStep(
         path: nodePathToConstruct[nodePath].node.path
       } : undefined
     });
-    
+
     // Create TaskCallError
     const taskError: TaskCallError = {
       type: 'error',
@@ -467,7 +467,7 @@ async function executeTaskStep(
         details: workflowError
       }
     };
-    
+
     return {
       type: 'complete',
       result: taskError
@@ -524,22 +524,22 @@ export function compileWorkflow(
 ): WorkflowExecutor {
   // Validate the workflow definition
   WorkflowDefinitionSchema.parse(workflowDef);
-  
+
   //console.log('Compiling workflow with tasks:', Object.keys(workflowDef.tasks));
   //console.log('Available task implementations:', Object.keys(taskImpls));
-  
+
   // Validate that all tasks have corresponding task implementations
   for (const taskPath of Object.keys(workflowDef.tasks)) {
     if (!taskImpls[taskPath]) {
       throw new Error(`Task implementation not found for task path: ${taskPath}`);
     }
-    
+
     // Verify that the execute function is an async generator
     if (!isAsyncGeneratorFunction(taskImpls[taskPath].execute)) {
       throw new Error(`Task implementation for ${taskPath} must be an async generator function`);
     }
   }
-  
+
   // Return the workflow executor function
   return async function* (options: WorkflowExecutionOptions): AsyncIterable<WorkflowLogEvent> {
     // Validate the entry point
@@ -547,42 +547,42 @@ export function compileWorkflow(
     if (!entryPointNodePath) {
       throw new Error(`Entry point not found: ${options.entryPoint}`);
     }
-    
+
     // Track started and completed tasks
     const startedTasks = new Set<string>();
     const completedTasks = new Set<string>();
-    
+
     // Start the workflow
     yield {
       timestamp: Date.now(),
       type: 'workflow_start'
     };
-    
+
     // Initialize task stack
     let taskStack: TaskExecutionState[] = [
       { nodePath: entryPointNodePath, input: options.input }
     ];
-    
+
     try {
       //console.log("Initial task stack:", JSON.stringify(taskStack, null, 2));
-      
+
       // Execute tasks until the stack is empty
       while (taskStack.length > 0) {
         const currentTask = taskStack[taskStack.length - 1];
         const { nodePath } = currentTask;
-        
+
         //console.log("Current stack size:", taskStack.length, "Current task:", nodePath);
         //console.log("DEBUG: Task stack:", taskStack.map(t => t.nodePath).join(', '));
-        
+
         // Get task implementation and definition
         const taskImpl = taskImpls[nodePath];
         const taskDef = workflowDef.tasks[nodePath];
 
-        if(!taskDef) {
+        if (!taskDef) {
           // TODO: update the "id" to be the full nodePath of the originator. We'll need to make changes to the taskStack to support this
-          throw new Error("You did not set up getTools() for a request that you're trying to make. Construct id="+workflowDef.name+" is trying to call path="+nodePath+", which has not been configured at compile time");
+          throw new Error("You did not set up getTools() for a request that you're trying to make. Construct id=" + workflowDef.name + " is trying to call path=" + nodePath + ", which has not been configured at compile time");
         }
-        
+
         // Start task if not already started
         if (!currentTask.generator && !startedTasks.has(nodePath)) {
           // Validate input
@@ -592,13 +592,13 @@ export function compileWorkflow(
             nodePath,
             'input'
           );
-          
+
           // Update task input with validated input
           taskStack[taskStack.length - 1] = {
             ...currentTask,
             input: validatedInput
           };
-          
+
           // Yield task start event
           yield {
             timestamp: Date.now(),
@@ -607,10 +607,10 @@ export function compileWorkflow(
             taskDefId: taskDef.taskDefId,
             input: validatedInput
           };
-          
+
           // Mark task as started
           startedTasks.add(nodePath);
-          
+
           /*
           console.log(`DEBUG: Executing task ${nodePath} with input:`, JSON.stringify({
             hasMessages: !!currentTask.input?.messages,
@@ -618,7 +618,7 @@ export function compileWorkflow(
           }));
           */
         }
-        
+
         // Execute task step
         const result = await executeTaskStep(
           currentTask,
@@ -627,15 +627,15 @@ export function compileWorkflow(
           taskImpls,
           nodePathToConstruct
         );
-        
+
         // Handle result based on type
         switch (result.type) {
           case 'continue':
             // Update task state
             taskStack = replaceTask(taskStack, result.state);
             break;
-            
-            
+
+
           case 'callAndReturn':
             // Push next task onto stack with return information
             taskStack = pushTask(taskStack, {
@@ -644,7 +644,7 @@ export function compileWorkflow(
             });
             //console.log(`Task ${nodePath} is calling task ${result.nextTask.nodePath} with 'callAndReturn' type`);
             break;
-            
+
           case 'complete': {
             // Handle task completion
             if (result.result.type === 'result') {
@@ -656,7 +656,7 @@ export function compileWorkflow(
                 taskDefId: taskDef.taskDefId,
                 output: result.result.output
               };
-              
+
               // Mark task as completed
               completedTasks.add(nodePath);
               //console.log(`Task ${nodePath} completed with output`);
@@ -664,7 +664,7 @@ export function compileWorkflow(
               // Extract the error
               const errorDetails = result.result.error.details;
               const errorMessage = result.result.error.message;
-              
+
               // Mark task as completed even though it errored
               // This prevents the "WORKFLOW BUG" error for tasks that throw exceptions
               completedTasks.add(nodePath);
@@ -672,7 +672,7 @@ export function compileWorkflow(
               const error = errorDetails instanceof WorkflowError
                 ? errorDetails
                 : new Error(errorMessage);
-              
+
               // Yield task error event
               yield {
                 timestamp: Date.now(),
@@ -682,19 +682,19 @@ export function compileWorkflow(
                 error
               };
 
-              if(taskStack.length === 1) {
+              if (taskStack.length === 1) {
                 // we are at the top of the stack so we should error log it:
                 throw error;
               }
-              
+
               //console.log(`Task ${nodePath} failed with error: ${result.result.error.message}`);
             }
-            
+
             // Pop current task from stack
             const popResult = popTask(taskStack);
             taskStack = popResult[0];
             //console.log(`Popped task ${nodePath} from stack`);
-            
+
             // Handle return to caller
             if (currentTask.returnTo) {
               // Push caller back onto stack with result
@@ -721,7 +721,7 @@ export function compileWorkflow(
           }
         }
       }
-      
+
       // Check for incomplete tasks
       const incompleteTasks: string[] = [];
       for (const nodePath of startedTasks) {
@@ -730,7 +730,7 @@ export function compileWorkflow(
           //console.log(`WARNING: Task ${nodePath} started but didn't complete`);
         }
       }
-      
+
       // Throw error if there are incomplete tasks
       if (incompleteTasks.length > 0) {
         throw new Error(
@@ -738,9 +738,9 @@ export function compileWorkflow(
           `This is a bug in the workflow execution engine. Check if these tasks are using 'callAndReturn' correctly.`
         );
       }
-      
+
       //console.log("=== WORKFLOW EXECUTION COMPLETE ===");
-      
+
       // Complete workflow
       yield {
         timestamp: Date.now(),
@@ -749,30 +749,30 @@ export function compileWorkflow(
     } catch (error) {
       // Handle workflow error
       console.log("=== WORKFLOW EXECUTION ERROR ===");
-      
+
       // Create a WorkflowError if not already one
       const workflowError = error instanceof WorkflowError
         ? error
         : new WorkflowError(
-            error instanceof Error ? error.message : 'Unknown workflow error',
-            { originalError: error instanceof Error ? error : undefined }
-          );
-      
+          error instanceof Error ? error.message : 'Unknown workflow error',
+          { originalError: error instanceof Error ? error : undefined }
+        );
+
       console.error("Workflow error:", workflowError.message);
-      
+
       console.error("Error call stack:");
-      for(const [index, frame] of workflowError.callStack.entries()) {
+      for (const [index, frame] of workflowError.callStack.entries()) {
         console.error(`  ${index}: ${frame.nodePath} (${frame.taskDefId})`);
-        console.error(`     Input:`);
-        console.error(`       ${JSON.stringify(frame.input, null, 2).replace(/\n/g, '\n       ')}`);
-        
         if (frame.construct) {
           console.error(`     Construct: ${frame.construct.id} (${frame.construct.path})`);
         }
+        console.error(`     Input:`);
+        console.error(`       ${JSON.stringify(frame.input, null, 2).replace(/\n/g, '\n       ')}`);
+
       }
-      
+
       console.error("Workflow stack:", taskStack.map(t => t.nodePath).join(' -> '));
-      
+
       yield {
         timestamp: Date.now(),
         type: 'workflow_error',

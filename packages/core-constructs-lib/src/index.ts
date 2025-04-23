@@ -23,3 +23,7 @@ export * from './lib/capabilityParser/StructuredOutputCapabilityParser.js';
 export * from './lib/templateParser/BaseTemplateParser.js';
 export * from './lib/templateParser/BaseTemplateParserTaskDefs.js';
 export * from './lib/templateParser/DotTemplateParser.js';
+
+export * from './lib/structuredOutput/StructuredOutput.js';
+export * from './lib/structuredOutput/StructuredOutputCapability.js';
+export * from './lib/structuredOutput/StructuredOutputTaskDefs.js';

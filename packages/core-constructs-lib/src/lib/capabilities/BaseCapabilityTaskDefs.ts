@@ -1,8 +1,10 @@
 import { TaskDef } from "@ferment-ai/runtime-common";
 import { z } from "zod";
+import { CapableWorkflowForceCapability } from "../workflows/CapableWorkflowTaskDefs.js";
 
 const GetAvailableCapabilitiesInputSchema = z.union([z.void(), z.undefined(), z.null()]);
 const GetAvailableCapabilitiesOutputSchema = z.strictObject({
+  forceCapability: CapableWorkflowForceCapability.optional(),
   prompts: z.array(z.strictObject({
     name: z.string(),
     description: z.string().optional(),
@@ -48,7 +50,7 @@ const ExecuteCapabilityTool = z.strictObject({
 
 const ExecuteCapabilityInputSchema = z.union([ExecuteCapabilityPrompt, ExecuteCapabilityResource, ExecuteCapabilityTool]);
 const ExecuteCapabilityOutputSchema = z.strictObject({
-  result: z.any()
+  result: z.unknown()
 })
 export const EXECUTE_CAPABILITY_TASK_DEF: TaskDef<typeof ExecuteCapabilityInputSchema, typeof ExecuteCapabilityOutputSchema> = {
   taskDefId: 'CoreConstructs::ExecuteCapabilityTaskDef',

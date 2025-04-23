@@ -44,9 +44,9 @@ export class TestTagCapabilityParser extends TestConstruct {
             }
         });
 
-        const capabilityParser = new TagCapabilityParser(scope, "CapabilityParser", {});
+        const capabilityParser = new TagCapabilityParser(this, "CapabilityParser", {});
 
-        const capableModel = new CapableModel(scope, "CapableModel", {
+        const capableModel = new CapableModel(this, "CapableModel", {
             model: testModel,
             capabilities: [mcp],
             capabilityParser

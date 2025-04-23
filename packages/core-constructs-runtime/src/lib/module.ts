@@ -11,7 +11,10 @@ import {
   DotTemplateParser,
   EditMessagesTask,
   Chain,
-  LLMGate
+  LLMGate,
+  StructuredOutput,
+  StructuredOutputCapabilityGetAvailableCapabilities,
+  StructuredOutputCapabilityExecuteCapability
 } from '@ferment-ai/core-constructs-lib';
 import {
   Module,
@@ -26,6 +29,8 @@ import { createDotTemplateParserTask } from './DotTemplateParserTasks.js';
 import { createEditMessagesTask } from './EditMessagesTask.js';
 import { createChainTask } from './ChainTask.js';
 import { createLlmGateTask } from './LLMGateTask.js';
+import { createStructuredOutputCapabilityExecuteCapabilityTask, createStructuredOutputCapabilityGetCapabilitiesTask, createStructuredOutputTask } from './StructuredOutputTasks.js';
+import { ZodUnknown } from 'zod';
 
 /**
  * Creates a core constructs module
@@ -85,6 +90,17 @@ export function createCoreConstructsModule(): Module {
       }
       if(construct instanceof LLMGate) {
         return createLlmGateTask(construct);
+      }
+
+      // Structured Output
+      if(construct instanceof StructuredOutput) {
+        return createStructuredOutputTask(construct);
+      }
+      if(construct instanceof StructuredOutputCapabilityGetAvailableCapabilities) {
+        return createStructuredOutputCapabilityGetCapabilitiesTask(construct);
+      }
+      if(construct instanceof StructuredOutputCapabilityExecuteCapability) {
+        return createStructuredOutputCapabilityExecuteCapabilityTask(construct);
       }
     }
 

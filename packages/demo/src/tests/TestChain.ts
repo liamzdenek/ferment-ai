@@ -53,15 +53,15 @@ export class TestChain extends TestConstruct {
             }
         });
 
-        const capabilityParser = new StructuredOutputCapabilityParser(scope, "CapabilityParser", {});
+        const capabilityParser = new StructuredOutputCapabilityParser(this, "CapabilityParser", {});
 
-        const capableModelWithDadJokeMcp = new CapableModel(scope, "CapableModelWithMcps", {
+        const capableModelWithDadJokeMcp = new CapableModel(this, "CapableModelWithMcps", {
             model: testModel,
             capabilities: [mcp],
             capabilityParser
         })
 
-        const capableModelWithoutMcps = new CapableModel(scope, "CapableModelWithoutMcps", {
+        const capableModelWithoutMcps = new CapableModel(this, "CapableModelWithoutMcps", {
             model: testModel,
             capabilities: [],
             capabilityParser

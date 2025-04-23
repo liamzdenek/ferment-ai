@@ -1,6 +1,6 @@
 /* eslint-disable require-yield */
 import { z } from "zod";
-import { TaskCallAndReturnRequest, TaskCallError, TaskCallRequest, TaskCallResult, TaskCtx, TaskExecuteFunction } from "./workflow.js";
+import { TaskCallAndReturnRequest, TaskCallError, TaskCallRequest, TaskCallResult, TaskCtx, TaskExecuteFunction, WorkflowError } from "./workflow.js";
 import { isWorkflowTask, WorkflowTask } from "./builtin-constructs.js";
 
 export type TaskExecutePromise<I extends z.ZodTypeAny, O extends z.ZodTypeAny> =
@@ -68,7 +68,11 @@ export function getTaskCall<I extends z.ZodTypeAny, O extends z.ZodTypeAny>(
     
     // Handle the response
     if (res.type === "error") {
-      throw new Error("Failed to call task: " + res.error.message);
+      if(res.error.details instanceof Error) {
+        throw res.error.details;
+      } else {
+        throw new Error("Failed to call task: " + res.error.message);
+      }
     }
     
     // Parse the output with the output type schema

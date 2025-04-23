@@ -1,22 +1,28 @@
-import { CapableWorkflowTaskMessageSchema, FORMAT_PROMPT_TASK_DEF, GET_AVAILABLE_CAPABILITIES_TASK_DEF, InvokeChatModelMessageSchema, PARSE_MODEL_RESPONSE_TASK_DEF, StructuredOutputCapabilityParserFormatPromptTask, StructuredOutputCapabilityParserParseModelResponseTask } from "@ferment-ai/core-constructs-lib";
+import { CapableWorkflowTaskMessageSchema, FORMAT_PROMPT_TASK_DEF, GET_AVAILABLE_CAPABILITIES_TASK_DEF, CapableWorkflowForceCapability, InvokeChatModelMessageSchema, PARSE_MODEL_RESPONSE_TASK_DEF, StructuredOutputCapabilityParserFormatPromptTask, StructuredOutputCapabilityParserParseModelResponseTask } from "@ferment-ai/core-constructs-lib";
 import { getTaskCall, TaskImpl, TaskCtx } from "@ferment-ai/runtime-common";
 import * as z from 'zod';
 
 // Function to generate JSON schema based on available capabilities
-function generateJsonSchema(availableCapabilities: z.infer<typeof GET_AVAILABLE_CAPABILITIES_TASK_DEF.outputType>, allowMultipleToolUses: boolean) {
+function generateJsonSchema(
+  availableCapabilities: z.infer<typeof GET_AVAILABLE_CAPABILITIES_TASK_DEF.outputType>,
+  allowMultipleToolUses: boolean,
+  forceCapability: z.infer<typeof CapableWorkflowForceCapability> | undefined
+) {
   // Create a discriminated union with a discrete entry for each tool, prompt, resource, and message
   const oneOfSchemas = [];
   
-  // Add message schema
-  oneOfSchemas.push({
-    type: "object",
-    properties: {
-      action: { type: "string", enum: ["message"] },
-      content: { type: "string" }
-    },
-    required: ["action", "content"],
-    additionalProperties: false
-  });
+  if(!forceCapability) {
+    // Add message schema
+    oneOfSchemas.push({
+      type: "object",
+      properties: {
+        action: { type: "string", enum: ["message"] },
+        content: { type: "string" }
+      },
+      required: ["action", "content"],
+      additionalProperties: false
+    });
+  }
   
   // Add tool schemas - one for each tool
   availableCapabilities.tools.forEach(tool => {
@@ -110,6 +116,8 @@ export function createStructuredOutputCapabilityParserFormatPromptTask(construct
       // Type assertion for availableCapabilities
       const availableCapabilities = ctx.input.availableCapabilities;
 
+      const forceCapability = ctx.input.forceCapability;
+
       const tools: TemplateToolType[] = [
         ...availableCapabilities.tools.map(tool => ({
           name: tool.name,
@@ -165,7 +173,7 @@ export function createStructuredOutputCapabilityParserFormatPromptTask(construct
 
       // Generate the appropriate JSON schema based on allowMultipleToolUses flag
       const allowMultipleToolUses = construct.props.capabilityParser.props.allowMultipleToolUses ?? false;
-      const jsonSchema = generateJsonSchema(availableCapabilities, allowMultipleToolUses);
+      const jsonSchema = generateJsonSchema(availableCapabilities, allowMultipleToolUses, forceCapability);
 
       // Add forceJsonSchema to the prompt options
       const output: z.infer<typeof FORMAT_PROMPT_TASK_DEF.outputType> = {
