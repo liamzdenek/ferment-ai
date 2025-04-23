@@ -32,7 +32,7 @@ export class TestLLMGate extends TestConstruct {
     const capabilityParser = new StructuredOutputCapabilityParser(this, 'StructuredOutputCapabilityParser');
 
     // Create a capable model
-    const capableModel = new CapableModel(this, 'CapableModel', {
+    const capableModelRangeGate = new CapableModel(this, 'CapableModelRangeGate', {
       model: testModel,
       capabilities: [],
       capabilityParser
@@ -40,7 +40,7 @@ export class TestLLMGate extends TestConstruct {
 
     // Create a range-based gate that passes if score is between 7 and 10
     const rangeGate = new LLMGate(this, 'RangeGate', {
-      model: capableModel,
+      capableModel: capableModelRangeGate,
       prompt: "Please analyze the sentiment of the text and provide a score from 1-10 where 1 is very negative and 10 is very positive. Return only a JSON object with a 'score' field.",
       condition: {
         type: "pass_if_in_range",
@@ -50,15 +50,22 @@ export class TestLLMGate extends TestConstruct {
         max: 10      // Maximum valid score
       }
     });
-
     // Create a workflow for the range gate
     const rangeGateWorkflow = new Workflow(this, 'RangeGateWorkflow', {
       definition: rangeGate
     });
 
+    // Create a capable model
+    const capableModelRegexGate = new CapableModel(this, 'CapableModelRegexGate', {
+      model: testModel,
+      capabilities: [],
+      capabilityParser
+    });
+
+
     // Create a regex-based gate that passes if the response contains the word "happy"
     const regexGate = new LLMGate(this, 'RegexGate', {
-      model: capableModel,
+      capableModel: capableModelRegexGate,
       prompt: "Describe the emotion in this sentence: 'I just won the lottery!'",
       condition: {
         type: "pass_if_regex_matches",

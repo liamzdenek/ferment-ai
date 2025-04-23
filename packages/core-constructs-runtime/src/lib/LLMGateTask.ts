@@ -1,41 +1,9 @@
-import { CAPABLE_WORKFLOW_TASK_DEF, CapableModel, CapableWorkflowTask, LLMGate } from "@ferment-ai/core-constructs-lib";
+import { CAPABLE_WORKFLOW_TASK_DEF, CapableModel, CapableWorkflowTask, LLMGate, STRUCTURED_OUTPUT_TASK_DEF } from "@ferment-ai/core-constructs-lib";
 import { TaskImpl, TaskCtx, getTaskCall, TaskCallAndReturnRequest, TaskCallError, TaskCallResult } from "@ferment-ai/runtime-common";
+import { PromptSchema } from "@modelcontextprotocol/sdk/types.js";
 import * as z from 'zod';
 import { zodToJsonSchema } from "zod-to-json-schema";
-
-/**
- * Generic helper function to get structured output from a model
- * This function is similar to getTaskCall but adds structured output validation
- */
-function* getStructuredOutput<T extends z.ZodType>(
-  ctx: TaskCtx<typeof CAPABLE_WORKFLOW_TASK_DEF.inputType, typeof CAPABLE_WORKFLOW_TASK_DEF.outputType>,
-  model: CapableModel,
-  input: z.infer<typeof CAPABLE_WORKFLOW_TASK_DEF.inputType>,
-  schema: T
-): Generator<TaskCallAndReturnRequest, z.infer<T>, TaskCallResult | TaskCallError> {
-  // Create a query with the force field for structured output
-  const query: z.infer<typeof CAPABLE_WORKFLOW_TASK_DEF.inputType> = {
-    ...input,
-    force: {
-      type: 'structuredOutput',
-      schema: zodToJsonSchema(schema)
-    }
-  };
-
-  console.log("Calling model with", query);
-
-  // Call the model
-  const modelResult = yield* getTaskCall(ctx, model)(query);
-  
-  console.log("Got structured output", modelResult.output.structuredOutput);
-  
-  // Validate the structured output against the schema
-  try {
-    return schema.parse(modelResult.output.structuredOutput);
-  } catch (error) {
-    throw new Error(`Invalid structured output: ${error instanceof Error ? error.message : 'Unknown error'}`);
-  }
-}
+import { getStructuredOutputFromTask } from "./util.js";
 
 export function createLlmGateTask(construct: LLMGate): TaskImpl<typeof CAPABLE_WORKFLOW_TASK_DEF.inputType, typeof CAPABLE_WORKFLOW_TASK_DEF.outputType> {
   return {
@@ -45,32 +13,26 @@ export function createLlmGateTask(construct: LLMGate): TaskImpl<typeof CAPABLE_W
       const prompt = yield* getPrompt(construct, ctx);
 
       // Prepare the input with the prompt
-      const input: z.infer<typeof CAPABLE_WORKFLOW_TASK_DEF.inputType> = {
+      const query: z.infer<typeof STRUCTURED_OUTPUT_TASK_DEF.inputType> = {
         messages: [
           ...ctx.input.messages,
           {
             role: "user",
             content: prompt
           }
-        ]
+        ],
       };
 
       // Handle different condition types
       if (construct.props.condition.type === 'pass_if_in_range' || construct.props.condition.type === 'fail_if_in_range') {
         const condition = construct.props.condition;
-        
-        // Define the schema for score validation
-        const scoreSchema = z.strictObject({
-          score: z.number()
-            .min(condition.min)
-            .max(condition.max)
-        });
-        
-        // Get structured output with score validation
-        const result = yield* getStructuredOutput(ctx, construct.props.model, input, scoreSchema);
+
+        const result = yield* getStructuredOutputFromTask(ctx, construct.props.condition.structuredOutput, query)
+
+        console.log('got structured output', result.output);
         
         // Check if the score passes the condition (using gte/lte fields)
-        const score = result.score;
+        const score = result.output.score;
         const passesThreshold = score >= condition.gte && score <= condition.lte;
         
         // Determine if we passed based on the condition type
@@ -81,12 +43,9 @@ export function createLlmGateTask(construct: LLMGate): TaskImpl<typeof CAPABLE_W
           throw new Error(`LLM Gate "${construct.node.path}" condition not met: score ${score} is ${passesThreshold ? 'in' : 'out of'} range`);
         }
       } else if (construct.props.condition.type === 'pass_if_regex_matches' || construct.props.condition.type === 'fail_if_regex_matches') {
-        // For regex conditions, we don't need structured output
-        const modelResult = yield* getTaskCall(ctx, construct.props.model)(input);
-        
-        // Get the last message content
-        const lastMessage = modelResult.output.messages[modelResult.output.messages.length - 1];
-        const content = lastMessage.content;
+        // For regex conditions, we don't need structured output... but we're going to use it anyway for a simpler interface
+        const result = yield* getStructuredOutputFromTask(ctx, construct.props.condition.structuredOutput, query)
+        const content = result.output.analysis;
         
         // Check if the regex matches
         const regex = new RegExp(construct.props.condition.regex);

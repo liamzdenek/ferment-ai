@@ -25,6 +25,9 @@ export class CapableModel extends CapableWorkflowTask {
   }
 
   pushCapability(capability: BaseCapability) {
+    if(this.props.capabilities.includes(capability)) {
+      return;
+    }
     this.props.capabilities.push(capability);
   }
 

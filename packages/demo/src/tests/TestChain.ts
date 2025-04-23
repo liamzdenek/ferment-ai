@@ -1,4 +1,4 @@
-import { CAPABLE_WORKFLOW_TASK_DEF, CapableModel, Chain, MCPCapability, OllamaModel, EditMessagesTask, StructuredOutputCapabilityParser } from '@ferment-ai/core-constructs-lib';
+import { CAPABLE_WORKFLOW_TASK_DEF, CapableModel, Chain, MCPCapability, OllamaModel, EditMessagesTask, StructuredOutputCapabilityParser, LLMGate } from '@ferment-ai/core-constructs-lib';
 import { Workflow } from '@ferment-ai/runtime-common';
 import { Construct } from 'constructs';
 import { TestConstruct } from '../TestConstruct.js';
@@ -67,12 +67,29 @@ export class TestChain extends TestConstruct {
             capabilityParser
         })
 
+        const capableModelForConfirmingDadJoke = new CapableModel(this, "CapableModelWithoutMcps", {
+            model: testModel,
+            capabilities: [],
+            capabilityParser
+        });
+
         const chain = new Chain(this, 'Chain');
         chain.pushLink(new EditMessagesTask(this, 'DadJokePrompt', {
             appendToLatestMessage: "---\n\nStep 1) Look up a random dad joke using the provided random_dad_joke tool. Do not use the search_dad_jokes tool. Do not invent or remember a joke, you must look it up\n"+
                 "Step 2) Modify the provided email to include the joke. Return the email in full. Keep as much of the email the same as possible, only modify it to add your joke."
         }))
         chain.pushLink(capableModelWithDadJokeMcp);
+        chain.pushLink(new LLMGate(this, 'ConfirmDadJoke', {
+            capableModel: capableModelForConfirmingDadJoke,
+            prompt: "Please analyze how funny the joke is and provide a score from 1-10 where 1 is very negative and 10 is very positive. Return only a JSON object with a 'score' field.",
+            condition: {
+                type: "pass_if_in_range",
+                gte: 7,      // Pass if score >= 7
+                lte: 10,     // Pass if score <= 10
+                min: 1,      // Minimum valid score
+                max: 10      // Maximum valid score
+            }
+        }))
         chain.pushLink(new EditMessagesTask(this, 'SpanishTranslation', {
             messagesPush: [
                 {
