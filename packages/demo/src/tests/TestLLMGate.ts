@@ -51,7 +51,7 @@ export class TestLLMGate extends TestConstruct {
       }
     });
     // Create a workflow for the range gate
-    const rangeGateWorkflow = new Workflow(this, 'RangeGateWorkflow', {
+    const _rangeGateWorkflow = new Workflow(this, 'RangeGateWorkflow', {
       definition: rangeGate
     });
 
@@ -74,7 +74,7 @@ export class TestLLMGate extends TestConstruct {
     });
 
     // Create a workflow for the regex gate
-    const regexGateWorkflow = new Workflow(this, 'RegexGateWorkflow', {
+    const _regexGateWorkflow = new Workflow(this, 'RegexGateWorkflow', {
       definition: regexGate
     });
   }

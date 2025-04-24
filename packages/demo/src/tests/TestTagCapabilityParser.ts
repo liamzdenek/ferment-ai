@@ -1,4 +1,4 @@
-import { CAPABLE_WORKFLOW_TASK_DEF, CapableModel, MCPCapability, OllamaModel, StructuredOutputCapabilityParser, TagCapabilityParser } from '@ferment-ai/core-constructs-lib';
+import { CAPABLE_WORKFLOW_TASK_DEF, CapableModel, MCPCapability, OllamaModel, TagCapabilityParser } from '@ferment-ai/core-constructs-lib';
 import { Workflow } from '@ferment-ai/runtime-common';
 import { Construct } from 'constructs';
 import { TestConstruct } from '../TestConstruct.js';

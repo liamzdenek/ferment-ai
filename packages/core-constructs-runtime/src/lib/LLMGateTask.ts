@@ -1,8 +1,6 @@
-import { CAPABLE_WORKFLOW_TASK_DEF, CapableModel, CapableWorkflowTask, LLMGate, STRUCTURED_OUTPUT_TASK_DEF } from "@ferment-ai/core-constructs-lib";
-import { TaskImpl, TaskCtx, getTaskCall, TaskCallAndReturnRequest, TaskCallError, TaskCallResult } from "@ferment-ai/runtime-common";
-import { PromptSchema } from "@modelcontextprotocol/sdk/types.js";
+import { CAPABLE_WORKFLOW_TASK_DEF, LLMGate, STRUCTURED_OUTPUT_TASK_DEF } from "@ferment-ai/core-constructs-lib";
+import { TaskImpl, TaskCtx, getTaskCall } from "@ferment-ai/runtime-common";
 import * as z from 'zod';
-import { zodToJsonSchema } from "zod-to-json-schema";
 import { getStructuredOutputFromTask } from "./util.js";
 
 export function createLlmGateTask(construct: LLMGate): TaskImpl<typeof CAPABLE_WORKFLOW_TASK_DEF.inputType, typeof CAPABLE_WORKFLOW_TASK_DEF.outputType> {

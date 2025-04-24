@@ -39,6 +39,7 @@ const setupServer = async () => {
     "random_dad_joke",
     "dadjoke://get",
     { description: "Gets a new random dad joke" },
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     async (_uri) => {
       try {
         // Implement curl equivalent using axios

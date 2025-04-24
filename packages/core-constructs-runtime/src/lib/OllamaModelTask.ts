@@ -65,7 +65,6 @@ export function createOllamaTaskImpl(ollamaModel: OllamaModel): TaskImpl<typeof 
           nodePath: ctx.nodePath,
           input: ctx.input,
           error: {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             message: `Failed to call Ollama Chat API: ${(error as unknown as any).message}`,
             details: error
           }

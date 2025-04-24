@@ -365,7 +365,7 @@ async function executeTaskStep(
   nodePathToConstruct: { [nodePath: string]: Construct }
 ): Promise<TaskStepResult> {
   const { nodePath, input, generator } = taskState;
-  const taskDef = workflowDef.tasks[nodePath];
+  //const taskDef = workflowDef.tasks[nodePath];
 
   try {
     // Initialize generator if needed
