@@ -13,6 +13,7 @@ export * from './lib/workflows/CapableWorkflowTaskDefs.js';
 export * from './lib/workflows/Chain.js';
 export * from './lib/workflows/EditMessagesTask.js';
 export * from './lib/workflows/LLMGate.js';
+export * from './lib/workflows/Router.js';
 
 export * from './lib/capabilityParser/TagCapabilityParser.js';
 export * from './lib/capabilityParser/BaseCapabilityParser.js';

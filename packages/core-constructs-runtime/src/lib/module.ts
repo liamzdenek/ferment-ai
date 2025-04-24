@@ -14,7 +14,8 @@ import {
   LLMGate,
   StructuredOutput,
   StructuredOutputCapabilityGetAvailableCapabilities,
-  StructuredOutputCapabilityExecuteCapability
+  StructuredOutputCapabilityExecuteCapability,
+  Router
 } from '@ferment-ai/core-constructs-lib';
 import {
   Module,
@@ -30,6 +31,7 @@ import { createEditMessagesTask } from './EditMessagesTask.js';
 import { createChainTask } from './ChainTask.js';
 import { createLlmGateTask } from './LLMGateTask.js';
 import { createStructuredOutputCapabilityExecuteCapabilityTask, createStructuredOutputCapabilityGetCapabilitiesTask, createStructuredOutputTask } from './StructuredOutputTasks.js';
+import { createRouterTask } from './RouterTask.js';
 
 /**
  * Creates a core constructs module
@@ -89,6 +91,9 @@ export function createCoreConstructsModule(): Module {
       }
       if(construct instanceof LLMGate) {
         return createLlmGateTask(construct);
+      }
+      if(construct instanceof Router) {
+        return createRouterTask(construct);
       }
 
       // Structured Output

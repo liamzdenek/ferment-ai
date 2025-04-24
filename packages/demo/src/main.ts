@@ -12,6 +12,7 @@ import { TestPushMessagesTask } from './tests/TestPushMessagesTask.js';
 import { TestChain } from './tests/TestChain.js';
 import { TestLLMGate } from './tests/TestLLMGate.js';
 import { TestStructuredOutput } from './tests/TestStructuredOutput.js';
+import { TestRouter } from './tests/TestRouter.js';
 
 // Create a root construct
 const rootConstruct = new RootConstruct('Root');
@@ -38,6 +39,7 @@ const LOOKUP: { [cliArg: string]: new (parent: Construct, id: string) => TestCon
 
     "TestChain": TestChain,
     "TestLLMGate": TestLLMGate,
+    "TestRouter": TestRouter,
 }
 
 const cliArg = process.argv[2];

@@ -733,8 +733,115 @@ This pattern provides:
   - `<function=NAME>JSON</function>`
 - Prefix handling for capability names
 
-### 13. TemplateParser Pattern
 
+### 16. Router Pattern
+
+The Router pattern classifies an input and directs it to a specialized task. This allows for separation of concerns and building more specialized prompts. Here's how to use it:
+
+```typescript
+// Create models for different routes
+const greetingModel = new OllamaModel(this, 'GreetingModel', {
+  host: "ollama:11434",
+  modelName: "llama3.1:8b",
+});
+
+const weatherModel = new OllamaModel(this, 'WeatherModel', {
+  host: "ollama:11434",
+  modelName: "llama3.1:8b",
+});
+
+const mathModel = new OllamaModel(this, 'MathModel', {
+  host: "ollama:11434",
+  modelName: "llama3.1:8b",
+});
+
+// Create capable models for different routes
+const greetingCapableModel = new CapableModel(this, "GreetingCapableModel", {
+  model: greetingModel,
+  capabilities: [],
+  capabilityParser: new StructuredOutputCapabilityParser(this, "GreetingCapabilityParser", {})
+});
+
+const weatherCapableModel = new CapableModel(this, "WeatherCapableModel", {
+  model: weatherModel,
+  capabilities: [],
+  capabilityParser: new StructuredOutputCapabilityParser(this, "WeatherCapabilityParser", {})
+});
+
+const mathCapableModel = new CapableModel(this, "MathCapableModel", {
+  model: mathModel,
+  capabilities: [],
+  capabilityParser: new StructuredOutputCapabilityParser(this, "MathCapabilityParser", {})
+});
+
+// Create a model for the router
+const routerModel = new OllamaModel(this, 'RouterModel', {
+  host: "ollama:11434",
+  modelName: "llama3.1:8b",
+});
+
+// Create a capable model for the router
+const routerCapableModel = new CapableModel(this, "RouterCapableModel", {
+  model: routerModel,
+  capabilities: [],
+  capabilityParser: new StructuredOutputCapabilityParser(this, "RouterCapabilityParser", {})
+});
+
+// Create a custom template for the router
+const customTemplate = `
+You are a router that classifies input and directs it to the most appropriate specialized task.
+
+Here are the available routes:
+{{~it.routes :route}}
+- {{=route.name}}: {{=route.description}}
+{{~}}
+
+Based on the following input, select the most appropriate route:
+{{=it.input}}
+
+Return ONLY a JSON object with a "route" field containing the name of the selected route.
+Example: { "route": "greeting" }
+`;
+
+// Create a router with the tasks
+const router = new Router(this, 'Router', {
+  capableModel: routerCapableModel,
+  routes: [
+    {
+      name: "greeting",
+      description: "Greetings, introductions, and general pleasantries",
+      task: greetingCapableModel
+    },
+    {
+      name: "weather",
+      description: "Weather forecasts, conditions, and related questions",
+      task: weatherCapableModel
+    },
+    {
+      name: "math",
+      description: "Mathematical calculations, equations, and problems",
+      task: mathCapableModel
+    }
+  ],
+  template: customTemplate,
+  defaultRoute: "greeting"
+});
+
+// Create a workflow with the router
+const workflow = new Workflow(this, 'Workflow', {
+  definition: router
+});
+```
+
+This pattern provides:
+- Classification of inputs and routing to specialized tasks
+- Separation of concerns with specialized models for different types of queries
+- Customizable routing templates
+- Default route fallback for unclassified inputs
+- Integration with StructuredOutput for reliable routing decisions
+- Error handling with fallback to default route
+
+### 17. TemplateParser Pattern
 The `BaseTemplateParser` class provides a common interface for template parsing:
 
 ```typescript

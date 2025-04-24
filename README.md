@@ -22,6 +22,7 @@ Unlike imperative frameworks, Ferment AI separates declaration from runtime, ena
 - **Structured Output** for type-safe data extraction using Zod schemas
 - **Conditional Workflows** with LLMGate for aborting based on model outputs
 - **Sequential Execution** with Chain for linking multiple tasks
+- **Specialized Prompts** with Router for directing inputs to specialized tasks
 - Coming Soon: **Human Intervention** support with cancellation and resumption
 - **Type Safety** with Zod validation for inputs and outputs at both compile time and runtime
 
@@ -276,10 +277,10 @@ flowchart TB
         LLMGate --> StructuredOutput[StructuredOutput]
 
         EditMessagesTask
+        Router["Router"]
     end
     
     subgraph "Coming Soon"
-        Router[Router]
         Parallel[Parallel]
         Orchestrator[Orchestrator] --> Worker[Worker]
         Evaluator[Evaluator] <--> Optimizer[Optimizer]
@@ -289,14 +290,15 @@ flowchart TB
     
     CurrentWorkflows --> CapableModel
     
-    class CapableModel,LLMGate,Chain,StructuredOutput,EditMessagesTask workflowClass
-    class Router,Parallel,Orchestrator,Worker,Evaluator,Optimizer,Agent,Retry comingSoonClass
+    class CapableModel,LLMGate,Chain,StructuredOutput,EditMessagesTask,Router workflowClass
+    class Parallel,Orchestrator,Worker,Evaluator,Optimizer,Agent,Retry comingSoonClass
 ```
 
 Current workflow components include:
 - `CapableModel`: Combines a model with capabilities
 - `LLMGate`: Enables conditional workflow execution based on LLM outputs
 - `Chain`: Enables sequential execution of multiple workflow tasks
+- `Router`: Classifies inputs and directs them to specialized tasks
 - `StructuredOutput`: Enables type-safe data extraction
 - `EditMessagesTask`: Make programmatic (aka: not-LLM) changes to the message history
 
@@ -441,6 +443,7 @@ npx nx serve demo --args="TestCapableModel"
 npx nx serve demo --args="TestStructuredOutput"
 npx nx serve demo --args="TestLLMGate"
 npx nx serve demo --args="TestChain"
+npx nx serve demo --args="TestRouter"
 ```
 
 ## User Guides
@@ -617,6 +620,89 @@ chain.pushLink(capableModel2);
 // Create a workflow with the chain
 const workflow = new Workflow(rootConstruct, 'ChainWorkflow', {
   definition: chain
+});
+```
+
+#### Using Router
+
+```typescript
+// Create models for different routes
+const greetingModel = new OllamaModel(rootConstruct, 'GreetingModel', {
+  host: 'localhost:11434',
+  modelName: 'llama3.1:8b'
+});
+
+const weatherModel = new OllamaModel(rootConstruct, 'WeatherModel', {
+  host: 'localhost:11434',
+  modelName: 'llama3.1:8b'
+});
+
+const mathModel = new OllamaModel(rootConstruct, 'MathModel', {
+  host: 'localhost:11434',
+  modelName: 'llama3.1:8b'
+});
+
+// Create a capability parser
+const capabilityParser = new StructuredOutputCapabilityParser(rootConstruct, 'CapabilityParser', {});
+
+// Create capable models for different routes
+const greetingCapableModel = new CapableModel(rootConstruct, 'GreetingCapableModel', {
+  model: greetingModel,
+  capabilities: [],
+  capabilityParser: new StructuredOutputCapabilityParser(rootConstruct, 'GreetingCapabilityParser', {})
+});
+
+const weatherCapableModel = new CapableModel(rootConstruct, 'WeatherCapableModel', {
+  model: weatherModel,
+  capabilities: [],
+  capabilityParser: new StructuredOutputCapabilityParser(rootConstruct, 'WeatherCapabilityParser', {})
+});
+
+const mathCapableModel = new CapableModel(rootConstruct, 'MathCapableModel', {
+  model: mathModel,
+  capabilities: [],
+  capabilityParser: new StructuredOutputCapabilityParser(rootConstruct, 'MathCapabilityParser', {})
+});
+
+// Create a model for the router
+const routerModel = new OllamaModel(rootConstruct, 'RouterModel', {
+  host: 'localhost:11434',
+  modelName: 'llama3.1:8b'
+});
+
+// Create a capable model for the router
+const routerCapableModel = new CapableModel(rootConstruct, 'RouterCapableModel', {
+  model: routerModel,
+  capabilities: [],
+  capabilityParser
+});
+
+// Create a router with the tasks
+const router = new Router(rootConstruct, 'Router', {
+  capableModel: routerCapableModel,
+  routes: [
+    {
+      name: 'greeting',
+      description: 'Greetings, introductions, and general pleasantries',
+      task: greetingCapableModel
+    },
+    {
+      name: 'weather',
+      description: 'Weather forecasts, conditions, and related questions',
+      task: weatherCapableModel
+    },
+    {
+      name: 'math',
+      description: 'Mathematical calculations, equations, and problems',
+      task: mathCapableModel
+    }
+  ],
+  defaultRoute: 'greeting' // Optional default route if no match is found
+});
+
+// Create a workflow with the router
+const workflow = new Workflow(rootConstruct, 'RouterWorkflow', {
+  definition: router
 });
 ```
 

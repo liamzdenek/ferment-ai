@@ -48,7 +48,9 @@ Our current focus is on implementing advanced workflow components including **St
 
 9. **Chain Implementation**: We've implemented a Chain component that allows linking multiple workflow tasks together in sequence.
 
-10. **Workflow Exception Throwing**: We've enhanced error handling in workflows with improved error messages and propagation.
+10. **Router Implementation**: We've implemented a Router component that classifies inputs and directs them to specialized tasks, enabling separation of concerns and more specialized prompts.
+
+11. **Workflow Exception Throwing**: We've enhanced error handling in workflows with improved error messages and propagation.
 
 ## Active Considerations
 
@@ -103,6 +105,13 @@ Our current focus is on implementing advanced workflow components including **St
    - Implementing link management and execution
    - Creating test cases for Chain usage
    - Integrating Chain with other workflow components
+
+4. **Router Implementation**:
+   - Implementing Router component for input classification and routing
+   - Creating template-based routing prompts
+   - Implementing structured output parsing for routing decisions
+   - Adding support for default routes as fallbacks
+   - Creating test cases for Router usage
 
 4. **Model Context Protocol Integration**:
    - Refining MCPCapability implementation
@@ -210,3 +219,4 @@ npx nx serve demo --args="TestDotTemplateParser"
 npx nx serve demo --args="TestStructuredOutput"
 npx nx serve demo --args="TestLLMGate"
 npx nx serve demo --args="TestChain"
+npx nx serve demo --args="TestRouter"
