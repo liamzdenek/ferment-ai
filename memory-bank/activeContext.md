@@ -4,7 +4,7 @@
 
 We are implementing a workflow-based architecture for the Ferment AI system with a major refactoring of the TaskFunction to be an async generator/AsyncIterable function. This architecture allows for defining workflows as sequences of tasks with clear relationships, enabling modular and composable model systems with improved suspension and resumption capabilities.
 
-Our current focus is on implementing the **Model Context Protocol (MCP)** integration, allowing connection to external capability servers, and the **CapableModel** architecture that combines models with capabilities, enabling tool use in LLM interactions. We've also implemented the **TagCapabilityParser** that formats prompts with available capabilities and extracts tool invocations from model responses.
+Our current focus is on implementing advanced workflow components including **StructuredOutput** for type-safe data extraction, **LLMGate** for conditional workflow execution, and **Chain** for sequential task execution. We've also enhanced the **Model Context Protocol (MCP)** integration, allowing connection to external capability servers, and refined the **CapableModel** architecture that combines models with capabilities, enabling tool use in LLM interactions.
 
 1. **Project Structure**: We have set up an Nx monorepo with the following packages:
    - `@ferment-ai/core-constructs-lib`: Core construct library and task definitions
@@ -42,6 +42,14 @@ Our current focus is on implementing the **Model Context Protocol (MCP)** integr
 
 6. **Serializable Task Messages**: All task messages (TaskCallRequest, TaskCallResult, TaskCallAndReturnRequest) are designed to be serializable as JSON.
 
+7. **StructuredOutput Implementation**: We've implemented a StructuredOutput capability that enables type-safe data extraction from LLM responses using Zod schemas.
+
+8. **LLMGate Implementation**: We've created an LLMGate component that leverages StructuredOutput to enable conditional workflow execution based on LLM outputs.
+
+9. **Chain Implementation**: We've implemented a Chain component that allows linking multiple workflow tasks together in sequence.
+
+10. **Workflow Exception Throwing**: We've enhanced error handling in workflows with improved error messages and propagation.
+
 ## Active Considerations
 
 1. **Journal Implementation**: The Journal class is responsible for executing workflows and maintaining state. It uses modules to map constructs to task implementations and a compiler to extract workflows from the construct tree.
@@ -78,71 +86,87 @@ Our current focus is on implementing the **Model Context Protocol (MCP)** integr
 
 ## Current Implementation Focus
 
-1. **Model Context Protocol Integration**:
+1. **StructuredOutput Implementation**:
+   - Finalizing StructuredOutput capability for type-safe data extraction
+   - Implementing Zod schema validation for structured outputs
+   - Creating test cases for StructuredOutput usage
+   - Integrating StructuredOutput with other components
+
+2. **LLMGate Implementation**:
+   - Refining LLMGate component for conditional workflow execution
+   - Implementing regex-based and range-based conditions
+   - Creating test cases for LLMGate usage
+   - Integrating LLMGate with Chain and other components
+
+3. **Chain Implementation**:
+   - Optimizing Chain component for sequential task execution
+   - Implementing link management and execution
+   - Creating test cases for Chain usage
+   - Integrating Chain with other workflow components
+
+4. **Model Context Protocol Integration**:
    - Refining MCPCapability implementation
    - Improving capability discovery and execution
    - Enhancing error handling for external MCP servers
+   - Implementing Dad Joke MCP server for testing
 
-2. **CapableModel Implementation**:
-   - Optimizing tool execution and result processing
-   - Improving handling of different capability types
-   - Enhancing the composition of models with capabilities
+5. **Template Parser Implementation**:
+   - Moving prompts to separate files for better organization
+   - Refining BaseTemplateParser and DotTemplateParser implementations
+   - Improving template parsing for capability parsers
+   - Enhancing prompt formatting and variable substitution
 
-3. **Template Parser Implementation**:
-   - Implemented BaseTemplateParser as an abstract class for template parsing
-   - Created DotTemplateParser as a concrete implementation using the dot template engine
-   - Extracted template parsing logic from capability parsers for better separation of concerns
-   - Updated TagCapabilityParser and StructuredOutputCapabilityParser to use the new template parsers
-   - Added a test case for the DotTemplateParser
-
-4. **TagCapabilityParser Implementation**:
-   - Refining prompt formatting with available capabilities
-   - Improving parsing of model responses for tool invocations
-   - Enhancing prefix handling for capability names
-
-4. **Workflow Execution**:
+6. **Workflow Execution**:
    - Enhancing workflow executor to handle both promise and generator patterns
    - Improving support for task relationships and capability calls
+   - Implementing workflow exception throwing and handling
    - Ensuring proper event generation during execution
 
-5. **State Management**:
+7. **State Management**:
    - Refining serialization and deserialization of the journal state
    - Ensuring proper state propagation between tasks
    - Handling task suspension and resumption state
 
 ## Next Steps
 
-1. **Implement Real Model Execution**:
+1. **Enhance Workflow Components**:
+   - Extend LLMGate with additional condition types
+   - Improve Chain with branching and parallel execution
+   - Create more specialized workflow components for common patterns
+   - Develop composition patterns for complex workflows
+
+2. **Implement Real Model Execution**:
    - Connect task implementations to additional LLM API calls (OpenAI, Anthropic)
    - Implement proper handling of model responses
    - Add support for streaming responses from models
 
-2. **Enhance Capability System**:
+3. **Enhance Capability System**:
    - Improve capability execution logic
    - Enhance capability parameters validation
    - Implement prompt chaining for complex workflows
+   - Create more MCP server implementations
 
-3. **Add Support for More Task Types**:
+4. **Add Support for More Task Types**:
    - Create specialized task types for common operations
    - Implement task composition for complex workflows
    - Develop a library of reusable tasks
 
-4. **Implement System for Managing Task Relationships**:
+5. **Implement System for Managing Task Relationships**:
    - Create a relationship registry in the Journal
    - Add methods for querying related tasks
    - Implement visualization tools for task relationships
 
-5. **Add Serialization Optimizations**:
+6. **Add Serialization Optimizations**:
    - Implement compression for large journal states
    - Add support for partial serialization (only changed state)
    - Create a more efficient format for serialization
 
-6. **Improve Error Handling and Recovery**:
-   - Add more robust error handling in task functions
+7. **Improve Error Handling and Recovery**:
+   - Extend workflow exception throwing and handling
    - Implement recovery mechanisms for failed tasks
    - Create a transaction-like system for atomic operations
 
-7. **Add Monitoring and Debugging Tools**:
+8. **Add Monitoring and Debugging Tools**:
    - Implement a visualization tool for workflows
    - Add metrics collection for performance analysis
    - Create a debugging interface for inspecting tasks and their state
@@ -183,3 +207,6 @@ npx nx serve demo --args="TestMCPGetCapabilities"
 npx nx serve demo --args="TestMCPExecuteCapability"
 npx nx serve demo --args="TestCapableModel"
 npx nx serve demo --args="TestDotTemplateParser"
+npx nx serve demo --args="TestStructuredOutput"
+npx nx serve demo --args="TestLLMGate"
+npx nx serve demo --args="TestChain"

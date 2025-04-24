@@ -20,18 +20,23 @@ graph TD
     WorkflowTask --> MCPCapabilityExecuteCapability[MCPCapabilityExecuteCapability]
     WorkflowTask --> TagCapabilityParserFormatPromptTask[TagCapabilityParserFormatPromptTask]
     WorkflowTask --> TagCapabilityParserParseModelResponseTask[TagCapabilityParserParseModelResponseTask]
+    WorkflowTask --> StructuredOutput[StructuredOutput]
     
     %% CapableWorkflowTask Inheritance
     CapableWorkflowTask --> CapableModel[CapableModel]
+    CapableWorkflowTask --> LLMGate[LLMGate]
+    CapableWorkflowTask --> Chain[Chain]
     
     %% BaseModel Inheritance
     BaseModel --> OllamaModel[OllamaModel]
     
     %% BaseCapability Inheritance
     BaseCapability --> MCPCapability[MCPCapability]
+    BaseCapability --> StructuredOutputCapability[StructuredOutputCapability]
     
     %% BaseCapabilityParser Inheritance
     BaseCapabilityParser --> TagCapabilityParser[TagCapabilityParser]
+    BaseCapabilityParser --> StructuredOutputCapabilityParser[StructuredOutputCapabilityParser]
     
     %% Composition Relationships
     MCPCapability --o|contains| MCPCapabilityGetAvailableCapabilities
@@ -43,6 +48,13 @@ graph TD
     CapableModel --o|contains| BaseModel
     CapableModel --o|contains| BaseCapability["BaseCapability[]"]
     CapableModel --o|contains| BaseCapabilityParser
+    
+    StructuredOutputCapability --o|contains| StructuredOutputCapabilityGetAvailableCapabilities
+    StructuredOutputCapability --o|contains| StructuredOutputCapabilityExecuteCapability
+    
+    LLMGate --o|contains| StructuredOutput
+    
+    Chain --o|contains| CapableWorkflowTask["CapableWorkflowTask[]"]
 ```
 
 - **L1 Constructs**: Core primitives (WorkflowTask, BaseModel, BaseCapability, BaseCapabilityParser, etc.)
@@ -497,6 +509,196 @@ This pattern provides:
 ### 12. TagCapabilityParser Pattern
 
 The `TagCapabilityParser` class extracts tool invocations from model responses:
+
+### 13. StructuredOutput Pattern
+
+The StructuredOutput pattern enables type-safe data extraction from LLM responses using Zod schemas. Here's how to use it:
+
+```typescript
+// Create a model
+const testModel = new OllamaModel(this, 'TestModel', {
+    host: "ollama:11434",
+    modelName: "deepseek-r1:8b"
+});
+
+// Create a capability parser
+const capabilityParser = new StructuredOutputCapabilityParser(this, "CapabilityParser", {});
+
+// Create a capable model
+const capableModel = new CapableModel(this, "CapableModel", {
+    model: testModel,
+    capabilities: [],
+    capabilityParser
+});
+
+// Create a structured output with a Zod schema
+const structuredOutput = new StructuredOutput(this, "StructuredOutput", {
+    capableModel,
+    outputType: z.strictObject({
+        accountholderName: z.string(),
+        accountType: z.string(),
+        currentBalance: z.number(),
+        mostRecentDepositAmount: z.number().min(0),
+        mostRecentWithdrawalAmount: z.number().max(0)
+    })
+});
+
+// Create a workflow with the structured output
+const workflow = new Workflow(this, 'Workflow', {
+    definition: structuredOutput
+});
+```
+
+This pattern provides:
+- Type-safe data extraction from LLM responses
+- Validation of LLM outputs against a schema
+- Clear definition of expected output structure
+- Integration with CapableModel
+- Support for complex nested data structures
+
+### 14. LLMGate Pattern
+
+The LLMGate pattern enables conditional workflow execution based on LLM outputs. Here's how to use it:
+
+```typescript
+// Create a model
+const testModel = new OllamaModel(this, 'TestModel', {
+    host: "ollama:11434",
+    modelName: "deepseek-r1:8b",
+});
+
+// Create a capability parser
+const capabilityParser = new StructuredOutputCapabilityParser(this, 'StructuredOutputCapabilityParser');
+
+// Create a capable model
+const capableModel = new CapableModel(this, 'CapableModel', {
+    model: testModel,
+    capabilities: [],
+    capabilityParser
+});
+
+// Create a range-based gate that passes if score is between 7 and 10
+const rangeGate = new LLMGate(this, 'RangeGate', {
+    capableModel: capableModel,
+    prompt: "Please analyze the sentiment of the text and provide a score from 1-10 where 1 is very negative and 10 is very positive. Return only a JSON object with a 'score' field.",
+    condition: {
+        type: "pass_if_in_range",
+        gte: 7,      // Pass if score >= 7
+        lte: 10,     // Pass if score <= 10
+        min: 1,      // Minimum valid score
+        max: 10      // Maximum valid score
+    }
+});
+
+// Create a regex-based gate that passes if the response contains specific words
+const regexGate = new LLMGate(this, 'RegexGate', {
+    capableModel: capableModel,
+    prompt: "Describe the emotion in this sentence: 'I just won the lottery!'",
+    condition: {
+        type: "pass_if_regex_matches",
+        regex: "happy|joy|excited|ecstatic"
+    }
+});
+
+// Create workflows with the gates
+const rangeGateWorkflow = new Workflow(this, 'RangeGateWorkflow', {
+    definition: rangeGate
+});
+
+const regexGateWorkflow = new Workflow(this, 'RegexGateWorkflow', {
+    definition: regexGate
+});
+```
+
+This pattern provides:
+- Conditional workflow execution based on LLM outputs
+- Support for numeric range conditions (pass_if_in_range, fail_if_in_range)
+- Support for regex pattern matching (pass_if_regex_matches, fail_if_regex_matches)
+- Integration with StructuredOutput for reliable data extraction
+- Exception throwing when conditions are not met
+
+### 15. Chain Pattern
+
+The Chain pattern enables sequential execution of workflow tasks. Here's how to use it:
+
+```typescript
+// Create models and capabilities
+const testModel = new OllamaModel(this, 'TestModel', {
+    host: "ollama:11434",
+    modelName: "llama3.1:70b",
+});
+
+const mcp = new MCPCapability(this, 'MCPCapability', {
+    transport: {
+      type: 'stdio',
+      command: 'node',
+      args: [path.join(process.cwd(), './packages/dad-joke-mcp/dist/main.js')]
+    }
+});
+
+const capabilityParser = new StructuredOutputCapabilityParser(this, "CapabilityParser", {});
+
+const capableModelWithMcp = new CapableModel(this, "CapableModelWithMcps", {
+    model: testModel,
+    capabilities: [mcp],
+    capabilityParser
+});
+
+const capableModelWithoutMcp = new CapableModel(this, "CapableModelWithoutMcps", {
+    model: testModel,
+    capabilities: [],
+    capabilityParser
+});
+
+// Create a chain and add links
+const chain = new Chain(this, 'Chain');
+
+// Add a task to modify the prompt
+chain.pushLink(new EditMessagesTask(this, 'DadJokePrompt', {
+    appendToLatestMessage: "Look up a random dad joke using the provided tool."
+}));
+
+// Add a model with MCP capability
+chain.pushLink(capableModelWithMcp);
+
+// Add a gate to check joke quality
+chain.pushLink(new LLMGate(this, 'ConfirmDadJoke', {
+    capableModel: capableModelForConfirmingDadJoke,
+    prompt: "Please analyze how funny the joke is and provide a score from 1-10.",
+    condition: {
+        type: "pass_if_in_range",
+        gte: 7,
+        lte: 10,
+        min: 1,
+        max: 10
+    }
+}));
+
+// Add another task
+chain.pushLink(new EditMessagesTask(this, 'TranslationPrompt', {
+    messagesPush: [
+        {
+            role: "user",
+            content: "Translate the full text into Spanish."
+        }
+    ]
+}));
+
+// Add a model without MCP capability
+chain.pushLink(capableModelWithoutMcp);
+
+// Create a workflow with the chain
+const workflow = new Workflow(this, 'Workflow', {
+    definition: chain
+});
+```
+
+This pattern provides:
+- Sequential execution of workflow tasks
+- Simple API for adding links to the chain
+- Composition of complex workflows from simpler components
+- Integration with other workflow components like LLMGate and EditMessagesTask
+- Clear definition of task execution order
 
 ```typescript
 export class TagCapabilityParser extends BaseCapabilityParser {

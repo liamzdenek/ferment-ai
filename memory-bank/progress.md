@@ -4,7 +4,7 @@
 
 The project has undergone a **major refactoring** of the TaskFunction to be an async generator/AsyncIterable function. This enables suspension and resumption of tasks, allowing for more complex workflows with better type safety. We have also moved task definitions to the core-constructs-lib package while keeping task implementations in core-constructs-runtime. The system now supports both promise-based and generator-based task functions, with proper Zod validation for inputs and outputs.
 
-Recently, we've implemented the **Model Context Protocol (MCP)** integration, allowing connection to external capability servers. We've also created the **CapableModel** architecture that combines models with capabilities, enabling tool use in LLM interactions. Additionally, we've implemented the **TagCapabilityParser** that formats prompts with available capabilities and extracts tool invocations from model responses.
+Recently, we've implemented several key components: the **StructuredOutput** capability for type-safe data extraction, the **LLMGate** component for conditional workflow execution, and the **Chain** component for sequential task execution. We've also enhanced the **Model Context Protocol (MCP)** integration, allowing connection to external capability servers, and refined the **CapableModel** architecture that combines models with capabilities, enabling tool use in LLM interactions.
 
 ## What Works
 
@@ -25,6 +25,10 @@ Recently, we've implemented the **Model Context Protocol (MCP)** integration, al
    - `CapableModel`: Class that combines models with capabilities
    - `MCPCapability`: Class for connecting to MCP servers
    - `TagCapabilityParser`: Class for extracting tool invocations from model responses
+   - `StructuredOutput`: Class for type-safe data extraction using Zod schemas
+   - `StructuredOutputCapability`: Capability for structured output from models
+   - `LLMGate`: Component for conditional workflow execution based on LLM outputs
+   - `Chain`: Component for sequential task execution
    - `VirtualModel`: Top-level container for model systems
    - `ExitPoint`: Ending point for a virtual model
 
@@ -135,6 +139,7 @@ Recently, we've implemented the **Model Context Protocol (MCP)** integration, al
   - [x] Implement MCPCapability class
   - [x] Add support for HTTP and stdio transports
   - [x] Implement capability discovery and execution
+  - [x] Create Dad Joke MCP server for testing
 
 - [x] **CapableModel Implementation**
   - [x] Create CapableModel class
@@ -145,37 +150,52 @@ Recently, we've implemented the **Model Context Protocol (MCP)** integration, al
   - [x] Create TagCapabilityParser class
   - [x] Implement prompt formatting with available capabilities
   - [x] Implement parsing of model responses for tool invocations
+  - [x] Move prompts to separate files for better organization
+
+- [x] **StructuredOutput Implementation**
+  - [x] Create StructuredOutput class
+  - [x] Implement StructuredOutputCapability
+  - [x] Add Zod schema validation for outputs
+  - [x] Create test cases for StructuredOutput
+
+- [x] **Workflow Components Implementation**
+  - [x] Implement LLMGate for conditional execution
+  - [x] Implement Chain for sequential task execution
+  - [x] Add workflow exception throwing and handling
+  - [x] Create test cases for workflow components
 
 - [x] **Task Implementation Enhancement**
   - [x] Create task implementations for models
   - [x] Create task implementations for capabilities
   - [x] Create task implementations for capability parsers
+  - [x] Create task implementations for workflow components
   - [ ] Create task implementations for tools
   - [ ] Create task implementations for entrypoints and exit points
 
 - [ ] **Workflow Execution Enhancement**
   - [x] Implement basic workflow execution
   - [x] Add support for task suspension and resumption
-  - [ ] Add support for complex task relationships
-  - [ ] Implement error handling and recovery
+  - [x] Add support for complex task relationships
+  - [x] Implement error handling and recovery
   - [ ] Add support for streaming responses
 
-### Phase 4: Advanced Features (Planned)
+### Phase 4: Advanced Features (In Progress)
 
 - [ ] **Real Model Execution**
   - [x] Connect task implementations to actual LLM API calls (OllamaModel)
-  - [ ] Implement proper handling of model responses
+  - [x] Implement proper handling of model responses
   - [ ] Add support for streaming responses from models
 
 - [ ] **Enhanced Tool System**
   - [x] Implement capability execution logic
   - [x] Add support for capability parameters validation
   - [x] Create a mechanism for capabilities to return results to models
+  - [x] Implement structured output for data extraction
   - [ ] Implement prompt chaining for complex workflows
 
 - [ ] **Additional Task Types**
-  - [ ] Create specialized task types for common operations
-  - [ ] Implement task composition for complex workflows
+  - [x] Create specialized task types for common operations (LLMGate, Chain)
+  - [x] Implement task composition for complex workflows
   - [ ] Develop a library of reusable tasks
 
 ### Phase 5: Performance and Reliability (Planned)
@@ -197,55 +217,93 @@ Recently, we've implemented the **Model Context Protocol (MCP)** integration, al
 
 ## Recent Improvements
 
-1. **Implemented Model Context Protocol (MCP) Integration**:
+1. **Implemented StructuredOutput**:
+   - Created StructuredOutput class for type-safe data extraction
+   - Implemented StructuredOutputCapability for model integration
+   - Added Zod schema validation for structured outputs
+   - Created test cases demonstrating structured data extraction
+   - Integrated with LLMGate for conditional workflow execution
+
+2. **Implemented LLMGate**:
+   - Created LLMGate class for conditional workflow execution
+   - Implemented regex-based and range-based conditions
+   - Added support for pass/fail conditions based on LLM outputs
+   - Created test cases demonstrating conditional execution
+   - Integrated with StructuredOutput for reliable data extraction
+
+3. **Implemented Chain**:
+   - Created Chain class for sequential task execution
+   - Implemented link management and execution
+   - Added support for pushing links to the chain
+   - Created test cases demonstrating sequential execution
+   - Integrated with LLMGate and other workflow components
+
+4. **Enhanced Model Context Protocol (MCP) Integration**:
+   - Created Dad Joke MCP server for testing
+   - Fixed various MCP runtime bugs
+   - Improved capability discovery and execution
+   - Enhanced error handling for external MCP servers
+
+5. **Improved Template Parser System**:
+   - Moved prompts to separate files for better organization
+   - Enhanced BaseTemplateParser and DotTemplateParser implementations
+   - Improved template parsing for capability parsers
+   - Added support for more complex template variables
+
+6. **Enhanced Workflow Exception Handling**:
+   - Implemented workflow exception throwing
+   - Added better error messages and propagation
+   - Improved error handling in task execution
+   - Created test cases demonstrating error handling
+
+7. **Major Compiler Rewrite**:
+   - Improved compiler quality and reliability
+   - Enhanced handling of task relationships
+   - Optimized workflow extraction from construct tree
+   - Reduced compiler debug output
+
+8. **Implemented Model Context Protocol (MCP) Integration**:
    - Created MCPCapability class for connecting to external capability servers
    - Added support for HTTP and stdio transports
    - Implemented capability discovery and execution
    - Added support for three capability types: tools, prompts, and resources
 
-2. **Created CapableModel Architecture**:
+9. **Created CapableModel Architecture**:
    - Implemented CapableModel class that combines models with capabilities
    - Added support for tool execution and result processing
    - Implemented special handling for different capability types
    - Created composition relationships with BaseModel, BaseCapability[], and BaseCapabilityParser
 
-3. **Implemented TagCapabilityParser**:
-   - Created TagCapabilityParser class for extracting tool invocations from model responses
-   - Implemented template-based prompt formatting with available capabilities
-   - Added support for different invocation formats
-   - Implemented prefix handling for capability names
+10. **Implemented TagCapabilityParser**:
+    - Created TagCapabilityParser class for extracting tool invocations from model responses
+    - Implemented template-based prompt formatting with available capabilities
+    - Added support for different invocation formats
+    - Implemented prefix handling for capability names
 
-4. **Implemented Template Parser**:
-   - Created BaseTemplateParser class as an abstract base for template parsers
-   - Implemented DotTemplateParser using the dot template engine
-   - Extracted template parsing logic from capability parsers
-   - Updated TagCapabilityParser and StructuredOutputCapabilityParser to use template parsers
-   - Added a test case for the DotTemplateParser
+11. **Refactored TaskFunction to Async Generator**:
+    - Updated TaskFunction to be an async generator/AsyncIterable function
+    - Added support for yielding control to other tasks and resuming execution
+    - Implemented proper type validation between calls using Zod
 
-5. **Refactored TaskFunction to Async Generator**:
-   - Updated TaskFunction to be an async generator/AsyncIterable function
-   - Added support for yielding control to other tasks and resuming execution
-   - Implemented proper type validation between calls using Zod
+12. **Moved Task Definitions to core-constructs-lib**:
+    - Created a new task-defs.ts file in core-constructs-lib
+    - Moved all task definitions from runtime to lib package
+    - Updated imports in core-constructs-runtime to use the new definitions
 
-5. **Moved Task Definitions to core-constructs-lib**:
-   - Created a new task-defs.ts file in core-constructs-lib
-   - Moved all task definitions from runtime to lib package
-   - Updated imports in core-constructs-runtime to use the new definitions
+13. **Enhanced Task Implementation**:
+    - Created TaskImpl interface with def, taskId, and execute properties
+    - Implemented both promise-based and generator-based task functions
+    - Added support for task suspension and resumption
 
-6. **Enhanced Task Implementation**:
-   - Created TaskImpl interface with def, taskId, and execute properties
-   - Implemented both promise-based and generator-based task functions
-   - Added support for task suspension and resumption
+14. **Updated Supporting Files**:
+    - Modified compiler.ts to use TaskImplMap instead of TaskFunctionMap
+    - Updated journal.ts to use the new interfaces
+    - Ensured all files are compatible with the new architecture
 
-7. **Updated Supporting Files**:
-   - Modified compiler.ts to use TaskImplMap instead of TaskFunctionMap
-   - Updated journal.ts to use the new interfaces
-   - Ensured all files are compatible with the new architecture
-
-8. **Implemented Task Message Types**:
-   - Created TaskCallRequest, TaskCallResult, and TaskCallAndReturnRequest interfaces
-   - Ensured all message types are serializable as JSON
-   - Added proper type validation for message fields
+15. **Implemented Task Message Types**:
+    - Created TaskCallRequest, TaskCallResult, and TaskCallAndReturnRequest interfaces
+    - Ensured all message types are serializable as JSON
+    - Added proper type validation for message fields
 
 ## Known Issues
 
@@ -318,6 +376,9 @@ To build and run the main demo application:
 ```bash
 npx nx build demo
 npx nx serve demo --args="TestDotTemplateParser"
+npx nx serve demo --args="TestStructuredOutput"
+npx nx serve demo --args="TestLLMGate"
+npx nx serve demo --args="TestChain"
 ```
 
 ### HTTP Application Demo

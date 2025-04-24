@@ -19,6 +19,9 @@ Unlike imperative frameworks, Ferment AI separates declaration from runtime, ena
 - **Stateless Operation** with serialization/deserialization of the entire system state
 - **Capability System** integrated with workflows for model capabilities
 - **Model Context Protocol (MCP)** support for connecting to external capability servers
+- **Structured Output** for type-safe data extraction using Zod schemas
+- **Conditional Workflows** with LLMGate for aborting based on model outputs
+- **Sequential Execution** with Chain for linking multiple tasks
 - **Human Intervention** support with cancellation and resumption
 - **Type Safety** with Zod validation for inputs and outputs at both compile time and runtime
 
@@ -61,68 +64,205 @@ const workflow = new Workflow(rootConstruct, 'Workflow', {
 ```
 
 ```mermaid
-graph TD
+flowchart TB
+    classDef primary fill:#d0e8ff,stroke:#0066cc,stroke-width:2px,color:#000000
+    classDef secondary fill:#e6f5d0,stroke:#336600,stroke-width:2px,color:#000000
+    classDef external fill:#f9e4cb,stroke:#cc6600,stroke-width:2px,color:#000000
+    
+    User([User]) --> Journal[Journal]
+    Journal --> Workflow[Workflow]
+    Workflow --> CapableModel[CapableModel]
+    
     subgraph "Core Components"
-        CapableModel[CapableModel] --> BaseModel[Model]
+        CapableModel --> Model[Model]
         CapableModel --> Capabilities[Capabilities]
-        CapableModel --> Parser[CapabilityParser]
-        
-        BaseModel --> OllamaModel[OllamaModel]
-        Capabilities --> MCPCapability[MCPCapability]
-        Parser --> TagCapabilityParser[TagCapabilityParser]
-        
-        TagCapabilityParser --> BaseTemplateParser[BaseTemplateParser]
-        BaseTemplateParser --> DotTemplateParser[DotTemplateParser]
-        
-        MCPCapability --> HTTPTransport[HTTP Transport]
-        MCPCapability --> StdioTransport[Stdio Transport]
+        CapableModel --> Parser[Parser]
     end
     
-    subgraph "Workflow System"
-        Workflow[Workflow] --> CapableModel
-        Journal[Journal] --> Workflow
-        Journal --> Modules[Modules]
+    subgraph "External Systems"
+        Capabilities --> MCPServer[MCP Server]
     end
     
-    subgraph "MCP Server"
-        MCPServer[MCP Server]
-        Tools[Tools]
-        Prompts[Prompts]
-        Resources[Resources]
-        
-        MCPServer --> Tools
-        MCPServer --> Prompts
-        MCPServer --> Resources
-    end
-    
-    HTTPTransport -.-> MCPServer
-    StdioTransport -.-> MCPServer
+    class Journal,Workflow,CapableModel primary
+    class Model,Capabilities,Parser secondary
+    class MCPServer,User external
 ```
 
-### Workflow Execution
+This high-level diagram shows the core architecture of Ferment AI. The system follows a clear flow:
+
+1. The **User** interacts with the **Journal**, which is the central executor
+2. The **Journal** executes a **Workflow**, which defines the sequence of operations
+3. The **Workflow** typically includes a **CapableModel** as its main component
+4. The **CapableModel** combines a **Model** (like OllamaModel) with **Capabilities** (like MCP) and a **Parser**
+5. **Capabilities** can connect to **External Systems** like MCP Servers
+
+Let's explore each component in more detail.
+
+### Models
+
+Models are the foundation of Ferment AI, providing the LLM functionality.
+
+```mermaid
+flowchart TB
+    classDef modelClass fill:#b3e5fc,stroke:#01579b,stroke-width:2px,color:#000000
+    
+    BaseModel[BaseModel] --> OllamaModel[OllamaModel]
+    
+    class BaseModel,OllamaModel modelClass
+```
+
+The `BaseModel` class defines the interface for all models, with `OllamaModel` being the current implementation. Future implementations will include OpenAI, Anthropic, and others.
 
 ```typescript
-// Create a journal and execute the workflow
-const journal = new Journal([createCoreConstructsModule()], {
-  rootConstruct
+// Creating a model
+const model = new OllamaModel(rootConstruct, 'Model', {
+  host: 'localhost:11434',
+  modelName: 'llama3.1:8b'
 });
-
-// Execute the workflow
-async function runWorkflow() {
-  const workflowName = "Root/Workflow"; // the full path to the Workflow construct
-  
-  for await (const event of journal.executeWorkflow(workflowName, {
-    messages: [
-      { role: 'user', content: 'What is the capital of France?' }
-    ]
-  })) {
-    // Handle events (model responses, capability calls, etc.)
-    console.log('Event:', event);
-  }
-}
-
-runWorkflow();
 ```
+
+### Capabilities
+
+Capabilities extend models with additional functionality, such as tool use.
+
+```mermaid
+flowchart TB
+    classDef capabilityClass fill:#c8e6c9,stroke:#1b5e20,stroke-width:2px,color:#000000
+    classDef externalClass fill:#ffccbc,stroke:#bf360c,stroke-width:2px,color:#000000
+    
+    BaseCapability[BaseCapability]
+    BaseCapability --> MCPCapability[MCPCapability]
+    BaseCapability --> StructuredOutputCapability[StructuredOutputCapability]
+    
+    MCPCapability --> HTTPTransport[HTTP Transport]
+    MCPCapability --> StdioTransport[Stdio Transport]
+    
+    MCPCapability -.-> MCPServer[MCP Server]
+    
+    class BaseCapability,MCPCapability,StructuredOutputCapability,HTTPTransport,StdioTransport capabilityClass
+    class MCPServer externalClass
+```
+
+The `MCPCapability` connects to external MCP servers via HTTP or stdio, while `StructuredOutputCapability` enables structured data extraction.
+
+```typescript
+// Creating an MCP capability
+const mcpCapability = new MCPCapability(rootConstruct, 'MCPCapability', {
+  transport: {
+    type: 'http', // or 'stdio'
+    uri: 'http://localhost:7000/mcp'
+  }
+});
+```
+
+### Parsers
+
+Parsers process model inputs and outputs, extracting tool invocations and formatting prompts.
+
+```mermaid
+flowchart TB
+    classDef parserClass fill:#ffe0b2,stroke:#e65100,stroke-width:2px,color:#000000
+    
+    BaseCapabilityParser[BaseCapabilityParser]
+    BaseCapabilityParser --> TagCapabilityParser[TagCapabilityParser]
+    BaseCapabilityParser --> StructuredOutputCapabilityParser[StructuredOutputCapabilityParser]
+    
+    BaseTemplateParser[BaseTemplateParser]
+    BaseTemplateParser --> DotTemplateParser[DotTemplateParser]
+    
+    TagCapabilityParser --> BaseTemplateParser
+    
+    class BaseCapabilityParser,TagCapabilityParser,StructuredOutputCapabilityParser,BaseTemplateParser,DotTemplateParser parserClass
+```
+
+The `TagCapabilityParser` extracts tool invocations from model responses, while `StructuredOutputCapabilityParser` handles structured data. Both use template parsers for formatting.
+
+```typescript
+// Creating a capability parser
+const capabilityParser = new TagCapabilityParser(rootConstruct, 'CapabilityParser', {});
+```
+
+### Structured Output
+
+Structured Output enables type-safe data extraction from LLM responses.
+
+```mermaid
+flowchart TB
+    classDef structuredClass fill:#ffccbc,stroke:#bf360c,stroke-width:2px,color:#000000
+    classDef capabilityClass fill:#c8e6c9,stroke:#1b5e20,stroke-width:2px,color:#000000
+    
+    StructuredOutput[StructuredOutput] --> StructuredOutputCapability[StructuredOutputCapability]
+    
+    class StructuredOutput structuredClass
+    class StructuredOutputCapability capabilityClass
+```
+
+The `StructuredOutput` component uses Zod schemas to define and validate the structure of LLM outputs.
+
+```typescript
+// Creating a structured output
+const structuredOutput = new StructuredOutput(rootConstruct, 'StructuredOutput', {
+  capableModel,
+  outputType: z.strictObject({
+    name: z.string(),
+    age: z.number(),
+    interests: z.array(z.string())
+  })
+});
+```
+
+### Workflow Components
+
+Workflow components enable building complex LLM workflows.
+
+```mermaid
+flowchart TB
+    classDef workflowClass fill:#e1bee7,stroke:#4a148c,stroke-width:2px,color:#000000
+    classDef comingSoonClass fill:#d1c4e9,stroke:#4527a0,stroke-width:2px,color:#000000,stroke-dasharray: 5 5
+    
+    CapableModel[CapableModel]
+    
+    subgraph CurrentWorkflows["Current Workflows"]
+        LLMGate[LLMGate]
+        Chain[Chain]
+        
+        Chain --> LLMGate
+        LLMGate --> StructuredOutput[StructuredOutput]
+    end
+    
+    subgraph "Coming Soon"
+        Router[Router]
+        Parallel[Parallel]
+        Orchestrator[Orchestrator] --> Worker[Worker]
+        Evaluator[Evaluator] <--> Optimizer[Optimizer]
+        Agent[Agent]
+        Retry[Retry]
+    end
+    
+    CurrentWorkflows --> CapableModel
+    
+    class CapableModel,LLMGate,Chain,StructuredOutput workflowClass
+    class Router,Parallel,Orchestrator,Worker,Evaluator,Optimizer,Agent,Retry comingSoonClass
+```
+
+Current workflow components include:
+- `CapableModel`: Combines a model with capabilities
+- `LLMGate`: Enables conditional workflow execution based on LLM outputs
+- `Chain`: Enables sequential execution of multiple workflow tasks
+- `StructuredOutput`: Enables type-safe data extraction
+
+```typescript
+// Creating a chain
+const chain = new Chain(rootConstruct, 'Chain');
+chain.pushLink(new EditMessagesTask(rootConstruct, 'FirstPrompt', {
+  appendToLatestMessage: "Summarize the following text:"
+}));
+chain.pushLink(capableModel);
+```
+
+### Execution Flow
+
+The execution flow shows what happens when a workflow is executed.
 
 ```mermaid
 sequenceDiagram
@@ -134,39 +274,101 @@ sequenceDiagram
     participant MCPCapability
     participant MCPServer
     
+    rect rgba(173, 216, 230, 0.5)
+    note right of User: Workflow Execution
     User->>Journal: executeWorkflow()
     Journal->>Workflow: execute()
     Workflow->>CapableModel: execute()
+    end
     
-    CapableModel->>Model: generate response
-    Model-->>CapableModel: response with capability invocation
-    
-    CapableModel->>MCPCapability: execute capability
-    MCPCapability->>MCPServer: HTTP/Stdio request
-    MCPServer-->>MCPCapability: capability result
-    MCPCapability-->>CapableModel: result
-    
-    CapableModel->>Model: continue with capability result
-    Model-->>CapableModel: final response
+    loop For each message or capability invocation
+        rect rgba(255, 222, 173, 0.5)
+        note right of CapableModel: Model Interaction
+        CapableModel->>Model: generate response
+        Model-->>CapableModel: response with capability invocation
+        end
+        
+        opt When capability is invoked
+            rect rgba(144, 238, 144, 0.5)
+            note right of CapableModel: Capability Execution
+            CapableModel->>MCPCapability: execute capability
+            MCPCapability->>MCPServer: HTTP/Stdio request
+            MCPServer-->>MCPCapability: capability result
+            MCPCapability-->>CapableModel: result
+            end
+            
+            rect rgba(216, 191, 216, 0.5)
+            note right of CapableModel: Result Processing
+            CapableModel->>Model: continue with capability result
+            Model-->>CapableModel: final response
+            end
+        end
+    end
     
     CapableModel-->>Workflow: response
     Workflow-->>Journal: events
     Journal-->>User: events
 ```
 
+This sequence diagram shows:
+1. The user initiates workflow execution
+2. The model generates a response that may include capability invocations
+3. Capabilities are executed and results are returned to the model
+4. The model generates a final response
+5. The response is returned to the user
+
+```typescript
+// Execute the workflow
+async function runWorkflow() {
+  const workflowName = "Root/Workflow";
+  
+  for await (const event of journal.executeWorkflow(workflowName, {
+    messages: [
+      { role: 'user', content: 'What is the capital of France?' }
+    ]
+  })) {
+    // Handle events (model responses, capability calls, etc.)
+    console.log('Event:', event);
+  }
+}
+```
+
 ### Package Structure
 
-- **@ferment-ai/core-constructs-lib**: Core construct library and task definitions
-- **@ferment-ai/core-constructs-runtime**: Runtime implementation for core constructs
-- **@ferment-ai/runtime-common**: Common interfaces and utilities for runtime packages, including the workflow compiler
+Ferment AI is organized into several packages with clear responsibilities.
+
+```mermaid
+flowchart TB
+    classDef packageClass fill:#e8eaf6,stroke:#3f51b5,stroke-width:2px,color:#000000
+    
+    CoreLib["@ferment-ai/core-constructs-lib"]
+    CoreRuntime["@ferment-ai/core-constructs-runtime"]
+    RuntimeCommon["@ferment-ai/runtime-common"]
+    RuntimeInMemory["@ferment-ai/runtime-in-memory"]
+    Demo["@ferment-ai/demo"]
+    DadJokeMCP["@ferment-ai/dad-joke-mcp"]
+    
+    CoreLib --> RuntimeCommon
+    CoreRuntime --> CoreLib
+    CoreRuntime --> RuntimeCommon
+    RuntimeInMemory --> RuntimeCommon
+    Demo --> CoreLib
+    Demo --> CoreRuntime
+    Demo --> RuntimeCommon
+    Demo --> RuntimeInMemory
+    Demo --> DadJokeMCP
+    
+    class CoreLib,CoreRuntime,RuntimeCommon,RuntimeInMemory,Demo,DadJokeMCP packageClass
+```
+
+- **@ferment-ai/core-constructs-lib**: Core construct library and task definitions (the "what")
+- **@ferment-ai/core-constructs-runtime**: Runtime implementation for core constructs (the "how")
+- **@ferment-ai/runtime-common**: Common interfaces and utilities for runtime packages
 - **@ferment-ai/runtime-in-memory**: In-memory implementation of the Journal
 - **@ferment-ai/demo**: Demo application
+- **@ferment-ai/dad-joke-mcp**: Example MCP server implementation
 
-The core-constructs-lib and core-constructs-runtime packages form a complementary pair:
-- **core-constructs-lib** defines the constructs and task definitions (the "what")
-- **core-constructs-runtime** implements the runtime behavior of those constructs (the "how")
-
-This separation allows integrators to bring their own implementation, constructs, or both. If you think my core constructs are bad, you can bring your own. The core constructs contain no special privileges; any construct library has the same capability.
+This separation allows integrators to bring their own implementation, constructs, or both. The core constructs contain no special privileges; any construct library has the same capability.
 
 # Initial Setup
 ```bash
@@ -187,6 +389,9 @@ npx nx serve demo --args="SimpleCall"
 npx nx serve demo --args="TestMCPGetCapabilities"
 npx nx serve demo --args="TestMCPExecuteCapability"
 npx nx serve demo --args="TestCapableModel"
+npx nx serve demo --args="TestStructuredOutput"
+npx nx serve demo --args="TestLLMGate"
+npx nx serve demo --args="TestChain"
 ```
 
 ### Basic Usage Example
@@ -315,6 +520,120 @@ const capableModel = new CapableModel(rootConstruct, 'CapableModel', {
 });
 ```
 
+#### Using StructuredOutput
+
+```typescript
+// Create a model and capability parser
+const model = new OllamaModel(rootConstruct, 'Model', {
+  host: 'localhost:11434',
+  modelName: 'llama3.1:8b'
+});
+
+const capabilityParser = new StructuredOutputCapabilityParser(rootConstruct, 'CapabilityParser', {});
+
+// Create a capable model
+const capableModel = new CapableModel(rootConstruct, 'CapableModel', {
+  model: model,
+  capabilities: [],
+  capabilityParser
+});
+
+// Create a structured output with a Zod schema
+const structuredOutput = new StructuredOutput(rootConstruct, 'StructuredOutput', {
+  capableModel,
+  outputType: z.strictObject({
+    name: z.string(),
+    age: z.number(),
+    interests: z.array(z.string())
+  })
+});
+
+// Create a workflow with the structured output
+const workflow = new Workflow(rootConstruct, 'StructuredOutputWorkflow', {
+  definition: structuredOutput
+});
+```
+
+#### Using LLMGate
+
+```typescript
+// Create a model and capability parser
+const model = new OllamaModel(rootConstruct, 'Model', {
+  host: 'localhost:11434',
+  modelName: 'llama3.1:8b'
+});
+
+const capabilityParser = new StructuredOutputCapabilityParser(rootConstruct, 'CapabilityParser', {});
+
+// Create a capable model
+const capableModel = new CapableModel(rootConstruct, 'CapableModel', {
+  model: model,
+  capabilities: [],
+  capabilityParser
+});
+
+// Create a range-based gate
+const rangeGate = new LLMGate(rootConstruct, 'RangeGate', {
+  capableModel: capableModel,
+  prompt: "Please analyze the sentiment and provide a score from 1-10.",
+  condition: {
+    type: "pass_if_in_range",
+    gte: 7,      // Pass if score >= 7
+    lte: 10,     // Pass if score <= 10
+    min: 1,      // Minimum valid score
+    max: 10      // Maximum valid score
+  }
+});
+
+// Create a workflow with the gate
+const workflow = new Workflow(rootConstruct, 'GateWorkflow', {
+  definition: rangeGate
+});
+```
+
+#### Using Chain
+
+```typescript
+// Create a model and capability parser
+const model = new OllamaModel(rootConstruct, 'Model', {
+  host: 'localhost:11434',
+  modelName: 'llama3.1:8b'
+});
+
+const capabilityParser = new TagCapabilityParser(rootConstruct, 'CapabilityParser', {});
+
+// Create capable models
+const capableModel1 = new CapableModel(rootConstruct, 'CapableModel1', {
+  model: model,
+  capabilities: [],
+  capabilityParser
+});
+
+const capableModel2 = new CapableModel(rootConstruct, 'CapableModel2', {
+  model: model,
+  capabilities: [],
+  capabilityParser
+});
+
+// Create a chain
+const chain = new Chain(rootConstruct, 'Chain');
+
+// Add links to the chain
+chain.pushLink(new EditMessagesTask(rootConstruct, 'FirstPrompt', {
+  appendToLatestMessage: "Summarize the following text:"
+}));
+chain.pushLink(capableModel1);
+chain.pushLink(new EditMessagesTask(rootConstruct, 'SecondPrompt', {
+  messagesPush: [{ role: "user", content: "Translate to French:" }]
+}));
+chain.pushLink(capableModel2);
+
+// Create a workflow with the chain
+const workflow = new Workflow(rootConstruct, 'ChainWorkflow', {
+  definition: chain
+});
+```
+
 #### Best Practices
 
 - Use descriptive IDs for constructs to make the configuration more readable
@@ -323,6 +642,9 @@ const capableModel = new CapableModel(rootConstruct, 'CapableModel', {
 - Provide detailed prompts to guide model behavior
 - Test workflows with simple inputs before scaling to complex scenarios
 - Use the TagCapabilityParser to format prompts with available capabilities
+- Use StructuredOutput for reliable data extraction from LLM responses
+- Use LLMGate for conditional workflow execution based on LLM outputs
+- Use Chain for sequential execution of multiple workflow tasks
 - Handle capability naming conflicts appropriately
 
 ### For Workflow Integrators
