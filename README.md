@@ -22,46 +22,74 @@ Unlike imperative frameworks, Ferment AI separates declaration from runtime, ena
 - **Structured Output** for type-safe data extraction using Zod schemas
 - **Conditional Workflows** with LLMGate for aborting based on model outputs
 - **Sequential Execution** with Chain for linking multiple tasks
-- **Human Intervention** support with cancellation and resumption
+- Coming Soon: **Human Intervention** support with cancellation and resumption
 - **Type Safety** with Zod validation for inputs and outputs at both compile time and runtime
 
 ## Architecture Overview
 
-### Core Architecture
+### Basic Usage Sample
 
 ```typescript
-// Store the Construct tree
-const rootConstruct = new RootConstruct('Root');
+class MyWorkflow extends RootConstruct {
+  constructor(name: string) {
+    super(name);
 
-// Create a model
-const model = new OllamaModel(rootConstruct, 'Model', {
-  host: 'localhost:11434',
-  modelName: 'llama3.1:8b'
-});
+    // Create a model
+    const model = new OllamaModel(this, 'Model', {
+      host: 'localhost:11434',
+      modelName: 'llama3.1:8b'
+    });
 
-// Create an MCP capability
-const mcpCapability = new MCPCapability(rootConstruct, 'MCPCapability', {
-  transport: {
-    type: 'http', // also supports 'stdio'
-    uri: 'http://localhost:7000/mcp'
+    // Create an MCP capability
+    const mcpCapability = new MCPCapability(this, 'MCPCapability', {
+      transport: {
+        type: 'http', // also supports 'stdio'
+        uri: 'http://localhost:7000/mcp'
+      }
+    });
+
+    // Create a capability parser
+    const capabilityParser = new StructuredOutputCapabilityParser(this, 'CapabilityParser', {});
+
+    // Create a capable model
+    const capableModel = new CapableModel(this, 'CapableModel', {
+      model: model,
+      capabilities: [mcpCapability],
+      capabilityParser
+    });
+
+    // Create a workflow with the capable model as the entry point
+    const workflow = new Workflow(this, 'Workflow', {
+      definition: capableModel
+    });
   }
+}
+
+// Store the Construct tree
+const rootConstruct = new MyWorkflow('Root');
+
+// Create a journal, provide the runtime implementations (modules):
+const journal = new Journal([createCoreConstructsModule()], {
+  rootConstruct
 });
 
-// Create a capability parser
-const capabilityParser = new TagCapabilityParser(rootConstruct, 'CapabilityParser', {});
+async function runWorkflow() {
+  const workflowName = "Root/Workflow"; // full node path
+  
+  for await (const event of journal.executeWorkflow(workflowName, {
+    messages: [
+      { role: 'user', content: 'What is the capital of France?' }
+    ]
+  })) {
+    console.log('Event:', event);
+  }
+}
 
-// Create a capable model
-const capableModel = new CapableModel(rootConstruct, 'CapableModel', {
-  model: model,
-  capabilities: [mcpCapability],
-  capabilityParser
-});
-
-// Create a workflow with the capable model as the entry point
-const workflow = new Workflow(rootConstruct, 'Workflow', {
-  definition: capableModel
-});
+runWorkflow().catch(err => console.error("Error:", err));
 ```
+
+### Core Architecture
+
 
 ```mermaid
 flowchart TB
@@ -144,7 +172,7 @@ flowchart TB
     class MCPServer externalClass
 ```
 
-The `MCPCapability` connects to external MCP servers via HTTP or stdio, while `StructuredOutputCapability` enables structured data extraction.
+The `MCPCapability` connects to external MCP servers via HTTP or stdio. For `StructuredOutputCapability`, see the Structured Output section below.
 
 ```typescript
 // Creating an MCP capability
@@ -156,9 +184,9 @@ const mcpCapability = new MCPCapability(rootConstruct, 'MCPCapability', {
 });
 ```
 
-### Parsers
+### Capability Parsers
 
-Parsers process model inputs and outputs, extracting tool invocations and formatting prompts.
+Capability Parsers prepare the raw query for the model based on the available capabilities, and extract the calls from the response.
 
 ```mermaid
 flowchart TB
@@ -168,20 +196,37 @@ flowchart TB
     BaseCapabilityParser --> TagCapabilityParser[TagCapabilityParser]
     BaseCapabilityParser --> StructuredOutputCapabilityParser[StructuredOutputCapabilityParser]
     
-    BaseTemplateParser[BaseTemplateParser]
-    BaseTemplateParser --> DotTemplateParser[DotTemplateParser]
-    
-    TagCapabilityParser --> BaseTemplateParser
-    StructuredOutputCapabilityParser --> BaseTemplateParser
-    
-    class BaseCapabilityParser,TagCapabilityParser,StructuredOutputCapabilityParser,BaseTemplateParser,DotTemplateParser parserClass
+    class BaseCapabilityParser,TagCapabilityParser,StructuredOutputCapabilityParser parserClass
 ```
 
-The `TagCapabilityParser` extracts tool invocations from model responses, while `StructuredOutputCapabilityParser` handles structured data. Both use template parsers for formatting.
+The `TagCapabilityParser` uses xml-like tags, while `StructuredOutputCapabilityParser` uses the model's native structured output capability. Both use template parsers for formatting.
 
 ```typescript
 // Creating a capability parser
 const capabilityParser = new TagCapabilityParser(rootConstruct, 'CapabilityParser', {});
+```
+
+### Template Parsers
+
+Template Parsers produce model inputs by marshalling structured data into a string.
+
+```mermaid
+flowchart TB
+    classDef parserClass fill:#ffe0b2,stroke:#e65100,stroke-width:2px,color:#000000
+
+    BaseTemplateParser[BaseTemplateParser]
+    BaseTemplateParser --> DotTemplateParser[DotTemplateParser]
+    
+    class StructuredOutputCapabilityParser,BaseTemplateParser,DotTemplateParser parserClass
+```
+
+The `DotTemplateParser` uses the `dot` library to format arguments into strings dynamically.
+
+```typescript
+// Creating a capability parser
+const templateParser = new DotTemplateParser(rootConstruct, 'CapabilityParser', {
+  template: `Hello {{=it.user.name}}!`
+});
 ```
 
 ### Structured Output
@@ -199,18 +244,17 @@ flowchart TB
     class StructuredOutputCapability capabilityClass
 ```
 
-The `StructuredOutput` component uses Zod schemas to define and validate the structure of LLM outputs.
-
 ```typescript
-// Creating a structured output
-const structuredOutput = new StructuredOutput(rootConstruct, 'StructuredOutput', {
-  capableModel,
-  outputType: z.strictObject({
-    name: z.string(),
-    age: z.number(),
-    interests: z.array(z.string())
-  })
-});
+const so = new StructuredOutput(this, "StructuredOutput", {
+    capableModel,
+    outputType: z.strictObject({
+        accountholderName: z.string(),
+        accountType: z.string(),
+        currentBalance: z.number(),
+        mostRecentDepositAmount: z.number().min(0),
+        mostRecentWithdrawalAmount: z.number().max(0)
+    })
+})
 ```
 
 ### Workflow Components
@@ -286,7 +330,7 @@ sequenceDiagram
     Workflow->>CapableModel: execute()
     end
     
-    loop For each message or capability invocation
+    loop While the model continues to use capabilities
         rect rgba(255, 222, 173, 0.5)
         note right of CapableModel: Model Interaction
         CapableModel->>Model: generate response
@@ -397,69 +441,6 @@ npx nx serve demo --args="TestCapableModel"
 npx nx serve demo --args="TestStructuredOutput"
 npx nx serve demo --args="TestLLMGate"
 npx nx serve demo --args="TestChain"
-```
-
-### Basic Usage Example
-
-Here's a simple example of creating a workflow with a capable model:
-
-```typescript
-import { CapableModel, OllamaModel, MCPCapability, TagCapabilityParser } from '@ferment-ai/core-constructs-lib';
-import { Construct, RootConstruct } from 'constructs';
-import { createCoreConstructsModule } from '@ferment-ai/core-constructs-runtime';
-import { Journal } from '@ferment-ai/runtime-in-memory';
-import { Workflow } from '@ferment-ai/runtime-common';
-
-// Create a root construct
-const rootConstruct = new RootConstruct('Root');
-
-// Create a model
-const model = new OllamaModel(rootConstruct, 'Model', {
-  host: 'localhost:11434',
-  modelName: 'llama3.1:8b'
-});
-
-// Create an MCP capability
-const mcpCapability = new MCPCapability(rootConstruct, 'MCPCapability', {
-  transport: {
-    type: 'http',
-    uri: 'http://localhost:7000/mcp'
-  }
-});
-
-// Create a capability parser
-const capabilityParser = new TagCapabilityParser(rootConstruct, 'CapabilityParser', {});
-
-// Create a capable model
-const capableModel = new CapableModel(rootConstruct, 'CapableModel', {
-  model: model,
-  capabilities: [mcpCapability],
-  capabilityParser
-});
-
-// Create a workflow with the capable model as the entry point
-const workflow = new Workflow(rootConstruct, 'Workflow', {
-  definition: capableModel
-});
-
-// Create a journal and execute the workflow
-const journal = new Journal([createCoreConstructsModule()], {
-  rootConstruct
-});
-
-async function runWorkflow() {
-  const workflowName = Object.keys(journal.toSavedState().compileResult.workflows)[0];
-  
-  for await (const event of journal.executeWorkflow(workflowName, {
-    messages: [
-      { role: 'user', content: 'What is the capital of France?' }
-    ]
-  })) {
-    console.log('Event:', event);
-  }
-}
-
-runWorkflow();
 ```
 
 ## User Guides
