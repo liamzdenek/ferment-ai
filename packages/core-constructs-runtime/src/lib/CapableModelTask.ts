@@ -163,16 +163,17 @@ export function createCapableModelTask(construct: CapableModel): TaskImpl<typeof
       
       // Add model response to conversation
       const modelResponses = yield* invokeModel(ctx, construct.props.model, formattedPrompt.output.prompt);
-      conversation = [...conversation, ...modelResponses];
 
       // Parse model response for capability requests
-      let executionRequests = (yield* getTaskCall(ctx, construct.props.capabilityParser.parseModelResponse)({
+      const parseModelRes = (yield* getTaskCall(ctx, construct.props.capabilityParser.parseModelResponse)({
         availableCapabilities,
         messageHistory: ctx.input.messages,
         newMessages: modelResponses
-      })).output.executionRequests;
-      
-      console.log("Got tool invocation reqs", executionRequests);
+      })).output;
+
+      let executionRequests = parseModelRes.executionRequests;
+
+      conversation = [...conversation, ...categorizeMessages(parseModelRes.newMessages, executionRequests.length === 0 ? 'response' : 'intermediate')];
       
       // Process capability requests until none remain
       while (executionRequests.length > 0) {
