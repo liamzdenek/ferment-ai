@@ -2,7 +2,7 @@
 
 <img src="./assets/ferment-logo.svg"/>
 
-A declarative framework for configuring and executing model-based LLM systems with unprecedented clarity and control.
+A declarative framework for configuring and executing workflow and agent-based LLM systems with unprecedented clarity and control.
 
 ## Introduction
 
@@ -137,7 +137,8 @@ flowchart TB
     MCPCapability --> HTTPTransport[HTTP Transport]
     MCPCapability --> StdioTransport[Stdio Transport]
     
-    MCPCapability -.-> MCPServer[MCP Server]
+    HTTPTransport -.-> MCPServer[MCP Server]
+    StdioTransport -.-> MCPServer[MCP Server]
     
     class BaseCapability,MCPCapability,StructuredOutputCapability,HTTPTransport,StdioTransport capabilityClass
     class MCPServer externalClass
@@ -171,6 +172,7 @@ flowchart TB
     BaseTemplateParser --> DotTemplateParser[DotTemplateParser]
     
     TagCapabilityParser --> BaseTemplateParser
+    StructuredOutputCapabilityParser --> BaseTemplateParser
     
     class BaseCapabilityParser,TagCapabilityParser,StructuredOutputCapabilityParser,BaseTemplateParser,DotTemplateParser parserClass
 ```
@@ -228,6 +230,8 @@ flowchart TB
         
         Chain --> LLMGate
         LLMGate --> StructuredOutput[StructuredOutput]
+
+        EditMessagesTask
     end
     
     subgraph "Coming Soon"
@@ -241,7 +245,7 @@ flowchart TB
     
     CurrentWorkflows --> CapableModel
     
-    class CapableModel,LLMGate,Chain,StructuredOutput workflowClass
+    class CapableModel,LLMGate,Chain,StructuredOutput,EditMessagesTask workflowClass
     class Router,Parallel,Orchestrator,Worker,Evaluator,Optimizer,Agent,Retry comingSoonClass
 ```
 
@@ -250,6 +254,7 @@ Current workflow components include:
 - `LLMGate`: Enables conditional workflow execution based on LLM outputs
 - `Chain`: Enables sequential execution of multiple workflow tasks
 - `StructuredOutput`: Enables type-safe data extraction
+- `EditMessagesTask`: Make programmatic (aka: not-LLM) changes to the message history
 
 ```typescript
 // Creating a chain
