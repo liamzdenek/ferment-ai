@@ -1,5 +1,11 @@
 import { z } from "zod";
-import { TaskCallRequest, TaskCallError, TaskCallResult, TaskCallParallelRequest } from "../execution/TaskMessaging.js";
+import { 
+  TaskCallRequest, 
+  TaskCallError, 
+  TaskCallResult, 
+  TaskCallParallelRequest,
+  generateTaskExecutionId
+} from "../execution/TaskMessaging.js";
 import { TaskCtx } from "../execution/TaskCtx.js";
 import { WorkflowTask, isWorkflowTask } from "../constructs/WorkflowTask.js";
 
@@ -57,6 +63,7 @@ export function getTaskCall<I extends z.ZodTypeAny, O extends z.ZodTypeAny>(
   > {
     const req: TaskCallRequest = {
       type: 'call',
+      taskExecutionId: generateTaskExecutionId(), // Add taskExecutionId
       taskDefId: construct.taskDef.taskDefId,
       nodePath,
       input
@@ -64,6 +71,8 @@ export function getTaskCall<I extends z.ZodTypeAny, O extends z.ZodTypeAny>(
     
     // Yield the request and get the response
     const res = yield req;
+
+    console.log("Got task call response", res);
     
     // Handle the response
     if (res.type === "error") {
@@ -175,6 +184,7 @@ export function getTaskCallParallel<T extends WorkflowTask<any, any>>(
     // Create the parallel call request
     const req: TaskCallParallelRequest = {
       type: 'callParallel',
+      taskExecutionId: generateTaskExecutionId(), // Add taskExecutionId
       calls: taskInfos.map((info, index) => ({
         taskDefId: info.construct.taskDef.taskDefId,
         nodePath: info.nodePath,

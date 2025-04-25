@@ -22,7 +22,11 @@ export type {
   WorkflowErrorJSON 
 } from './lib/execution/ErrorHandling.js';
 export type { TaskCtx } from './lib/execution/TaskCtx.js';
+export {
+  generateTaskExecutionId
+} from './lib/execution/TaskMessaging.js';
 export type {
+  TaskExecutionId,
   TaskCallRequest,
   TaskCallParallelRequest,
   TaskCallResult,
@@ -30,18 +34,33 @@ export type {
   TaskMessage,
   WorkflowLogEvent,
   WorkflowLogEventType,
-  WorkflowExecutionOptions
+  WorkflowExecutionOptions,
+  TaskStepResult
 } from './lib/execution/TaskMessaging.js';
+export { 
+  validateWithZod,
+  createTaskContext,
+  isAsyncGeneratorFunction
+} from './lib/execution/TaskExecution.js';
 export type { 
   TaskExecuteFunction, 
   TaskImpl, 
-  TaskImplMap,
-  ReturnToInfo,
-  TaskExecutionState,
-  TaskStepResult
+  TaskImplMap
 } from './lib/execution/TaskExecution.js';
-export { compileWorkflow } from './lib/execution/WorkflowExecution.js';
-export type { WorkflowExecutor } from './lib/execution/WorkflowExecution.js';
+export { 
+  executeTaskStep,
+  handleCallParallel
+} from './lib/execution/TaskExecutor.js';
+export { 
+  compileWorkflow,
+  executeWorkflow
+} from './lib/execution/WorkflowExecutor.js';
+export type { WorkflowExecutor } from './lib/execution/WorkflowExecutor.js';
+export { TaskTree } from './lib/execution/TaskTree.js';
+export type { 
+  TaskNode,
+  WorkflowExecutionState
+} from './lib/execution/TaskTree.js';
 
 // Re-export utils
 export {

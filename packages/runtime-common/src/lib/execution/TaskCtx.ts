@@ -1,11 +1,13 @@
 import { z } from 'zod';
 import { Construct } from 'constructs';
 import { TaskDef } from '../definitions/TaskDef.js';
+import { TaskExecutionId } from './TaskMessaging.js';
 
 /**
  * Task context provided to a task during execution
  */
 export interface TaskCtx<I extends z.ZodTypeAny, O extends z.ZodTypeAny> {
+  taskExecutionId: TaskExecutionId; // Added taskExecutionId
   taskDefId: string;
   nodePath: string;
   input: z.infer<I>;
