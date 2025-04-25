@@ -14,6 +14,8 @@ import { TestLLMGate } from './tests/TestLLMGate.js';
 import { TestStructuredOutput } from './tests/TestStructuredOutput.js';
 import { TestRouter } from './tests/TestRouter.js';
 import { TestEvaluatorOptimizer } from './tests/TestEvaluatorOptimizer.js';
+import { TestParallelCall } from './tests/TestParallelCall.js';
+import { TestParallelSingleBranch } from './tests/TestParallelSingleBranch.js';
 
 // Create a root construct
 const rootConstruct = new RootConstruct('Root');
@@ -42,6 +44,8 @@ const LOOKUP: { [cliArg: string]: new (parent: Construct, id: string) => TestCon
     "TestLLMGate": TestLLMGate,
     "TestRouter": TestRouter,
     "TestEvaluatorOptimizer": TestEvaluatorOptimizer,
+    "TestParallelCall": TestParallelCall,
+    "TestParallelSingleBranch": TestParallelSingleBranch,
 }
 
 const cliArg = process.argv[2];

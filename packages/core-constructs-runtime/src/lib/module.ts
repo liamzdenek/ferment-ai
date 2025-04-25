@@ -16,7 +16,8 @@ import {
   StructuredOutputCapabilityGetAvailableCapabilities,
   StructuredOutputCapabilityExecuteCapability,
   Router,
-  EvaluatorOptimizer
+  EvaluatorOptimizer,
+  Parallel
 } from '@ferment-ai/core-constructs-lib';
 import {
   Module,
@@ -34,6 +35,7 @@ import { createLlmGateTask } from './LLMGateTask.js';
 import { createStructuredOutputCapabilityExecuteCapabilityTask, createStructuredOutputCapabilityGetCapabilitiesTask, createStructuredOutputTask } from './StructuredOutputTasks.js';
 import { createRouterTask } from './RouterTask.js';
 import { createEvaluatorOptimizerTask } from './EvaluatorOptimizerTask.js';
+import { createParallelTask } from './ParallelTask.js';
 
 /**
  * Creates a core constructs module
@@ -99,6 +101,9 @@ export function createCoreConstructsModule(): Module {
       }
       if(construct instanceof EvaluatorOptimizer) {
         return createEvaluatorOptimizerTask(construct);
+      }
+      if(construct instanceof Parallel) {
+        return createParallelTask(construct);
       }
 
       // Structured Output

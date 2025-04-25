@@ -1,13 +1,13 @@
 import { z } from 'zod';
 import { TaskDef } from '../definitions/TaskDef.js';
 import { TaskCtx } from './TaskCtx.js';
-import { TaskCallRequest, TaskCallError, TaskCallResult } from './TaskMessaging.js';
+import { TaskCallRequest, TaskCallError, TaskCallResult, TaskCallParallelRequest } from './TaskMessaging.js';
 
 /**
  * Task execution function types
  */
 export type TaskExecuteFunction<I extends z.ZodTypeAny, O extends z.ZodTypeAny> =
-  (ctx: TaskCtx<I, O>) => AsyncGenerator<TaskCallRequest, TaskCallResult | TaskCallError, TaskCallResult | TaskCallError>;
+  (ctx: TaskCtx<I, O>) => AsyncGenerator<TaskCallRequest | TaskCallParallelRequest, TaskCallResult | TaskCallError, TaskCallResult | TaskCallError>;
 
 /**
  * Task implementation with definition and execution function
@@ -47,4 +47,5 @@ export interface TaskExecutionState {
 export type TaskStepResult =
   | { type: 'continue'; state: TaskExecutionState }
   | { type: 'call'; nextTask: TaskExecutionState; returnTo: ReturnToInfo }
+  | { type: 'callParallel'; parallelTasks: TaskExecutionState[]; returnTo: ReturnToInfo }
   | { type: 'complete'; result: TaskCallResult | TaskCallError };

@@ -11,6 +11,18 @@ export interface TaskCallRequest {
 }
 
 /**
+ * Task parallel call request
+ */
+export interface TaskCallParallelRequest {
+  type: 'callParallel';
+  calls: Array<{
+    taskDefId: string;
+    nodePath: string;
+    input: any;
+  }>;
+}
+
+/**
  * Task call result
  */
 export interface TaskCallResult {
@@ -38,14 +50,22 @@ export interface TaskCallError {
 /**
  * Task message type union
  */
-export type TaskMessage = TaskCallRequest | TaskCallResult;
+export type TaskMessage = TaskCallRequest | TaskCallParallelRequest | TaskCallResult | TaskCallError;
+
+/**
+ * Workflow log event types
+ */
+export type WorkflowLogEventType =
+  'task_start' | 'task_complete' | 'task_error' |
+  'workflow_start' | 'workflow_complete' | 'workflow_error' |
+  'parallel_tasks_start' | 'parallel_tasks_complete';
 
 /**
  * A workflow execution log event
  */
 export interface WorkflowLogEvent {
   timestamp: number;
-  type: 'task_start' | 'task_complete' | 'task_error' | 'workflow_start' | 'workflow_complete' | 'workflow_error';
+  type: WorkflowLogEventType;
   nodePath?: string;
   taskDefId?: string;
   input?: any;

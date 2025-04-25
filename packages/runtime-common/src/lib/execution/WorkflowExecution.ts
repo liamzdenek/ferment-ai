@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { Construct } from 'constructs';
 import { WorkflowDefinition, WorkflowDefinitionSchema } from '../definitions/WorkflowDefinition.js';
 import { TaskImplMap, TaskExecutionState, TaskStepResult } from './TaskExecution.js';
-import { TaskCallError, TaskCallResult, WorkflowLogEvent, WorkflowExecutionOptions } from './TaskMessaging.js';
+import { TaskCallError, TaskCallResult, WorkflowLogEvent, WorkflowExecutionOptions, TaskCallParallelRequest } from './TaskMessaging.js';
 import { WorkflowError } from './ErrorHandling.js';
 
 /**
@@ -155,6 +155,19 @@ async function executeTaskStep(
           nodePath: value.nodePath,
           input: value.input
         },
+        returnTo: {
+          nodePath,
+          generator
+        }
+      };
+    } else if (value && value.type === 'callParallel') {
+      // Handle "callParallel" pattern
+      return {
+        type: 'callParallel',
+        parallelTasks: value.calls.map((call: { nodePath: string; input: any }) => ({
+          nodePath: call.nodePath,
+          input: call.input
+        })),
         returnTo: {
           nodePath,
           generator
@@ -357,6 +370,34 @@ export function compileWorkflow(
               returnTo: result.returnTo
             });
             break;
+            
+          case 'callParallel': {
+            // Execute parallel tasks and collect results
+            const parallelResults = executeParallelTasks(
+              result.parallelTasks,
+              result.returnTo.nodePath,
+              workflowDef,
+              taskImpls,
+              nodePathToConstruct
+            );
+            
+            // Yield all events from parallel execution
+            let parallelEvent: IteratorResult<WorkflowLogEvent, Array<TaskCallResult | TaskCallError>>;
+            do {
+              parallelEvent = await parallelResults.next();
+              if (!parallelEvent.done) {
+                yield parallelEvent.value;
+              }
+            } while (!parallelEvent.done);
+            
+            // Push the caller back onto the stack with the collected results
+            taskStack = pushTask(taskStack, {
+              nodePath: result.returnTo.nodePath,
+              input: parallelEvent.value, // This is the array of results
+              generator: result.returnTo.generator
+            });
+            break;
+          }
 
           case 'complete': {
             // Handle task completion
@@ -481,6 +522,213 @@ export function compileWorkflow(
         type: 'workflow_error',
         error: workflowError
       };
+    }
+    
+    /**
+     * Executes multiple tasks in parallel, each with their own execution stack
+     * Returns an AsyncGenerator that yields events from all parallel executions
+     *
+     * @param parallelTasks Array of tasks to execute in parallel
+     * @param parentNodePath The node path of the parent task
+     * @param workflowDef The workflow definition
+     * @param taskImpls Map of task implementations
+     * @param nodePathToConstruct Map of node paths to constructs
+     * @returns AsyncGenerator yielding events and resolving to results
+     */
+    async function* executeParallelTasks(
+      parallelTasks: TaskExecutionState[],
+      parentNodePath: string,
+      workflowDef: WorkflowDefinition,
+      taskImpls: TaskImplMap,
+      nodePathToConstruct: { [nodePath: string]: Construct }
+    ): AsyncGenerator<WorkflowLogEvent, Array<TaskCallResult | TaskCallError>, undefined> {
+      // Yield parallel execution start event
+      yield {
+        timestamp: Date.now(),
+        type: 'parallel_tasks_start',
+        nodePath: parentNodePath,
+        input: parallelTasks.map(t => ({ nodePath: t.nodePath, input: t.input }))
+      };
+    
+      // Create a promise for each parallel task
+      const taskPromises = parallelTasks.map(async (task) => {
+        // Create a new stack for this task
+        let taskStack: TaskExecutionState[] = [task];
+        const events: WorkflowLogEvent[] = [];
+        let finalResult: TaskCallResult | TaskCallError | undefined;
+    
+        try {
+          // Execute this task with its own stack until complete
+          while (taskStack.length > 0) {
+            const currentTask = taskStack[taskStack.length - 1];
+            const { nodePath } = currentTask;
+            const taskImpl = taskImpls[nodePath];
+            
+            if (!taskImpl) {
+              throw new Error(`Task implementation not found for task path: ${nodePath}`);
+            }
+            
+            const taskDef = workflowDef.tasks[nodePath];
+            
+            if (!taskDef) {
+              throw new Error(`Task definition not found for task path: ${nodePath}`);
+            }
+            
+            // Start task if not already started
+            if (!currentTask.generator) {
+              // Validate input
+              const validatedInput = validateWithZod(
+                taskDef.inputType,
+                currentTask.input,
+                nodePath,
+                'input'
+              );
+              
+              // Update task input with validated input
+              taskStack[taskStack.length - 1] = {
+                ...currentTask,
+                input: validatedInput
+              };
+              
+              // Add task_start event
+              events.push({
+                timestamp: Date.now(),
+                type: 'task_start',
+                nodePath,
+                taskDefId: taskDef.taskDefId,
+                input: validatedInput
+              });
+            }
+            
+            // Execute task step
+            const result = await executeTaskStep(
+              currentTask,
+              taskImpl,
+              workflowDef,
+              taskImpls,
+              nodePathToConstruct
+            );
+            
+            // Handle result based on type (simplified version of main loop)
+            switch (result.type) {
+              case 'continue':
+                taskStack = replaceTask(taskStack, result.state);
+                break;
+                
+              case 'call':
+                taskStack = pushTask(taskStack, {
+                  ...result.nextTask,
+                  returnTo: result.returnTo
+                });
+                break;
+                
+              case 'callParallel':
+                // We don't support nested parallel calls for simplicity
+                throw new Error(`Nested parallel calls are not supported: ${nodePath}`);
+                
+              case 'complete':
+                // Add task_complete or task_error event
+                if (result.result.type === 'result') {
+                  events.push({
+                    timestamp: Date.now(),
+                    type: 'task_complete',
+                    nodePath,
+                    taskDefId: taskDef.taskDefId,
+                    output: result.result.output
+                  });
+                } else {
+                  events.push({
+                    timestamp: Date.now(),
+                    type: 'task_error',
+                    nodePath,
+                    taskDefId: taskDef.taskDefId,
+                    error: result.result.error.details instanceof Error
+                      ? result.result.error.details
+                      : new Error(result.result.error.message)
+                  });
+                }
+                
+                // Pop current task
+                {
+                  const [newStack, _] = popTask(taskStack);
+                  taskStack = newStack;
+                }
+                
+                // Handle return to caller
+                if (currentTask.returnTo) {
+                  taskStack = pushTask(taskStack, {
+                    nodePath: currentTask.returnTo.nodePath,
+                    input: result.result,
+                    generator: currentTask.returnTo.generator
+                  });
+                } else if (taskStack.length === 0) {
+                  // This is the final result
+                  finalResult = result.result;
+                }
+                break;
+            }
+          }
+          
+          // If we didn't get a final result, something went wrong
+          if (!finalResult) {
+            throw new Error(`Task execution completed without a final result: ${task.nodePath}`);
+          }
+          
+          return { result: finalResult, events };
+        } catch (error) {
+          // Create a consistent error result
+          const errorResult: TaskCallError = {
+            type: 'error',
+            taskDefId: taskImpls[task.nodePath]?.def.taskDefId || 'unknown',
+            nodePath: task.nodePath,
+            input: task.input,
+            error: {
+              message: error instanceof Error ? error.message : 'Unknown error',
+              details: error instanceof Error ? error : new Error(String(error))
+            }
+          };
+          
+          // Add task_error event
+          events.push({
+            timestamp: Date.now(),
+            type: 'task_error',
+            nodePath: task.nodePath,
+            taskDefId: taskImpls[task.nodePath]?.def.taskDefId,
+            error: error instanceof Error ? error : new Error(String(error))
+          });
+          
+          return { result: errorResult, events };
+        }
+      });
+      
+      // Execute all tasks in parallel and collect results
+      const taskResults = await Promise.all(taskPromises);
+      
+      // Collect all events and sort by timestamp
+      const allEvents: WorkflowLogEvent[] = [];
+      for (const { events } of taskResults) {
+        allEvents.push(...events);
+      }
+      allEvents.sort((a, b) => a.timestamp - b.timestamp);
+      
+      // Yield all events in order
+      for (const event of allEvents) {
+        yield event;
+      }
+      
+      // Collect final results
+      const results = taskResults.map(r => r.result);
+      
+      // Yield parallel execution complete event
+      yield {
+        timestamp: Date.now(),
+        type: 'parallel_tasks_complete',
+        nodePath: parentNodePath,
+        output: results
+      };
+      
+      // Return the final results
+      return results;
     }
   };
 }

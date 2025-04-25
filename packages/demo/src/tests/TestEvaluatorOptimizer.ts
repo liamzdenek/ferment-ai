@@ -107,7 +107,7 @@ export class TestEvaluatorOptimizer extends TestConstruct {
     });
 
     // Create workflow
-    const workflow = new Workflow(this, 'Workflow', {
+    const _workflow = new Workflow(this, 'Workflow', {
       definition: evaluatorOptimizer
     });
   }

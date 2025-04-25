@@ -15,6 +15,7 @@ export * from './lib/workflows/EditMessagesTask.js';
 export * from './lib/workflows/LLMGate.js';
 export * from './lib/workflows/Router.js';
 export * from './lib/workflows/EvaluatorOptimizer.js';
+export * from './lib/workflows/Parallel.js';
 
 export * from './lib/capabilityParser/TagCapabilityParser.js';
 export * from './lib/capabilityParser/BaseCapabilityParser.js';

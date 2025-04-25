@@ -366,7 +366,7 @@ This sequence diagram shows:
 1. The user initiates workflow execution
 2. The model generates a response that may include capability invocations
 3. Capabilities are executed and results are returned to the model
-4. The model generates a final response
+4. The model either uses more capabilities (go to step 2), or generates a final response
 5. The response is returned to the user
 
 ```typescript

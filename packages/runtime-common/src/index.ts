@@ -22,12 +22,14 @@ export type {
   WorkflowErrorJSON 
 } from './lib/execution/ErrorHandling.js';
 export type { TaskCtx } from './lib/execution/TaskCtx.js';
-export type { 
-  TaskCallRequest, 
-  TaskCallResult, 
-  TaskCallError, 
+export type {
+  TaskCallRequest,
+  TaskCallParallelRequest,
+  TaskCallResult,
+  TaskCallError,
   TaskMessage,
   WorkflowLogEvent,
+  WorkflowLogEventType,
   WorkflowExecutionOptions
 } from './lib/execution/TaskMessaging.js';
 export type { 
@@ -42,9 +44,10 @@ export { compileWorkflow } from './lib/execution/WorkflowExecution.js';
 export type { WorkflowExecutor } from './lib/execution/WorkflowExecution.js';
 
 // Re-export utils
-export { 
+export {
   convertPromiseToGenerator,
-  getTaskCall
+  getTaskCall,
+  getTaskCallParallel
 } from './lib/utils/TaskUtils.js';
 export type { TaskExecutePromise } from './lib/utils/TaskUtils.js';
 export {
