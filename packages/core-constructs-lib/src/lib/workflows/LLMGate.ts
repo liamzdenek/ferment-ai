@@ -86,9 +86,9 @@ export class LLMGate extends CapableWorkflowTask {
     }
   }
 
-  override getTools(): Record<string, WorkflowTask<z.ZodTypeAny, z.ZodTypeAny>> {
+  override getReachableTasks(): Record<string, WorkflowTask<z.ZodTypeAny, z.ZodTypeAny>> {
     return {
-      ...super.getTools(),
+      ...super.getReachableTasks(),
       [this.props.condition.structuredOutput.node.id]: this.props.condition.structuredOutput
     };
   }

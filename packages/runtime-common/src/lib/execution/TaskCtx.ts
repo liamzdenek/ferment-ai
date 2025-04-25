@@ -10,6 +10,6 @@ export interface TaskCtx<I extends z.ZodTypeAny, O extends z.ZodTypeAny> {
   nodePath: string;
   input: z.infer<I>;
   output: z.infer<O>;
-  canUseTools: { [nodePath: string]: TaskDef<z.ZodTypeAny, z.ZodTypeAny> };
+  canCallTasks: { [nodePath: string]: TaskDef<z.ZodTypeAny, z.ZodTypeAny> };
   nodePathToConstruct: { [nodePath: string]: Construct };
 }

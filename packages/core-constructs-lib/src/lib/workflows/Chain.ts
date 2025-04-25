@@ -27,9 +27,9 @@ export class Chain extends CapableWorkflowTask {
     this.props.links.push(link)
   }
 
-  override getTools(): Record<string, WorkflowTask<z.ZodTypeAny, z.ZodTypeAny>> {
+  override getReachableTasks(): Record<string, WorkflowTask<z.ZodTypeAny, z.ZodTypeAny>> {
     return {
-      ...super.getTools(),
+      ...super.getReachableTasks(),
       ...(Object.fromEntries(this.props.links.map(link => [link.node.path, link] as const)))
     };
   }

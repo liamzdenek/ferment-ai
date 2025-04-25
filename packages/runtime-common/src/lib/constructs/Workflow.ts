@@ -78,7 +78,7 @@ export class Workflow extends Construct {
    */
   private addReachableTasks(task: WorkflowTask<z.ZodTypeAny, z.ZodTypeAny>, tasks: Record<string, TaskDefinition>): void {
     // Add tools
-    for (const [, tool] of Object.entries(task.getTools())) {
+    for (const [, tool] of Object.entries(task.getReachableTasks())) {
       if (!tasks[tool.node.path]) {
         tasks[tool.node.path] = tool.getDefinition();
         this.addReachableTasks(tool, tasks);

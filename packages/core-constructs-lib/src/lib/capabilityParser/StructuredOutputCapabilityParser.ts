@@ -53,9 +53,9 @@ export class StructuredOutputCapabilityParserFormatPromptTask extends WorkflowTa
     super(scope, id, {});
   }
 
-  override getTools(): Record<string, WorkflowTask<z.ZodTypeAny, z.ZodTypeAny>> {
+  override getReachableTasks(): Record<string, WorkflowTask<z.ZodTypeAny, z.ZodTypeAny>> {
     return {
-      ...super.getTools(),
+      ...super.getReachableTasks(),
       [this.props.capabilityParser.props.templateParser.node.path]: this.props.capabilityParser.props.templateParser
     };
   }

@@ -67,7 +67,7 @@ export class TestChain extends TestConstruct {
             capabilityParser
         })
 
-        const capableModelForConfirmingDadJoke = new CapableModel(this, "CapableModelWithoutMcps", {
+        const capableModelForConfirmingDadJoke = new CapableModel(this, "CapableModelForConfirmingDadJoke", {
             model: testModel,
             capabilities: [],
             capabilityParser

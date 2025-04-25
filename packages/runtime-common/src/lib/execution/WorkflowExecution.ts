@@ -66,13 +66,13 @@ function createTaskContext(
     nodePath,
     input,
     output: undefined,
-    canUseTools: {},
+    canCallTasks: {},
     nodePathToConstruct,
   };
-  // populate canUseTools map
-  for (const toolNodePath of taskDef.tools) {
+  // populate canCallTasks map
+  for (const toolNodePath of taskDef.reachableTasks) {
     if (taskImpls[toolNodePath]) {
-      taskCtx.canUseTools[toolNodePath] = taskImpls[toolNodePath].def;
+      taskCtx.canCallTasks[toolNodePath] = taskImpls[toolNodePath].def;
     }
   }
 
@@ -302,7 +302,7 @@ export function compileWorkflow(
         const taskDef = workflowDef.tasks[nodePath];
 
         if (!taskDef) {
-          throw new Error("You did not set up getTools() for a request that you're trying to make. Construct id=" + workflowDef.name + " is trying to call path=" + nodePath + ", which has not been configured at compile time");
+          throw new Error("You did not set up getReachableTasks() for a request that you're trying to make. Construct id=" + workflowDef.name + " is trying to call path=" + nodePath + ", which has not been configured at compile time");
         }
 
         // Start task if not already started

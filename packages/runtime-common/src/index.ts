@@ -3,7 +3,6 @@ export { Workflow } from './lib/constructs/Workflow.js';
 export type { WorkflowOptions } from './lib/constructs/Workflow.js';
 export { 
   WorkflowTask, 
-  WorkflowEndTask, 
   isWorkflowTask 
 } from './lib/constructs/WorkflowTask.js';
 export type { WorkflowTaskOptions } from './lib/constructs/WorkflowTask.js';
@@ -35,7 +34,6 @@ export type {
   TaskExecuteFunction, 
   TaskImpl, 
   TaskImplMap,
-  ReconcilerCallbacks,
   ReturnToInfo,
   TaskExecutionState,
   TaskStepResult

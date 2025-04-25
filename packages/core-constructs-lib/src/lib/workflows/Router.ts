@@ -111,9 +111,9 @@ export class Router extends CapableWorkflowTask {
     this.routeMap.set(route.name, route.task);
   }
 
-  override getTools(): Record<string, WorkflowTask<z.ZodTypeAny, z.ZodTypeAny>> {
+  override getReachableTasks(): Record<string, WorkflowTask<z.ZodTypeAny, z.ZodTypeAny>> {
     const tools = {
-      ...super.getTools(),
+      ...super.getReachableTasks(),
       [this.templateParser.node.path]: this.templateParser,
       [this.structuredOutput.node.path]: this.structuredOutput,
     };

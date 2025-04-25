@@ -24,20 +24,6 @@ export interface TaskImpl<I extends z.ZodTypeAny, O extends z.ZodTypeAny> {
 export type TaskImplMap = Record<string, TaskImpl<z.ZodTypeAny, z.ZodTypeAny>>;
 
 /**
- * Reconciler callbacks for workflow execution
- */
-export interface ReconcilerCallbacks {
-  getState: (key: string) => Promise<any>;
-  setState: (key: string, value: any) => Promise<void>;
-  onTaskStart: (nodePath: string, input: any) => Promise<void>;
-  onTaskComplete: (nodePath: string, output: any) => Promise<void>;
-  onTaskError: (nodePath: string, error: Error) => Promise<void>;
-  onWorkflowStart: () => Promise<void>;
-  onWorkflowComplete: () => Promise<void>;
-  onWorkflowError: (error: Error) => Promise<void>;
-}
-
-/**
  * Information about where to return after a call
  */
 export interface ReturnToInfo {
