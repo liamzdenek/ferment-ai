@@ -25,7 +25,6 @@ export type {
 export type { TaskCtx } from './lib/execution/TaskCtx.js';
 export type { 
   TaskCallAndReturnRequest, 
-  TaskCallRequest, 
   TaskCallResult, 
   TaskCallError, 
   TaskMessage,

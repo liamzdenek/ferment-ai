@@ -11,16 +11,6 @@ export interface TaskCallAndReturnRequest {
 }
 
 /**
- * Task call request
- */
-export interface TaskCallRequest {
-  type: 'call';
-  taskDefId: string;
-  nodePath: string;
-  input: any;
-}
-
-/**
  * Task call result
  */
 export interface TaskCallResult {
