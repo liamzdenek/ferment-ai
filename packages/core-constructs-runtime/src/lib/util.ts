@@ -1,5 +1,5 @@
 import { STRUCTURED_OUTPUT_TASK_DEF, StructuredOutput } from "@ferment-ai/core-constructs-lib";
-import { getTaskCall, TaskCallAndReturnRequest, TaskCallError, TaskCallResult, TaskCtx } from "@ferment-ai/runtime-common";
+import { getTaskCall, TaskCallRequest, TaskCallError, TaskCallResult, TaskCtx } from "@ferment-ai/runtime-common";
 import { z } from "zod";
 
 export function* getStructuredOutputFromTask<O extends z.ZodTypeAny>(
@@ -7,7 +7,7 @@ export function* getStructuredOutputFromTask<O extends z.ZodTypeAny>(
   task: StructuredOutput<O>,
   query: z.infer<typeof STRUCTURED_OUTPUT_TASK_DEF.inputType>
 ): Generator<
-  TaskCallAndReturnRequest,
+  TaskCallRequest,
   Omit<TaskCallResult, 'output' | 'input'> & { input: z.infer<typeof STRUCTURED_OUTPUT_TASK_DEF.inputType>, output: z.infer<O> },
   TaskCallResult | TaskCallError
 > {

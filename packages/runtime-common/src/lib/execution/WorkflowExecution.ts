@@ -66,18 +66,10 @@ function createTaskContext(
     nodePath,
     input,
     output: undefined,
-    canCall: {},
     canUseTools: {},
     nodePathToConstruct,
   };
-
-  // Populate canCall and canUseTools maps
-  for (const nextNodePath of taskDef.nextTasks) {
-    if (taskImpls[nextNodePath]) {
-      taskCtx.canCall[nextNodePath] = taskImpls[nextNodePath].def;
-    }
-  }
-
+  // populate canUseTools map
   for (const toolNodePath of taskDef.tools) {
     if (taskImpls[toolNodePath]) {
       taskCtx.canUseTools[toolNodePath] = taskImpls[toolNodePath].def;
@@ -155,10 +147,10 @@ async function executeTaskStep(
     }
 
     // Handle generator yield
-    if (value && value.type === 'callAndReturn') {
-      // Handle "callAndReturn" pattern
+    if (value && value.type === 'call') {
+      // Handle "call" pattern
       return {
-        type: 'callAndReturn',
+        type: 'call',
         nextTask: {
           nodePath: value.nodePath,
           input: value.input
@@ -358,7 +350,7 @@ export function compileWorkflow(
             taskStack = replaceTask(taskStack, result.state);
             break;
 
-          case 'callAndReturn':
+          case 'call':
             // Push next task onto stack with return information
             taskStack = pushTask(taskStack, {
               ...result.nextTask,
@@ -449,7 +441,7 @@ export function compileWorkflow(
       if (incompleteTasks.length > 0) {
         throw new Error(
           `WORKFLOW BUG: The following tasks started but didn't complete: ${incompleteTasks.join(', ')}. ` +
-          `This is a bug in the workflow execution engine. Check if these tasks are using 'callAndReturn' correctly.`
+          `This is a bug in the workflow execution engine. Check if these tasks are using 'call' correctly.`
         );
       }
 

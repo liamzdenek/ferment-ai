@@ -1,13 +1,13 @@
 import { z } from 'zod';
 import { TaskDef } from '../definitions/TaskDef.js';
 import { TaskCtx } from './TaskCtx.js';
-import { TaskCallAndReturnRequest, TaskCallError, TaskCallResult } from './TaskMessaging.js';
+import { TaskCallRequest, TaskCallError, TaskCallResult } from './TaskMessaging.js';
 
 /**
  * Task execution function types
  */
 export type TaskExecuteFunction<I extends z.ZodTypeAny, O extends z.ZodTypeAny> =
-  (ctx: TaskCtx<I, O>) => AsyncGenerator<TaskCallAndReturnRequest, TaskCallResult | TaskCallError, TaskCallResult | TaskCallError>;
+  (ctx: TaskCtx<I, O>) => AsyncGenerator<TaskCallRequest, TaskCallResult | TaskCallError, TaskCallResult | TaskCallError>;
 
 /**
  * Task implementation with definition and execution function
@@ -38,7 +38,7 @@ export interface ReconcilerCallbacks {
 }
 
 /**
- * Information about where to return after a callAndReturn
+ * Information about where to return after a call
  */
 export interface ReturnToInfo {
   nodePath: string;
@@ -60,5 +60,5 @@ export interface TaskExecutionState {
  */
 export type TaskStepResult =
   | { type: 'continue'; state: TaskExecutionState }
-  | { type: 'callAndReturn'; nextTask: TaskExecutionState; returnTo: ReturnToInfo }
+  | { type: 'call'; nextTask: TaskExecutionState; returnTo: ReturnToInfo }
   | { type: 'complete'; result: TaskCallResult | TaskCallError };

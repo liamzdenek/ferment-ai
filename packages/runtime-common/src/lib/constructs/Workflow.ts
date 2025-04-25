@@ -77,14 +77,6 @@ export class Workflow extends Construct {
    * @param tasks The tasks map to add to
    */
   private addReachableTasks(task: WorkflowTask<z.ZodTypeAny, z.ZodTypeAny>, tasks: Record<string, TaskDefinition>): void {
-    // Add next tasks
-    for (const nextTask of task.getNextTasks()) {
-      if (!tasks[nextTask.node.path]) {
-        tasks[nextTask.node.path] = nextTask.getDefinition();
-        this.addReachableTasks(nextTask, tasks);
-      }
-    }
-
     // Add tools
     for (const [, tool] of Object.entries(task.getTools())) {
       if (!tasks[tool.node.path]) {

@@ -3,8 +3,8 @@ import { WorkflowError } from './ErrorHandling.js';
 /**
  * Task call and return request
  */
-export interface TaskCallAndReturnRequest {
-  type: 'callAndReturn';
+export interface TaskCallRequest {
+  type: 'call';
   taskDefId: string;
   nodePath: string;
   input: any;
@@ -38,7 +38,7 @@ export interface TaskCallError {
 /**
  * Task message type union
  */
-export type TaskMessage = TaskCallAndReturnRequest | TaskCallResult;
+export type TaskMessage = TaskCallRequest | TaskCallResult;
 
 /**
  * A workflow execution log event

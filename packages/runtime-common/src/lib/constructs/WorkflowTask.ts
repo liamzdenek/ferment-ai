@@ -21,11 +21,6 @@ export abstract class WorkflowTask<I extends z.ZodTypeAny, O extends z.ZodTypeAn
   public abstract readonly taskDef: TaskDef<I, O>;
 
   /**
-   * The next tasks in the workflow
-   */
-  private readonly nextTasks: WorkflowTask<z.ZodTypeAny, z.ZodTypeAny>[] = [];
-
-  /**
    * The tools that can be called by this task
    */
   private readonly tools: Record<string, WorkflowTask<z.ZodTypeAny, z.ZodTypeAny>> = {};
@@ -46,17 +41,6 @@ export abstract class WorkflowTask<I extends z.ZodTypeAny, O extends z.ZodTypeAn
   }
 
   /**
-   * Adds a task that can be called by this task
-   *
-   * @param task The task that can be called
-   * @returns This task
-   */
-  canCall(task: WorkflowTask<z.ZodTypeAny, z.ZodTypeAny>): this {
-    this.nextTasks.push(task);
-    return this;
-  }
-
-  /**
    * Adds a task that can be called and returned to by this task
    *
    * @param tool The tool that can be called
@@ -66,13 +50,6 @@ export abstract class WorkflowTask<I extends z.ZodTypeAny, O extends z.ZodTypeAn
     const toolPath = tool.node.path;
     this.tools[toolPath] = tool;
     return this;
-  }
-
-  /**
-   * @deprecated Use canUseTools instead
-   */
-  canCallAndReturn(tool: WorkflowTask<z.ZodTypeAny, z.ZodTypeAny>): this {
-    return this.canUseTools(tool);
   }
   
   /**
@@ -85,9 +62,6 @@ export abstract class WorkflowTask<I extends z.ZodTypeAny, O extends z.ZodTypeAn
       throw new Error(`Task ${this.node.id} does not have a taskDef defined`);
     }
 
-    // Get the next tasks
-    const nextTasks = this.getNextTasks().map(task => task.node.path);
-
     // Get the tools
     const tools = Object.keys(this.getTools());
 
@@ -97,18 +71,8 @@ export abstract class WorkflowTask<I extends z.ZodTypeAny, O extends z.ZodTypeAn
       taskDefId: this.taskDef.taskDefId,
       inputType: this.taskDef.inputType,
       outputType: this.taskDef.outputType,
-      nextTasks,
       tools
     };
-  }
-
-  /**
-   * Gets the next tasks in the workflow
-   *
-   * @returns The next tasks
-   */
-  getNextTasks(): WorkflowTask<z.ZodTypeAny, z.ZodTypeAny>[] {
-    return [...this.nextTasks];
   }
 
   /**

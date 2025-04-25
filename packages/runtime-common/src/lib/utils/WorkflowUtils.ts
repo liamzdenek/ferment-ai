@@ -17,14 +17,14 @@ export function findWorkflows(construct: Construct): Record<string, WorkflowDefi
   // Create a workflow definition for each workflow construct
   for (const [, workflowConstruct] of Object.entries(workflowConstructs)) {
     if (workflowConstruct instanceof Workflow) {
-      const workflowName = workflowConstruct.node.path;
+      const workflowNodePath = workflowConstruct.node.path;
       const workflowDef = workflowConstruct.getDefinition();
-      workflowDefs[workflowName] = workflowDef;
+      workflowDefs[workflowNodePath] = workflowDef;
     }
   }
   
   if (Object.keys(workflowDefs).length === 0) {
-    throw new Error("No workflows were found; is your Construct tree complete? You must declare at least one new Workflow()");
+    throw new Error("No workflows were found; is your Construct tree complete? You must declare at least one `new Workflow()`");
   }
   
   return workflowDefs;

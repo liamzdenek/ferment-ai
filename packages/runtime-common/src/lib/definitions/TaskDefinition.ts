@@ -10,7 +10,6 @@ export const TaskDefinitionSchema = z.object({
   taskDefId: z.string().describe('The global task definition ID'),
   inputType: z.any().describe('The Zod schema for input validation'),
   outputType: z.any().describe('The Zod schema for output validation'),
-  nextTasks: z.array(z.string()).describe('The Node Paths of tasks that can be called by this task'),
   tools: z.array(z.string()).describe('The Node Paths of tasks that can be called and returned to by this task')
 });
 

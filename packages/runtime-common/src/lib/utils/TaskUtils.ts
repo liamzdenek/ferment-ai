@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { TaskCallAndReturnRequest, TaskCallError, TaskCallResult } from "../execution/TaskMessaging.js";
+import { TaskCallRequest, TaskCallError, TaskCallResult } from "../execution/TaskMessaging.js";
 import { TaskCtx } from "../execution/TaskCtx.js";
 import { WorkflowTask, isWorkflowTask } from "../constructs/WorkflowTask.js";
 
@@ -15,7 +15,7 @@ export type TaskExecutePromise<I extends z.ZodTypeAny, O extends z.ZodTypeAny> =
  */
 export function convertPromiseToGenerator<I extends z.ZodTypeAny, O extends z.ZodTypeAny>(
   promiseFn: TaskExecutePromise<I, O>
-): (ctx: TaskCtx<I, O>) => AsyncGenerator<TaskCallAndReturnRequest, TaskCallResult | TaskCallError, TaskCallResult | TaskCallError> {
+): (ctx: TaskCtx<I, O>) => AsyncGenerator<TaskCallRequest, TaskCallResult | TaskCallError, TaskCallResult | TaskCallError> {
   const res = async function* generatorWrapper(ctx: TaskCtx<I, O>) {
     // Simply await the promise function and return its result
     const result = await promiseFn(ctx);
@@ -51,12 +51,12 @@ export function getTaskCall<I extends z.ZodTypeAny, O extends z.ZodTypeAny>(
   
   // Return a generator function that can be called with input
   return function* (input: z.infer<I>): Generator<
-    TaskCallAndReturnRequest, 
+    TaskCallRequest, 
     Omit<TaskCallResult, 'output' | 'input'> & { input: z.infer<I>, output: z.infer<O> }, 
     TaskCallResult | TaskCallError
   > {
-    const req: TaskCallAndReturnRequest = {
-      type: 'callAndReturn',
+    const req: TaskCallRequest = {
+      type: 'call',
       taskDefId: construct.taskDef.taskDefId,
       nodePath,
       input
