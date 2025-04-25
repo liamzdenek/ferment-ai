@@ -1,7 +1,7 @@
-/* eslint-disable require-yield */
 import { z } from "zod";
-import { TaskCallAndReturnRequest, TaskCallError, TaskCallRequest, TaskCallResult, TaskCtx, TaskExecuteFunction, WorkflowError } from "./workflow.js";
-import { isWorkflowTask, WorkflowTask } from "./builtin-constructs.js";
+import { TaskCallAndReturnRequest, TaskCallError, TaskCallResult } from "../execution/TaskMessaging.js";
+import { TaskCtx } from "../execution/TaskCtx.js";
+import { WorkflowTask, isWorkflowTask } from "../constructs/WorkflowTask.js";
 
 export type TaskExecutePromise<I extends z.ZodTypeAny, O extends z.ZodTypeAny> =
   (ctx: TaskCtx<I, O>) => Promise<TaskCallResult | TaskCallError>;
@@ -15,8 +15,8 @@ export type TaskExecutePromise<I extends z.ZodTypeAny, O extends z.ZodTypeAny> =
  */
 export function convertPromiseToGenerator<I extends z.ZodTypeAny, O extends z.ZodTypeAny>(
   promiseFn: TaskExecutePromise<I, O>
-): TaskExecuteFunction<I, O> {
-  const res: TaskExecuteFunction<I, O> = async function* generatorWrapper(ctx: TaskCtx<I, O>) {
+): (ctx: TaskCtx<I, O>) => AsyncGenerator<TaskCallAndReturnRequest, TaskCallResult | TaskCallError, TaskCallResult | TaskCallError> {
+  const res = async function* generatorWrapper(ctx: TaskCtx<I, O>) {
     // Simply await the promise function and return its result
     const result = await promiseFn(ctx);
 
@@ -25,7 +25,6 @@ export function convertPromiseToGenerator<I extends z.ZodTypeAny, O extends z.Zo
   };
   return res;
 }
-
 
 /**
  * Usage:
@@ -40,7 +39,7 @@ export function getTaskCall<I extends z.ZodTypeAny, O extends z.ZodTypeAny>(
   ctx: TaskCtx<z.ZodTypeAny, z.ZodTypeAny>,
   task: WorkflowTask<I, O>
 ) {
-  const maybeConstruct = Object.entries(ctx.nodePathToConstruct).find(([k, v]) => v.node.path === task.node.path);
+  const maybeConstruct = Object.entries(ctx.nodePathToConstruct).find(([_k, v]) => v.node.path === task.node.path);
   if (maybeConstruct === undefined) {
     throw new Error("Couldn't find a construct with the path: " + task.node.path);
   }
