@@ -15,7 +15,8 @@ import {
   StructuredOutput,
   StructuredOutputCapabilityGetAvailableCapabilities,
   StructuredOutputCapabilityExecuteCapability,
-  Router
+  Router,
+  EvaluatorOptimizer
 } from '@ferment-ai/core-constructs-lib';
 import {
   Module,
@@ -32,6 +33,7 @@ import { createChainTask } from './ChainTask.js';
 import { createLlmGateTask } from './LLMGateTask.js';
 import { createStructuredOutputCapabilityExecuteCapabilityTask, createStructuredOutputCapabilityGetCapabilitiesTask, createStructuredOutputTask } from './StructuredOutputTasks.js';
 import { createRouterTask } from './RouterTask.js';
+import { createEvaluatorOptimizerTask } from './EvaluatorOptimizerTask.js';
 
 /**
  * Creates a core constructs module
@@ -94,6 +96,9 @@ export function createCoreConstructsModule(): Module {
       }
       if(construct instanceof Router) {
         return createRouterTask(construct);
+      }
+      if(construct instanceof EvaluatorOptimizer) {
+        return createEvaluatorOptimizerTask(construct);
       }
 
       // Structured Output

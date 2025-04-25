@@ -23,6 +23,7 @@ Unlike imperative frameworks, Ferment AI separates declaration from runtime, ena
 - **Conditional Workflows** with LLMGate for aborting based on model outputs
 - **Sequential Execution** with Chain for linking multiple tasks
 - **Specialized Prompts** with Router for directing inputs to specialized tasks
+- **Iterative Refinement** with EvaluatorOptimizer for improving outputs through feedback loops
 - Coming Soon: **Human Intervention** support with cancellation and resumption
 - **Type Safety** with Zod validation for inputs and outputs at both compile time and runtime
 
@@ -121,7 +122,7 @@ This high-level diagram shows the core architecture of Ferment AI. The system fo
 
 1. The **User** interacts with the **Journal**, which is the central executor
 2. The **Journal** executes a **Workflow**, which defines the sequence of operations
-3. The **Workflow** typically includes a **CapableModel** as its main component
+3. The **Workflow** typically includes a **CapableModel** as a main component
 4. The **CapableModel** combines a **Model** (like OllamaModel) with **Capabilities** (like MCP) and a **Parser**
 5. **Capabilities** can connect to **External Systems** like MCP Servers
 
@@ -275,7 +276,7 @@ flowchart TB
         
         Chain --> LLMGate
         LLMGate --> StructuredOutput[StructuredOutput]
-
+        Evaluator[Evaluator] <--> Optimizer[Optimizer]
         EditMessagesTask
         Router["Router"]
     end
@@ -283,15 +284,14 @@ flowchart TB
     subgraph "Coming Soon"
         Parallel[Parallel]
         Orchestrator[Orchestrator] --> Worker[Worker]
-        Evaluator[Evaluator] <--> Optimizer[Optimizer]
         Agent[Agent]
         Retry[Retry]
     end
     
     CurrentWorkflows --> CapableModel
     
-    class CapableModel,LLMGate,Chain,StructuredOutput,EditMessagesTask,Router workflowClass
-    class Parallel,Orchestrator,Worker,Evaluator,Optimizer,Agent,Retry comingSoonClass
+    class CapableModel,LLMGate,Chain,StructuredOutput,EditMessagesTask,Router,Evaluator,Optimizer workflowClass
+    class Parallel,Orchestrator,Worker,Agent,Retry comingSoonClass
 ```
 
 Current workflow components include:
@@ -299,6 +299,7 @@ Current workflow components include:
 - `LLMGate`: Enables conditional workflow execution based on LLM outputs
 - `Chain`: Enables sequential execution of multiple workflow tasks
 - `Router`: Classifies inputs and directs them to specialized tasks
+- `EvaluatorOptimizer`: Implements iterative content refinement through feedback loops
 - `StructuredOutput`: Enables type-safe data extraction
 - `EditMessagesTask`: Make programmatic (aka: not-LLM) changes to the message history
 
@@ -444,6 +445,7 @@ npx nx serve demo --args="TestStructuredOutput"
 npx nx serve demo --args="TestLLMGate"
 npx nx serve demo --args="TestChain"
 npx nx serve demo --args="TestRouter"
+npx nx serve demo --args="TestEvaluatorOptimizer"
 ```
 
 ## User Guides
@@ -705,6 +707,109 @@ const workflow = new Workflow(rootConstruct, 'RouterWorkflow', {
   definition: router
 });
 ```
+
+#### Using EvaluatorOptimizer
+
+The EvaluatorOptimizer implements an iterative feedback loop where one LLM generates content and another evaluates it, providing feedback for improvement:
+
+```typescript
+// Create models
+const optimizerModel = new OllamaModel(this, 'OptimizerModel', {
+  host: "ollama:11434",
+  modelName: "llama3.1:8b",
+});
+
+const evaluatorModel = new OllamaModel(this, 'EvaluatorModel', {
+  host: "ollama:11434",
+  modelName: "llama3.1:8b",
+});
+
+// Create capability parsers
+const optimizerCapabilityParser = new StructuredOutputCapabilityParser(this, "OptimizerCapabilityParser", {});
+const evaluatorCapabilityParser = new StructuredOutputCapabilityParser(this, "EvaluatorCapabilityParser", {});
+
+// Create capable models
+const optimizerCapableModel = new CapableModel(this, "OptimizerCapableModel", {
+  model: optimizerModel,
+  capabilities: [],
+  capabilityParser: optimizerCapabilityParser
+});
+
+const evaluatorCapableModel = new CapableModel(this, "EvaluatorCapableModel", {
+  model: evaluatorModel,
+  capabilities: [],
+  capabilityParser: evaluatorCapabilityParser
+});
+
+// Create template parsers
+const evaluatorTemplate = new DotTemplateParser(this, "EvaluatorTemplate", {
+  template: `
+    You are an expert evaluator. Your task is to evaluate the quality of the response to the given prompt.
+
+    Original prompt:
+    {{=it.originalPrompt}}
+
+    Response to evaluate:
+    {{=it.response}}
+
+    Provide a score from 1-10 where:
+    1-3: Poor quality, major issues
+    4-6: Average quality, some issues
+    7-8: Good quality, minor issues
+    9-10: Excellent quality, no significant issues
+
+    Also provide specific, actionable feedback on how to improve the response.
+
+    Return your evaluation as a JSON object with the following fields:
+    - score: A number between 1 and 10
+    - feedback: A string with specific, actionable feedback
+    - shouldContinue: A boolean indicating whether the response needs further improvement (true) or is good enough (false)
+  `,
+  stripWhitespace: false
+});
+
+const optimizerTemplate = new DotTemplateParser(this, "OptimizerTemplate", {
+  template: `
+    You are tasked with generating a high-quality response to the following prompt:
+
+    {{=it.originalPrompt}}
+
+    {{? it.feedback}}
+    Here is feedback on your previous attempt:
+    Score: {{=it.score}}/10
+    Feedback: {{=it.feedback}}
+
+    Please improve your response based on this feedback.
+    {{?}}
+
+    Provide a comprehensive, well-structured response that addresses all aspects of the prompt.
+  `,
+  stripWhitespace: false
+});
+
+// Create evaluator optimizer
+const evaluatorOptimizer = new EvaluatorOptimizer(this, 'EvaluatorOptimizer', {
+  optimizerTask: optimizerCapableModel,
+  evaluatorTask: evaluatorCapableModel,
+  evaluatorTemplate: evaluatorTemplate,
+  optimizerTemplate: optimizerTemplate,
+  iterationHardLimit: 3,
+  targetScore: 8
+});
+
+// Create workflow
+const workflow = new Workflow(this, 'Workflow', {
+  definition: evaluatorOptimizer
+});
+```
+
+The EvaluatorOptimizer provides:
+- Iterative refinement of LLM outputs through feedback loops
+- Quality control through structured evaluation criteria
+- Configurable iteration limits to prevent infinite loops
+- Target score thresholds for early stopping when quality is sufficient
+- Proper message history management for natural conversation flow
+- Template-based prompts for both evaluator and optimizer
 
 #### Best Practices
 

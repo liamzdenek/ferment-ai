@@ -11,7 +11,7 @@ export function createStructuredOutputTask(construct: StructuredOutput<z.ZodUnkn
 
       let data: z.infer<typeof construct.props.outputType>;
       try {
-        const _linkRes = yield* getTaskCall(ctx, construct.props.capableModel)({
+        const _linkRes = yield* getTaskCall(ctx, construct.props.capableTask)({
           messages: ctx.input.messages,
           forceCapability: {
             capabilityNodePath: construct.structuredOutputCapability.node.path,
@@ -20,7 +20,7 @@ export function createStructuredOutputTask(construct: StructuredOutput<z.ZodUnkn
           }
         });
 
-        throw new Error(`Unexpected model return; expected it to invoke the StructuredOutputCapability. Returning messages normally is not supported by StructuredOutputs. CapableModel=${construct.props.capableModel.node.path}`);
+        throw new Error(`Unexpected model return; expected it to invoke the StructuredOutputCapability. Returning messages normally is not supported by StructuredOutputs. CapableTask=${construct.props.capableTask.node.path}`);
       } catch (e) {
         if(!(e instanceof StructuredOutputCapabilityError)) {
           throw e;

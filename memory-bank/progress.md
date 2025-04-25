@@ -161,6 +161,8 @@ Recently, we've implemented several key components: the **StructuredOutput** cap
 - [x] **Workflow Components Implementation**
   - [x] Implement LLMGate for conditional execution
   - [x] Implement Chain for sequential task execution
+  - [x] Implement Router for input classification and routing
+  - [x] Implement EvaluatorOptimizer for iterative content refinement
   - [x] Add workflow exception throwing and handling
   - [x] Create test cases for workflow components
 
@@ -238,7 +240,22 @@ Recently, we've implemented several key components: the **StructuredOutput** cap
    - Created test cases demonstrating sequential execution
    - Integrated with LLMGate and other workflow components
 
-4. **Enhanced Model Context Protocol (MCP) Integration**:
+4. **Implemented Router**:
+   - Created Router class for input classification and routing
+   - Implemented template-based routing prompts
+   - Added structured output parsing for routing decisions
+   - Implemented default route fallback for unclassified inputs
+   - Created test cases demonstrating input classification and routing
+
+5. **Implemented EvaluatorOptimizer**:
+   - Created EvaluatorOptimizer class for iterative content refinement
+   - Implemented feedback loop between optimizer and evaluator
+   - Added structured output for evaluation results (score, feedback, shouldContinue)
+   - Implemented iteration limits and target score thresholds
+   - Ensured proper message history management for natural conversation flow
+   - Created test cases demonstrating iterative content improvement
+
+6. **Enhanced Model Context Protocol (MCP) Integration**:
    - Created Dad Joke MCP server for testing
    - Fixed various MCP runtime bugs
    - Improved capability discovery and execution
@@ -379,6 +396,8 @@ npx nx serve demo --args="TestDotTemplateParser"
 npx nx serve demo --args="TestStructuredOutput"
 npx nx serve demo --args="TestLLMGate"
 npx nx serve demo --args="TestChain"
+npx nx serve demo --args="TestRouter"
+npx nx serve demo --args="TestEvaluatorOptimizer"
 ```
 
 ### HTTP Application Demo

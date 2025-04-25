@@ -50,7 +50,9 @@ Our current focus is on implementing advanced workflow components including **St
 
 10. **Router Implementation**: We've implemented a Router component that classifies inputs and directs them to specialized tasks, enabling separation of concerns and more specialized prompts.
 
-11. **Workflow Exception Throwing**: We've enhanced error handling in workflows with improved error messages and propagation.
+11. **EvaluatorOptimizer Implementation**: We've implemented an EvaluatorOptimizer component that creates an iterative feedback loop between an optimizer that generates content and an evaluator that provides feedback for improvement, enabling iterative refinement of LLM outputs.
+
+12. **Workflow Exception Throwing**: We've enhanced error handling in workflows with improved error messages and propagation.
 
 ## Active Considerations
 
@@ -113,7 +115,15 @@ Our current focus is on implementing advanced workflow components including **St
    - Adding support for default routes as fallbacks
    - Creating test cases for Router usage
 
-4. **Model Context Protocol Integration**:
+5. **EvaluatorOptimizer Implementation**:
+   - Implementing EvaluatorOptimizer component for iterative content refinement
+   - Creating template-based evaluator and optimizer prompts
+   - Implementing structured output for evaluation results (score, feedback, shouldContinue)
+   - Adding support for iteration limits and target score thresholds
+   - Ensuring proper message history management for natural conversation flow
+   - Creating test cases for EvaluatorOptimizer usage
+
+6. **Model Context Protocol Integration**:
    - Refining MCPCapability implementation
    - Improving capability discovery and execution
    - Enhancing error handling for external MCP servers
@@ -220,3 +230,4 @@ npx nx serve demo --args="TestStructuredOutput"
 npx nx serve demo --args="TestLLMGate"
 npx nx serve demo --args="TestChain"
 npx nx serve demo --args="TestRouter"
+npx nx serve demo --args="TestEvaluatorOptimizer"
