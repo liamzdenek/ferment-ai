@@ -3,7 +3,6 @@ import {
   TaskCallRequest, 
   TaskCallError, 
   TaskCallResult, 
-  TaskCallParallelRequest,
   generateTaskExecutionId
 } from "../execution/TaskMessaging.js";
 import { TaskCtx } from "../execution/TaskCtx.js";
@@ -21,7 +20,7 @@ export type TaskExecutePromise<I extends z.ZodTypeAny, O extends z.ZodTypeAny> =
  */
 export function convertPromiseToGenerator<I extends z.ZodTypeAny, O extends z.ZodTypeAny>(
   promiseFn: TaskExecutePromise<I, O>
-): (ctx: TaskCtx<I, O>) => AsyncGenerator<TaskCallRequest | TaskCallParallelRequest, TaskCallResult | TaskCallError, TaskCallResult | TaskCallError> {
+): (ctx: TaskCtx<I, O>) => AsyncGenerator<TaskCallRequest, TaskCallResult | TaskCallError, TaskCallResult | TaskCallError> {
   const res = async function* generatorWrapper(ctx: TaskCtx<I, O>) {
     // Simply await the promise function and return its result
     const result = await promiseFn(ctx);
@@ -64,9 +63,13 @@ export function getTaskCall<I extends z.ZodTypeAny, O extends z.ZodTypeAny>(
     const req: TaskCallRequest = {
       type: 'call',
       taskExecutionId: generateTaskExecutionId(), // Add taskExecutionId
-      taskDefId: construct.taskDef.taskDefId,
-      nodePath,
-      input
+      calls: [
+        {
+          taskDefId: construct.taskDef.taskDefId,
+          nodePath,
+          input
+        }
+      ]
     };
     
     // Yield the request and get the response
@@ -125,7 +128,7 @@ export function getTaskCallParallel<T extends WorkflowTask<any, any>>(
   ctx: TaskCtx<z.ZodTypeAny, z.ZodTypeAny>,
   tasks: T[]
 ): (inputs: Array<z.infer<T['taskDef']['inputType']>>) => Generator<
-  TaskCallParallelRequest,
+  TaskCallRequest,
   Array<TaskCallResult & { output: z.infer<T['taskDef']['outputType']> }>,
   Array<TaskCallResult | TaskCallError>
 >;
@@ -141,7 +144,7 @@ export function getTaskCallParallel<
 ): <Inputs extends { [K in keyof Tasks]: z.infer<Tasks[K]['taskDef']['inputType']> }>(
   inputs: Inputs
 ) => Generator<
-  TaskCallParallelRequest,
+  TaskCallRequest,
   { [K in keyof Tasks]: TaskCallResult & { output: z.infer<Tasks[K]['taskDef']['outputType']> } },
   Array<TaskCallResult | TaskCallError>
 >;
@@ -173,7 +176,7 @@ export function getTaskCallParallel<T extends WorkflowTask<any, any>>(
   
   // Return a generator function that can be called with an array of inputs
   return function* (inputs: any[]): Generator<
-    TaskCallParallelRequest,
+    TaskCallRequest,
     any,
     Array<TaskCallResult | TaskCallError>
   > {
@@ -182,8 +185,8 @@ export function getTaskCallParallel<T extends WorkflowTask<any, any>>(
     }
     
     // Create the parallel call request
-    const req: TaskCallParallelRequest = {
-      type: 'callParallel',
+    const req: TaskCallRequest = {
+      type: 'call',
       taskExecutionId: generateTaskExecutionId(), // Add taskExecutionId
       calls: taskInfos.map((info, index) => ({
         taskDefId: info.construct.taskDef.taskDefId,

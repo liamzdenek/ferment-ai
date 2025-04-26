@@ -32,10 +32,15 @@ export interface TaskCallRequest extends TaskMessage {
   }>;
 }
 
+export interface TaskCallResults extends TaskMessage {
+  type: 'results';
+  results: Array<(TaskCallResult | TaskCallError)>;
+}
+
 /**
  * Task call result
  */
-export interface TaskCallResult extends TaskMessage {
+export interface TaskCallResult {
   type: 'result';
   taskDefId: string;
   nodePath: string;
@@ -46,7 +51,7 @@ export interface TaskCallResult extends TaskMessage {
 /**
  * Task call error
  */
-export interface TaskCallError extends TaskMessage {
+export interface TaskCallError {
   type: 'error';
   taskDefId: string;
   nodePath: string;
