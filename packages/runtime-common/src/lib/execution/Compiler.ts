@@ -1,9 +1,9 @@
 import { Construct } from "constructs";
 import { WorkflowDefinition, WorkflowDefinitionSchema } from "../definitions/WorkflowDefinition.js";
-import { WorkflowExecutionOptions, WorkflowLogEvent, TaskCallResult, generateTaskExecutionId, TaskExecutionId, TaskCallError, TaskCallParallelRequest, TaskCallRequest, TaskCallResults } from "./TaskMessaging.js";
+import { WorkflowExecutionOptions, WorkflowLogEvent, TaskCallResult, generateTaskExecutionId, TaskExecutionId, TaskCallError, TaskCallRequest, TaskCallResults } from "./TaskMessaging.js";
 import { TaskImpl, TaskImplMap } from "./TaskImpl.js";
 import { TaskCtx } from "./TaskCtx.js";
-import { TaskPool, TaskPoolYield } from "./TaskPool.js";
+import { isTaskPoolYield, TaskPool, TaskPoolYield } from "./TaskPool.js";
 import { z } from "zod";
 
 export type WorkflowExecutor = (options: WorkflowExecutionOptions) => AsyncIterable<WorkflowLogEvent>;
@@ -55,7 +55,11 @@ export function compileWorkflow(
       options.input
     );
 
-    yield* runWorkflowTasks(wctx, [tctx]);
+    for await(const yielded of runWorkflowTasks(wctx, [tctx])) {
+      if(yielded.type === "yield") {
+        yield yielded.value;
+      }
+    }
 
     // Log workflow start
     const endEvent: WorkflowLogEvent = {
@@ -67,60 +71,46 @@ export function compileWorkflow(
   }
 }
 
-async function* runWorkflowTasks(wctx: WorkflowRuntimeContext, tctxs: TaskCtx<any, any>[]): AsyncGenerator<WorkflowLogEvent, Array<TaskCallResult | TaskCallError>, void> {
+async function* runWorkflowTasks(wctx: WorkflowRuntimeContext, tctxs: TaskCtx<any, any>[]): AsyncGenerator<TaskPoolYield<WorkflowLogEvent>, Array<TaskCallResult | TaskCallError>, void> {
   // Collect results to return at the end
   const results: Array<TaskCallResult | TaskCallError> = [];
   
   // Create a callback function that processes yielded values
   const processYieldedValue = async function*(
     generatorId: string,
-    value: TaskCallRequest | WorkflowLogEvent
-  ): AsyncGenerator<WorkflowLogEvent, TaskCallResults | TaskPoolYield<WorkflowLogEvent>, void> {
-    console.log("Got yielded value", value);
-    // Check if the value is a TaskCallRequest or a WorkflowLogEvent
-    if (isTaskCallRequest(value)) {
-      // Handle TaskCallRequest
-      const taskCallRequest = value;
-      
-      // Create task contexts for each call
-      const taskContexts = taskCallRequest.calls.map((call: { nodePath: string; input: any }) => {
-        return createTaskContext(
-          wctx,
-          generateTaskExecutionId(),
-          call.nodePath,
-          call.input
-        );
-      });
-      
-      console.log("Running subtasks", taskContexts.map(c => c.nodePath));
-      // Run the tasks and collect the results
-      const finalResult = yield* runWorkflowTasks(wctx, taskContexts);
-
-      console.log("Got final result from subtasks", finalResult);
-      
-      // If no results, return an error
-      return {
-        type: 'results',
-        taskExecutionId: taskCallRequest.taskExecutionId,
-        results: finalResult
-      };
-    } else {
-      // For WorkflowLogEvent, yield it directly
-      const v: TaskPoolYield<WorkflowLogEvent> = {
-        type: 'yield',
-        value
-      }
-      return v;
-    }
+    taskCallRequest: TaskCallRequest
+  ): AsyncGenerator<TaskPoolYield<WorkflowLogEvent>, TaskCallResults, void> {
+    console.log("Got yielded value", taskCallRequest);
+    
+    // Create task contexts for each call
+    const taskContexts = taskCallRequest.calls.map((call) => {
+      return createTaskContext(
+        wctx,
+        generateTaskExecutionId(),
+        call.nodePath,
+        call.input
+      );
+    });
+    
+    console.log("Running subtasks", taskContexts.map(c => c.nodePath));
+    // Run the tasks and collect the results
+    const finalResult = yield* runWorkflowTasks(wctx, taskContexts);
+    console.log("Got final result from subtasks", finalResult);
+    
+    // Return the results
+    return {
+      type: 'results',
+      taskExecutionId: taskCallRequest.taskExecutionId,
+      results: finalResult
+    };
   };
   
   // Create a task pool with the callback
   const taskPool = new TaskPool<
-    AsyncGenerator<TaskCallRequest | WorkflowLogEvent, TaskCallResult | TaskCallError, TaskCallResult | TaskCallError | TaskPoolYield<WorkflowLogEvent>>,
-    TaskCallRequest | WorkflowLogEvent,
-    TaskCallResult | TaskCallError | TaskPoolYield<WorkflowLogEvent>,
-    TaskCallResult | TaskCallError | TaskPoolYield<WorkflowLogEvent>,
-    WorkflowLogEvent
+    TaskCallRequest,
+    TaskCallResult | TaskCallError,
+    TaskCallResults,
+    TaskPoolYield<WorkflowLogEvent>
   >(processYieldedValue);
 
   // Add all task generators to the pool
@@ -130,22 +120,19 @@ async function* runWorkflowTasks(wctx: WorkflowRuntimeContext, tctxs: TaskCtx<an
     taskPool.push(generator);
   }
   
-  // Yield all events from the task pool
+  // Yield all events from the task pool and collect results
   for await (const event of taskPool.next()) {
-    yield event;
+    // If the event is a TaskPoolYield, yield it directly
+    if (isTaskPoolYield(event)) {
+      yield event;
+    } else {
+      // Otherwise, it's a result that we should collect
+      results.push(event as TaskCallResult | TaskCallError);
+    }
   }
   
   // Return the collected results
   return results;
-}
-
-/**
- * Type guard to check if a value is a TaskCallRequest
- */
-function isTaskCallRequest(value: any): value is TaskCallRequest {
-  return value &&
-         typeof value === 'object' &&
-         value.type === 'call';
 }
 
 function createTaskContext<I extends z.ZodTypeAny, O extends z.ZodTypeAny>(
