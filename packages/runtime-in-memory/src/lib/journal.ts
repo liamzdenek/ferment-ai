@@ -71,7 +71,6 @@ export class Journal implements JournalInterface {
 
     // Execute the workflow
     const executionOptions: WorkflowExecutionOptions = {
-      entryPoint: 'default',
       input: event,
     };
 

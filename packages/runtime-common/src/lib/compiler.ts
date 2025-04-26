@@ -1,9 +1,9 @@
 import { Construct, RootConstruct } from 'constructs';
-import { WorkflowExecutor, compileWorkflow } from './execution/WorkflowExecutor.js';
-import { TaskImplMap } from './execution/TaskExecution.js';
 import { WorkflowDefinition } from './definitions/WorkflowDefinition.js';
 import { Module } from './module.js';
 import { findWorkflows } from './utils/WorkflowUtils.js';
+import { TaskImplMap } from './execution/TaskImpl.js';
+import { compileWorkflow, WorkflowExecutor } from './execution/Compiler.js';
 
 /**
  * Options for compiling workflows

@@ -51,9 +51,6 @@ export class Workflow extends Construct {
    */
   getDefinition(): WorkflowDefinition {
     const tasks: Record<string, TaskDefinition> = {};
-    const entryPoints: Record<string, string> = {
-      'default': this.definition.node.path
-    };
 
     // Add the entry point task
     tasks[this.definition.node.path] = this.definition.getDefinition();
@@ -66,7 +63,7 @@ export class Workflow extends Construct {
       name: this.node.id,
       description: this.options.description,
       tasks,
-      entryPoints
+      entryPoint: this.definition.node.path
     };
   }
 

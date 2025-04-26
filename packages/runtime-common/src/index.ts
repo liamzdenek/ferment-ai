@@ -1,3 +1,5 @@
+import { WorkflowError } from './lib/execution/ErrorHandling.js';
+
 // Re-export constructs
 export { Workflow } from './lib/constructs/Workflow.js';
 export type { WorkflowOptions } from './lib/constructs/Workflow.js';
@@ -13,54 +15,6 @@ export { TaskDefinitionSchema } from './lib/definitions/TaskDefinition.js';
 export type { TaskDefinition } from './lib/definitions/TaskDefinition.js';
 export { WorkflowDefinitionSchema } from './lib/definitions/WorkflowDefinition.js';
 export type { WorkflowDefinition } from './lib/definitions/WorkflowDefinition.js';
-
-// Re-export execution
-export { WorkflowError } from './lib/execution/ErrorHandling.js';
-export type { 
-  WorkflowErrorStackFrame, 
-  WorkflowErrorOptions, 
-  WorkflowErrorJSON 
-} from './lib/execution/ErrorHandling.js';
-export type { TaskCtx } from './lib/execution/TaskCtx.js';
-export {
-  generateTaskExecutionId
-} from './lib/execution/TaskMessaging.js';
-export type {
-  TaskExecutionId,
-  TaskCallRequest,
-  TaskCallParallelRequest,
-  TaskCallResult,
-  TaskCallError,
-  TaskMessage,
-  WorkflowLogEvent,
-  WorkflowLogEventType,
-  WorkflowExecutionOptions,
-  TaskStepResult
-} from './lib/execution/TaskMessaging.js';
-export { 
-  validateWithZod,
-  createTaskContext,
-  isAsyncGeneratorFunction
-} from './lib/execution/TaskExecution.js';
-export type { 
-  TaskExecuteFunction, 
-  TaskImpl, 
-  TaskImplMap
-} from './lib/execution/TaskExecution.js';
-export { 
-  executeTaskStep,
-  handleCallParallel
-} from './lib/execution/TaskExecutor.js';
-export { 
-  compileWorkflow,
-  executeWorkflow
-} from './lib/execution/WorkflowExecutor.js';
-export type { WorkflowExecutor } from './lib/execution/WorkflowExecutor.js';
-export { TaskTree } from './lib/execution/TaskTree.js';
-export type { 
-  TaskNode,
-  WorkflowExecutionState
-} from './lib/execution/TaskTree.js';
 
 // Re-export utils
 export {
@@ -82,3 +36,6 @@ export type {
 } from './lib/compiler.js';
 export type { Journal } from './lib/journal.js';
 export type { Module } from './lib/module.js';
+
+export { WorkflowError } from './lib/execution/ErrorHandling.js'
+export type { WorkflowExecutionOptions, WorkflowLogEvent } from './lib/execution/TaskMessaging.js';

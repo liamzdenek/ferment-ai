@@ -9,7 +9,7 @@ export const WorkflowDefinitionSchema = z.object({
   name: z.string().describe('The name of the workflow'),
   description: z.string().optional().describe('A description of what the workflow does'),
   tasks: z.record(z.string(), TaskDefinitionSchema).describe('A map of Node IDs to task definitions'),
-  entryPoints: z.record(z.string(), z.string()).describe('A map of entry point names to Node IDs')
+  entryPoint: z.string().describe('A list of entry point names')
 });
 
 export type WorkflowDefinition = z.infer<typeof WorkflowDefinitionSchema>;

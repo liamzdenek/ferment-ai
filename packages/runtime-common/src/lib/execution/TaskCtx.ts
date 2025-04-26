@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import { Construct } from 'constructs';
 import { TaskDef } from '../definitions/TaskDef.js';
-import { TaskExecutionId } from './TaskMessaging.js';
 
 /**
  * Task context provided to a task during execution
