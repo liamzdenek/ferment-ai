@@ -30,7 +30,7 @@ export function isTaskPoolYield<T>(value: any): value is TaskPoolYield<T> {
  * @template YieldOutT - The type of values yielded by the callback and passed through
  */
 export class TaskPool<YieldT, ReturnT = void, CallbackReturnT = ReturnT, YieldOutT = TaskPoolYield<any>> {
-  private generators = new Map<string, AsyncGenerator<YieldT, ReturnT, ReturnT>>();
+  private generators = new Map<string, AsyncGenerator<YieldT, ReturnT, CallbackReturnT>>();
   private nextValueCallback: NextValueCallback<YieldT, CallbackReturnT, YieldOutT>;
   private pendingResults = new Map<string, Promise<IteratorResult<YieldT, ReturnT>>>();
   
@@ -47,7 +47,7 @@ export class TaskPool<YieldT, ReturnT = void, CallbackReturnT = ReturnT, YieldOu
    * @param generator The generator to add
    * @returns The ID of the generator in the pool
    */
-  push(generator: AsyncGenerator<YieldT, ReturnT, ReturnT>): string {
+  push(generator: AsyncGenerator<YieldT, ReturnT, CallbackReturnT>): string {
     const id = generateTaskExecutionId();
     this.generators.set(id, generator);
     // Start the generator immediately to ensure parallel execution
@@ -59,7 +59,7 @@ export class TaskPool<YieldT, ReturnT = void, CallbackReturnT = ReturnT, YieldOu
    * Process all generators in the pool and yield values from the callback
    * This is an async generator that yields values from the callback
    */
-  async *next(): AsyncGenerator<YieldOutT, ReturnT[], unknown> {
+  async *next(): AsyncGenerator<YieldOutT | ReturnT, ReturnT[], unknown> {
     const results: ReturnT[] = [];
     
     // Continue processing until all generators are done
@@ -86,6 +86,8 @@ export class TaskPool<YieldT, ReturnT = void, CallbackReturnT = ReturnT, YieldOu
         // Generator is done, remove it from the pool and store its result
         this.generators.delete(id);
         results.push(result.value);
+        // Also yield the result so it can be processed immediately
+        yield result.value;
         continue;
       }
       
@@ -127,7 +129,7 @@ export class TaskPool<YieldT, ReturnT = void, CallbackReturnT = ReturnT, YieldOu
       }
       
       // Continue the generator with the next value
-      this.pendingResults.set(id, generator.next(callbackReturnValue as unknown as ReturnT));
+      this.pendingResults.set(id, generator.next(callbackReturnValue));
     }
     
     // Return all the results
@@ -138,15 +140,7 @@ export class TaskPool<YieldT, ReturnT = void, CallbackReturnT = ReturnT, YieldOu
    * Check if the pool has any active generators
    * @returns True if the pool has active generators, false otherwise
    */
-  hasActiveGenerators(): boolean {
+  private hasActiveGenerators(): boolean {
     return this.generators.size > 0;
-  }
-  
-  /**
-   * Get the number of active generators in the pool
-   * @returns The number of active generators
-   */
-  getActiveGeneratorCount(): number {
-    return this.generators.size;
   }
 }

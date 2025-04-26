@@ -1,4 +1,4 @@
-import { CapableWorkflowTaskMessageSchema, FORMAT_PROMPT_TASK_DEF, PARSE_MODEL_RESPONSE_TASK_DEF, TagCapabilityParserFormatPromptTask, TagCapabilityParserParseModelResponseTask } from "@ferment-ai/core-constructs-lib";
+import { CapableWorkflowTaskMessageSchema, EXECUTE_CAPABILITY_TASK_DEF, FORMAT_PROMPT_TASK_DEF, InvokeChatModelMessageSchema, PARSE_MODEL_RESPONSE_TASK_DEF, TagCapabilityParserFormatPromptTask, TagCapabilityParserParseModelResponseTask } from "@ferment-ai/core-constructs-lib";
 import { getTaskCall, TaskImpl, TaskCtx } from "@ferment-ai/runtime-common";
 import * as z from 'zod';
 
@@ -101,7 +101,8 @@ export function createTagCapabilityParserParseModelResponseTask(construct: TagCa
     nodePath: construct.node.path,
     execute: async function* (ctx: TaskCtx<typeof PARSE_MODEL_RESPONSE_TASK_DEF.inputType, typeof PARSE_MODEL_RESPONSE_TASK_DEF.outputType>) {
       // Extract all execution requests from the new messages
-      const executionRequests = [];
+      const executionRequests: z.infer<typeof EXECUTE_CAPABILITY_TASK_DEF.inputType>[] = [];
+      const newMessages: z.infer<typeof InvokeChatModelMessageSchema>[] = [];
 
       // Process each new message
       for (const message of ctx.input.newMessages) {
@@ -109,6 +110,8 @@ export function createTagCapabilityParserParseModelResponseTask(construct: TagCa
           // Only parse assistant messages
           continue;
         }
+
+        newMessages.push(message);
 
         const content = message.content;
 
@@ -137,13 +140,31 @@ export function createTagCapabilityParserParseModelResponseTask(construct: TagCa
               console.log(`Found resource invocation: ${fullName} -> ${name}`);
             } else {
               // For tool and prompt, parse JSON content
-              const args = JSON.parse(contentStr);
-              executionRequests.push({
-                type: tagType,
-                name,
-                arguments: args
-              });
               console.log(`Found ${tagType} invocation: ${fullName} -> ${name}`);
+              if(tagType === 'tool') {
+                const args = JSON.parse(contentStr);
+                executionRequests.push({
+                  type: tagType, // guaranteed by the regex
+                  name,
+                  arguments: args
+                });
+              } else if(tagType === 'prompt') {
+                const args = JSON.parse(contentStr);
+                executionRequests.push({
+                  type: tagType, // guaranteed by the regex
+                  name,
+                  arguments: args
+                });
+
+              } else if(tagType === 'resource') {
+                executionRequests.push({
+                  type: tagType, // guaranteed by the regex
+                  name,
+                  uri: contentStr
+                });
+              } else {
+                throw new Error("Unexpected invocation type: "+tagType);
+              }
             }
           } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
@@ -154,15 +175,18 @@ export function createTagCapabilityParserParseModelResponseTask(construct: TagCa
 
       console.log(`Found ${executionRequests.length} execution requests`);
 
+      const output: z.infer<typeof PARSE_MODEL_RESPONSE_TASK_DEF.outputType> = {
+        executionRequests,
+        newMessages
+      } 
+
       // Return the final result
       return {
         type: 'result',
         taskDefId: ctx.taskDefId,
         nodePath: ctx.nodePath,
         input: ctx.input,
-        output: {
-          executionRequests
-        }
+        output
       };
     }
   };

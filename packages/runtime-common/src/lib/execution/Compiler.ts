@@ -122,12 +122,12 @@ async function* runWorkflowTasks(wctx: WorkflowRuntimeContext, tctxs: TaskCtx<an
   
   // Yield all events from the task pool and collect results
   for await (const event of taskPool.next()) {
-    // If the event is a TaskPoolYield, yield it directly
     if (isTaskPoolYield(event)) {
+      // If the event is a TaskPoolYield, yield it directly
       yield event;
     } else {
       // Otherwise, it's a result that we should collect
-      results.push(event as TaskCallResult | TaskCallError);
+      results.push(event);
     }
   }
   

@@ -3,7 +3,8 @@ import {
   TaskCallRequest, 
   TaskCallError, 
   TaskCallResult, 
-  generateTaskExecutionId
+  generateTaskExecutionId,
+  TaskCallResults
 } from "../execution/TaskMessaging.js";
 import { TaskCtx } from "../execution/TaskCtx.js";
 import { WorkflowTask, isWorkflowTask } from "../constructs/WorkflowTask.js";
@@ -58,7 +59,7 @@ export function getTaskCall<I extends z.ZodTypeAny, O extends z.ZodTypeAny>(
   return function* (input: z.infer<I>): Generator<
     TaskCallRequest, 
     Omit<TaskCallResult, 'output' | 'input'> & { input: z.infer<I>, output: z.infer<O> }, 
-    TaskCallResult | TaskCallError
+    TaskCallResults
   > {
     const req: TaskCallRequest = {
       type: 'call',
@@ -73,9 +74,13 @@ export function getTaskCall<I extends z.ZodTypeAny, O extends z.ZodTypeAny>(
     };
     
     // Yield the request and get the response
-    const res = yield req;
+    const rawRes = yield req;
 
-    console.log("Got task call response", res);
+    if(rawRes.results.length !== 1) {
+      throw new Error("Expected exactly 1 result");
+    }
+
+    const res = rawRes.results[0];
     
     // Handle the response
     if (res.type === "error") {

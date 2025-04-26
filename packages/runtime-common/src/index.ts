@@ -39,3 +39,6 @@ export type { Module } from './lib/module.js';
 
 export { WorkflowError } from './lib/execution/ErrorHandling.js'
 export type { WorkflowExecutionOptions, WorkflowLogEvent } from './lib/execution/TaskMessaging.js';
+
+export type { TaskImpl } from './lib/execution/TaskImpl.js';
+export type { TaskCtx } from './lib/execution/TaskCtx.js';
