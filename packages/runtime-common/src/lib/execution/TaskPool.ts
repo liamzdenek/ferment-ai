@@ -5,7 +5,10 @@ import { generateTaskExecutionId } from "./TaskMessaging.js";
  * This callback can also yield values that will be passed through
  */
 export type NextValueCallback<YieldT, ReturnT, YieldOutT> =
-  (generatorId: string, value: YieldT) => AsyncGenerator<YieldOutT, ReturnT, void>;
+  (generatorId: number, value: YieldT) => AsyncGenerator<YieldOutT, ReturnT, void>;
+
+export type OnResultCallback<ReturnT, YieldOutT> =
+  (generatorId: number, v: ReturnT) => AsyncGenerator<YieldOutT, ReturnT, void>
 
 export interface TaskPoolYield<T> {
   type: 'yield',
@@ -30,16 +33,18 @@ export function isTaskPoolYield<T>(value: any): value is TaskPoolYield<T> {
  * @template YieldOutT - The type of values yielded by the callback and passed through
  */
 export class TaskPool<YieldT, ReturnT = void, CallbackReturnT = ReturnT, YieldOutT = TaskPoolYield<any>> {
-  private generators = new Map<string, AsyncGenerator<YieldT, ReturnT, CallbackReturnT>>();
+  private generators = new Map<number, AsyncGenerator<YieldT, ReturnT, CallbackReturnT>>();
   private nextValueCallback: NextValueCallback<YieldT, CallbackReturnT, YieldOutT>;
-  private pendingResults = new Map<string, Promise<IteratorResult<YieldT, ReturnT>>>();
+  private onResultCallback: OnResultCallback<ReturnT, YieldOutT>;
+  private pendingResults = new Map<number, Promise<IteratorResult<YieldT, ReturnT>>>();
   
   /**
    * Create a new TaskPool
    * @param nextValueCallback A callback function that processes yielded values and returns the next input
    */
-  constructor(nextValueCallback: NextValueCallback<YieldT, CallbackReturnT, YieldOutT>) {
+  constructor(nextValueCallback: NextValueCallback<YieldT, CallbackReturnT, YieldOutT>, onResultCallback: OnResultCallback<ReturnT, YieldOutT>) {
     this.nextValueCallback = nextValueCallback;
+    this.onResultCallback = onResultCallback;
   }
   
   /**
@@ -47,8 +52,7 @@ export class TaskPool<YieldT, ReturnT = void, CallbackReturnT = ReturnT, YieldOu
    * @param generator The generator to add
    * @returns The ID of the generator in the pool
    */
-  push(generator: AsyncGenerator<YieldT, ReturnT, CallbackReturnT>): string {
-    const id = generateTaskExecutionId();
+  push(id: number, generator: AsyncGenerator<YieldT, ReturnT, CallbackReturnT>): number {
     this.generators.set(id, generator);
     // Start the generator immediately to ensure parallel execution
     this.pendingResults.set(id, generator.next());
@@ -59,7 +63,7 @@ export class TaskPool<YieldT, ReturnT = void, CallbackReturnT = ReturnT, YieldOu
    * Process all generators in the pool and yield values from the callback
    * This is an async generator that yields values from the callback
    */
-  async *next(): AsyncGenerator<YieldOutT | ReturnT, ReturnT[], unknown> {
+  async *getIter(): AsyncGenerator<YieldOutT | ReturnT, ReturnT[], void> {
     const results: ReturnT[] = [];
     
     // Continue processing until all generators are done
@@ -72,11 +76,12 @@ export class TaskPool<YieldT, ReturnT = void, CallbackReturnT = ReturnT, YieldOu
       const [id, pendingPromise] = await Promise.race(
         pendingEntries.map(async ([id, promise]) => {
           const result = await promise;
-          return [id, result] as [string, IteratorResult<YieldT, ReturnT>];
+          return [id, result] as [number, IteratorResult<YieldT, ReturnT>];
         })
       );
       
-      const generator = this.generators.get(id)!;
+      const generator = this.generators.get(id);
+      if(!generator) { throw new Error("Invariant violation: Generator ID returned by promise doesn't exist in generator map"); }
       const result = pendingPromise;
       
       // Remove the pending result
@@ -85,9 +90,10 @@ export class TaskPool<YieldT, ReturnT = void, CallbackReturnT = ReturnT, YieldOu
       if (result.done) {
         // Generator is done, remove it from the pool and store its result
         this.generators.delete(id);
-        results.push(result.value);
+        const finalRes = yield* this.onResultCallback(id, result.value);
+        results.push(finalRes);
         // Also yield the result so it can be processed immediately
-        yield result.value;
+        yield finalRes;
         continue;
       }
       

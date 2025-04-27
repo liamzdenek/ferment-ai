@@ -77,11 +77,10 @@ export interface WorkflowLogEvent {
   type: WorkflowLogEventType;
   nodePath?: string;
   taskDefId?: string;
-  taskExecutionId?: TaskExecutionId; // Added taskExecutionId
+  taskExecutionId?: TaskExecutionId;
   input?: any;
   output?: any;
-  error?: WorkflowError | Error;
-  taskTree?: any; // For task_tree_updated events
+  error?: WorkflowError;
 }
 
 /**
