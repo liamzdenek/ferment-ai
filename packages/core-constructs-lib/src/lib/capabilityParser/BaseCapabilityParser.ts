@@ -13,10 +13,10 @@ export abstract class BaseCapabilityParser extends Construct {
   }
 
   // CapableModel needs to be able to use all of its tools, and the model.
-  getReachableTasks(): Record<string, WorkflowTask<z.ZodTypeAny, z.ZodTypeAny>> {
-    return {
-      [this.formatPrompt.node.path]: this.formatPrompt,
-      [this.parseModelResponse.node.path]: this.parseModelResponse,
-    };
+  getReachableTasks(): [string, string][] {
+    return [
+      [this.node.path, this.formatPrompt.node.path],
+      [this.node.path, this.parseModelResponse.node.path],
+    ];
   }
 }

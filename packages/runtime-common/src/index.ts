@@ -11,8 +11,8 @@ export type { WorkflowTaskOptions } from './lib/constructs/WorkflowTask.js';
 
 // Re-export definitions
 export type { TaskDef } from './lib/definitions/TaskDef.js';
-export { TaskDefinitionSchema } from './lib/definitions/TaskDefinition.js';
-export type { TaskDefinition } from './lib/definitions/TaskDefinition.js';
+export { PreCompileTaskDefinitionSchema, TaskDefinitionSchema } from './lib/definitions/TaskDefinition.js';
+export type { PreCompileTaskDefinition, TaskDefinition } from './lib/definitions/TaskDefinition.js';
 export { WorkflowDefinitionSchema } from './lib/definitions/WorkflowDefinition.js';
 export type { WorkflowDefinition } from './lib/definitions/WorkflowDefinition.js';
 
@@ -38,7 +38,10 @@ export type { Journal } from './lib/journal.js';
 export type { Module } from './lib/module.js';
 
 export { WorkflowError } from './lib/execution/ErrorHandling.js'
+export type { WorkflowErrorOptions } from './lib/execution/ErrorHandling.js';
 export type { WorkflowExecutionOptions, WorkflowLogEvent } from './lib/execution/TaskMessaging.js';
 
 export type { TaskImpl } from './lib/execution/TaskImpl.js';
 export type { TaskCtx } from './lib/execution/TaskCtx.js';
+
+export * from "./lib/utils/ConstructUtils.js";

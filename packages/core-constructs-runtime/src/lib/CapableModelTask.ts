@@ -1,5 +1,5 @@
 import { BaseCapability, CAPABLE_WORKFLOW_TASK_DEF, CapableModel, GET_AVAILABLE_CAPABILITIES_TASK_DEF, CapableWorkflowTaskMessageSchema, INVOKE_MODEL_TASK_DEF, BaseModel } from '@ferment-ai/core-constructs-lib';
-import { getTaskCall, TaskCtx, TaskImpl } from '@ferment-ai/runtime-common';
+import { getConstructFromNodePath, getTaskCall, TaskCtx, TaskImpl } from '@ferment-ai/runtime-common';
 import * as z from 'zod';
 
 type CapabilityType = 'tool' | 'prompt' | 'resource';
@@ -28,8 +28,21 @@ async function* aggregateCapabilities(
     ['resource', new Map()]
   ]);
 
+  let capabilityList: BaseCapability[] = [];
+
+  if (forceCapability) {
+    const { type, name, capabilityNodePath } = forceCapability;
+    const forceConstruct = getConstructFromNodePath(construct.node.root, capabilityNodePath);
+    if(!(forceConstruct instanceof BaseCapability)) {
+      throw new Error("Expected forceCapability to be an instance of BaseCapability; can't force a non-base capability.");
+    }
+    capabilityList = [forceConstruct];
+  } else {
+    capabilityList = construct.props.capabilities
+  }
+
   // Process each capability provider
-  for (const capability of construct.props.capabilities) {
+  for (const capability of capabilityList) {
     const capabilitiesRes = yield* getTaskCall(ctx, capability.getAvailableCapabilities)();
     
     // Check for conflicts with duplicate names

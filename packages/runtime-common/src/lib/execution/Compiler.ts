@@ -20,6 +20,7 @@ export function compileWorkflow(
   taskImpls: TaskImplMap,
   nodePathToConstruct: { [nodePath: string]: Construct } = {}
 ): WorkflowExecutor {
+  //console.log("Got workflow definition: ", JSON.stringify(workflowDef, null, 2));
   // Validate the workflow definition
   WorkflowDefinitionSchema.parse(workflowDef);
 
@@ -203,7 +204,15 @@ function createTaskContext<I extends z.ZodTypeAny, O extends z.ZodTypeAny>(
   nodePath: string,
   input: any
 ): TaskCtx<I, O> {
+  console.log("Creating task context for", nodePath);
+
+  //console.log("Tasks", wctx.workflowDef.tasks);
   const taskDef = wctx.workflowDef.tasks[nodePath];
+  //console.log("taskDef", taskDef);
+
+  if(!taskDef) {
+    throw new Error("InvariantViolation: Expected a taskDef to exist for all tasks, tried to call destNodePath="+nodePath);
+  }
 
   const taskImpl = wctx.taskImpls[nodePath];
 

@@ -1,8 +1,9 @@
 import { z } from 'zod';
-import { Construct } from 'constructs';
+import { Construct, RootConstruct } from 'constructs';
 import { WorkflowDefinition } from '../definitions/WorkflowDefinition.js';
 import { TaskDefinition } from '../definitions/TaskDefinition.js';
-import { WorkflowTask } from './WorkflowTask.js';
+import { WorkflowTask, isWorkflowTask } from './WorkflowTask.js';
+import { getConstructFromNodePath } from '../utils/ConstructUtils.js';
 
 /**
  * Options for creating a workflow
@@ -52,9 +53,6 @@ export class Workflow extends Construct {
   getDefinition(): WorkflowDefinition {
     const tasks: Record<string, TaskDefinition> = {};
 
-    // Add the entry point task
-    tasks[this.definition.node.path] = this.definition.getDefinition();
-
     // Add all tasks reachable from the entry point
     this.addReachableTasks(this.definition, tasks);
 
@@ -74,11 +72,82 @@ export class Workflow extends Construct {
    * @param tasks The tasks map to add to
    */
   private addReachableTasks(task: WorkflowTask<z.ZodTypeAny, z.ZodTypeAny>, tasks: Record<string, TaskDefinition>): void {
-    // Add tools
-    for (const [, tool] of Object.entries(task.getReachableTasks())) {
-      if (!tasks[tool.node.path]) {
-        tasks[tool.node.path] = tool.getDefinition();
-        this.addReachableTasks(tool, tasks);
+    // Queue for breadth-first search
+    const queue: WorkflowTask<z.ZodTypeAny, z.ZodTypeAny>[] = [task];
+    // Set to track visited tasks to avoid cycles
+    const visited = new Set<string>();
+    // Map to track all reachable tasks relationships
+    const reachableTasksMap = new Map<string, Set<string>>();
+
+    tasks[task.node.path] = {
+      ...task.getDefinition(),
+      reachableTasks: [],
+    }
+
+    // Process tasks in breadth-first order
+    while (queue.length > 0) {
+      const currentTask = queue.shift()!;
+      const currentTaskPath = currentTask.node.path;
+      
+      // Skip if already visited
+      if (visited.has(currentTaskPath)) {
+        continue;
+      }
+      
+      // Mark as visited
+      visited.add(currentTaskPath);
+      
+      // Get reachable tasks from the current task
+      const reachableTasks = currentTask.getReachableTasks();
+
+
+      for (const [sourcePath, destPath] of reachableTasks) {
+        console.log(`>>>> ${sourcePath} ---> ${destPath}`);
+      }
+      
+      // Process each reachable task
+      for (const [sourcePath, destPath] of reachableTasks) {
+        // Add to the reachable tasks map
+        if (!reachableTasksMap.has(sourcePath)) {
+          reachableTasksMap.set(sourcePath, new Set<string>());
+        }
+        reachableTasksMap.get(sourcePath)!.add(destPath);
+        
+        // Find the destination task construct by traversing the construct tree
+        const destConstruct: Construct | undefined = getConstructFromNodePath(this.node.root, destPath);
+        
+        // Check if the destination is a WorkflowTask
+        if (destConstruct && isWorkflowTask(destConstruct)) {
+          const destTask = destConstruct as WorkflowTask<z.ZodTypeAny, z.ZodTypeAny>;
+          
+          // Add the task definition to the tasks map if not already there
+          if (!tasks[destPath]) {
+            console.log("Pushing task defn", destPath);
+            tasks[destPath] = {
+              ...destTask.getDefinition(),
+              reachableTasks: [],
+            }
+          }
+          
+          // Add to the queue for further processing if not visited
+          if (!visited.has(destPath)) {
+            queue.push(destTask);
+          }
+        }
+      }
+    }
+    
+    // Update all task definitions with their reachable tasks
+    for (const [sourcePath, destPaths] of reachableTasksMap.entries()) {
+      if (tasks[sourcePath]) {
+        // Convert the Set to an array of tuples
+        const reachableTasks: [string, string][] = [];
+        for (const destPath of destPaths) {
+          reachableTasks.push([sourcePath, destPath]);
+        }
+        
+        // Update the task definition
+        tasks[sourcePath].reachableTasks = reachableTasks.map(v => v[1]);
       }
     }
   }

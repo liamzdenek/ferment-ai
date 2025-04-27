@@ -32,17 +32,15 @@ export class CapableModel extends CapableWorkflowTask {
   }
 
   // CapableModel needs to be able to use all of its tools, and the model.
-  override getReachableTasks(): Record<string, WorkflowTask<z.ZodTypeAny, z.ZodTypeAny>> {
-    const tools = {
+  override getReachableTasks(): [string, string][] {
+    const tools: [string, string][] = [
       ...super.getReachableTasks(),
       ...this.props.capabilityParser.getReachableTasks(),
-      [this.props.model.node.path]: this.props.model,
-    };
-
-    for(const capability of this.props.capabilities) {
-      Object.assign(tools, capability.getReachableTasks());
-    }
-
+      [this.node.path, this.props.model.node.path],
+      ...this.props.capabilities.flatMap(capability => (
+        capability.getReachableTasks(this.node.path)
+      ))
+    ];
     return tools;
   }
 }

@@ -54,7 +54,7 @@ export class LLMGate extends CapableWorkflowTask {
       if (input.condition.type === 'pass_if_in_range' || input.condition.type === 'fail_if_in_range') {
         const structuredOutput = new StructuredOutput(this, 'StructuredOutput', {
           outputType: LLMGateRangeOutput,
-          capableModel: capableModel
+          capableTask: capableModel
         });
         this.props = {
           ...restInput,
@@ -66,7 +66,7 @@ export class LLMGate extends CapableWorkflowTask {
       } else if (input.condition.type === 'fail_if_regex_matches' || input.condition.type === 'pass_if_regex_matches') {
         const structuredOutput = new StructuredOutput(this, 'StructuredOutput', {
           outputType: LLMGateStringOutput,
-          capableModel: capableModel
+          capableTask: capableModel
         });
         this.props = {
           ...restInput,
@@ -86,10 +86,10 @@ export class LLMGate extends CapableWorkflowTask {
     }
   }
 
-  override getReachableTasks(): Record<string, WorkflowTask<z.ZodTypeAny, z.ZodTypeAny>> {
-    return {
+  override getReachableTasks(): [string, string][] {
+    return [
       ...super.getReachableTasks(),
-      [this.props.condition.structuredOutput.node.id]: this.props.condition.structuredOutput
-    };
+      [this.node.path, this.props.condition.structuredOutput.node.path]
+    ];
   }
 }

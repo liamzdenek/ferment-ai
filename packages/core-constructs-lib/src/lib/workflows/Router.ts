@@ -91,7 +91,7 @@ export class Router extends CapableWorkflowTask {
     
     // Create the structured output
     this.structuredOutput = new StructuredOutput(this, "StructuredOutput", {
-      capableModel: props.capableModel,
+      capableTask: props.capableModel,
       outputType: z.object({
         route: z.string()
       })
@@ -111,16 +111,16 @@ export class Router extends CapableWorkflowTask {
     this.routeMap.set(route.name, route.task);
   }
 
-  override getReachableTasks(): Record<string, WorkflowTask<z.ZodTypeAny, z.ZodTypeAny>> {
-    const tools = {
+  override getReachableTasks(): [string, string][] {
+    const tools: [string, string][] = [
       ...super.getReachableTasks(),
-      [this.templateParser.node.path]: this.templateParser,
-      [this.structuredOutput.node.path]: this.structuredOutput,
-    };
+      [this.node.path, this.templateParser.node.path],
+      [this.node.path, this.structuredOutput.node.path],
+    ];
     
     // Add all route tasks
     for (const route of this.props.routes) {
-      tools[route.task.node.path] = route.task;
+      tools.push([this.node.path, route.task.node.path])
     }
     
     return tools;

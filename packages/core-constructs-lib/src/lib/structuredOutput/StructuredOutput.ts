@@ -26,17 +26,15 @@ export class StructuredOutput<T extends ZodTypeAny> extends WorkflowTask<typeof 
     this.structuredOutputCapability = new StructuredOutputCapability(this, 'StructuredOutputCapability', {
       asType: this.props.outputType
     })
-
-    // If capableTask is a CapableModel, push the capability
-    if ('pushCapability' in this.props.capableTask) {
-      (this.props.capableTask as CapableModel).pushCapability(this.structuredOutputCapability);
-    }
   }
     
-  override getReachableTasks(): Record<string, WorkflowTask<z.ZodTypeAny, z.ZodTypeAny>> {
-    return {
+  override getReachableTasks(): [string, string][] {
+    return [
       ...super.getReachableTasks(),
-      [this.props.capableTask.node.path]: this.props.capableTask
-    };
+      [this.node.path, this.props.capableTask.node.path],
+
+      // TODO: needs a bit more juggling to get the permissions working for this
+      ...this.structuredOutputCapability.getReachableTasks(this.props.capableTask.node.path)
+    ];
   }
 }

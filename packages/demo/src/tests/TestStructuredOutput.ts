@@ -38,7 +38,7 @@ export class TestStructuredOutput extends TestConstruct {
         })
 
         const so = new StructuredOutput(this, "StructuredOutput", {
-            capableModel,
+            capableTask: capableModel,
             outputType: z.strictObject({
                 accountholderName: z.string(),
                 accountType: z.string(),

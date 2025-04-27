@@ -17,10 +17,10 @@ export abstract class BaseCapability extends Construct {
 
   // even though BaseCapability isn't itself callable... it's made up of callable things
   // so we're adding this convenience function for callers to easily rely on all of the necessary tasks in a capability
-  getReachableTasks(): Record<string, WorkflowTask<z.ZodTypeAny, z.ZodTypeAny>> {
-    return {
-      [this.executeCapability.node.path]: this.executeCapability,
-      [this.getAvailableCapabilities.node.path]: this.getAvailableCapabilities
-    };
+  getReachableTasks(nodePath: string): [string, string][] {
+    return [
+      [nodePath, this.executeCapability.node.path],
+      [nodePath, this.getAvailableCapabilities.node.path]
+    ];
   }
 }

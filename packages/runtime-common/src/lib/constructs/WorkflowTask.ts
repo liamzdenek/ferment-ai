@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { Construct } from 'constructs';
 import { TaskDef } from '../definitions/TaskDef.js';
-import { TaskDefinition } from '../definitions/TaskDefinition.js';
+import { PreCompileTaskDefinition, TaskDefinition } from '../definitions/TaskDefinition.js';
 
 /**
  * Options for creating a task
@@ -40,33 +40,29 @@ export abstract class WorkflowTask<I extends z.ZodTypeAny, O extends z.ZodTypeAn
    *
    * @returns The task definition
    */
-  getDefinition(): TaskDefinition {
+  getDefinition(): PreCompileTaskDefinition {
     if (!this.taskDef) {
       throw new Error(`Task ${this.node.id} does not have a taskDef defined`);
     }
-
-    // Get the tools
-    const reachableTasks = Object.keys(this.getReachableTasks());
 
     return {
       id: this.node.path,
       name: this.node.id,
       taskDefId: this.taskDef.taskDefId,
       inputType: this.taskDef.inputType,
-      outputType: this.taskDef.outputType,
-      reachableTasks
+      outputType: this.taskDef.outputType
     };
   }
 
   /**
    * Gets the tools that can be called by this task. We expect you to override this and push new items
    * 
-   * { [construct.node.path]: construct }
+   * [ [this.node.path, this.otherConstruct.node.path] ]
    *
    * @returns The tools
    */
-  getReachableTasks(): Record<string, WorkflowTask<z.ZodTypeAny, z.ZodTypeAny>> {
-    return {};
+  getReachableTasks(): [string, string][] {
+    return [];
   }
 }
 

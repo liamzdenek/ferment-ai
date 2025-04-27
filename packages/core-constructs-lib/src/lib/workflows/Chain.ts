@@ -27,10 +27,10 @@ export class Chain extends CapableWorkflowTask {
     this.props.links.push(link)
   }
 
-  override getReachableTasks(): Record<string, WorkflowTask<z.ZodTypeAny, z.ZodTypeAny>> {
-    return {
+  override getReachableTasks(): [string, string][] {
+    return [
       ...super.getReachableTasks(),
-      ...(Object.fromEntries(this.props.links.map(link => [link.node.path, link] as const)))
-    };
+      ...(this.props.links.map(link => [this.node.path, link.node.path] as const satisfies [string,string]))
+    ];
   }
 }

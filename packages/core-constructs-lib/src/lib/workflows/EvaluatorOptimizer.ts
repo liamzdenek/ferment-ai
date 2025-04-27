@@ -67,25 +67,25 @@ export class EvaluatorOptimizer extends CapableWorkflowTask {
     };
   }
 
-  override getReachableTasks(): Record<string, WorkflowTask<z.ZodTypeAny, z.ZodTypeAny>> {
-    const tasks: Record<string, WorkflowTask<z.ZodTypeAny, z.ZodTypeAny>> = {
+  override getReachableTasks(): [string, string][] {
+    const tasks: [string, string][] = [
       ...super.getReachableTasks(),
-      [this.props.optimizerTask.node.path]: this.props.optimizerTask,
-      [this.props.evaluatorTask.node.path]: this.props.evaluatorTask,
-    };
+      [this.node.path, this.props.optimizerTask.node.path],
+      [this.node.path, this.props.evaluatorTask.node.path],
+    ];
     
     // Add evaluatorOutput
     if (this.props.evaluatorOutput) {
-      tasks[this.props.evaluatorOutput.node.path] = this.props.evaluatorOutput;
+      tasks.push([this.node.path, this.props.evaluatorOutput.node.path]);
     }
     
     // Add template parsers if they are BaseTemplateParser instances
     if (typeof this.props.evaluatorTemplate !== 'string' && this.props.evaluatorTemplate) {
-      tasks[this.props.evaluatorTemplate.node.path] = this.props.evaluatorTemplate;
+      tasks.push([this.node.path, this.props.evaluatorTemplate.node.path]);
     }
     
     if (typeof this.props.optimizerTemplate !== 'string' && this.props.optimizerTemplate) {
-      tasks[this.props.optimizerTemplate.node.path] = this.props.optimizerTemplate;
+      tasks.push([this.node.path, this.props.optimizerTemplate.node.path]);
     }
     
     return tasks;

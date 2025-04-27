@@ -77,24 +77,24 @@ export class Parallel extends CapableWorkflowTask {
     this.props.aggregationTemplate = template;
   }
 
-  override getReachableTasks(): Record<string, WorkflowTask<z.ZodTypeAny, z.ZodTypeAny>> {
-    const tasks: Record<string, WorkflowTask<z.ZodTypeAny, z.ZodTypeAny>> = {
+  override getReachableTasks(): [string, string][] {
+    const tasks: [string, string][] = {
       ...super.getReachableTasks()
     };
     
     // Add all parallel tasks
     for (const task of this.props.parallelTasks) {
-      tasks[task.node.path] = task;
+      tasks.push([this.node.path, task.node.path]);
     }
     
     // Add aggregator if present
     if (this.props.aggregator) {
-      tasks[this.props.aggregator.node.path] = this.props.aggregator;
+      tasks.push([this.node.path, this.props.aggregator.node.path])
     }
     
     // Add aggregation template if present
     if (this.props.aggregationTemplate) {
-      tasks[this.props.aggregationTemplate.node.path] = this.props.aggregationTemplate;
+      tasks.push([this.node.path, this.props.aggregationTemplate.node.path])
     }
     
     return tasks;
