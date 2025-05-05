@@ -19,7 +19,7 @@ export interface TaskPoolYield<T> {
  * Type guard to check if a value is a TaskPoolYield
  */
 export function isTaskPoolYield<T>(value: any): value is TaskPoolYield<T> {
-  return value && typeof value === 'object' && value.type === 'yield';
+  return !!value && typeof value === 'object' && value.type === 'yield';
 }
 
 /**
@@ -128,7 +128,7 @@ export class TaskPool<YieldT, ReturnT = void, CallbackReturnT = ReturnT, YieldOu
         // Get the final value from the callback
         callbackReturnValue = callbackResult.value;
       } catch (error) {
-        console.error("Error in callback generator:", error);
+        //console.error("Error in callback generator:", error);
         // Continue the generator with the error
         this.pendingResults.set(id, generator.throw(error));
         continue;

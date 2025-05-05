@@ -117,7 +117,7 @@ async function* runWorkflowTasks(wctx: WorkflowRuntimeContext, tctxs: TaskCtx<an
         value: getTaskErrorEvent(tctxs[id], v)
       };
     } else {
-      throw new Error("Uknown how to handle result type: "+(v as unknown as any).type);
+      throw new Error("Unknown how to handle result type: "+(v as unknown as any).type);
     }
     return v;
   }
