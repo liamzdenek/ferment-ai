@@ -1,9 +1,8 @@
 import { Construct } from "constructs";
 import { WorkflowDefinition, WorkflowDefinitionSchema } from "../definitions/WorkflowDefinition.js";
-import { WorkflowExecutionOptions, WorkflowLogEvent, TaskCallResult, generateTaskExecutionId, TaskExecutionId, TaskCallError, TaskCallRequest, TaskCallResults } from "./TaskMessaging.js";
-import { TaskImpl, TaskImplMap } from "./TaskImpl.js";
+import { WorkflowExecutionOptions, WorkflowLogEvent, TaskCallResult, generateTaskExecutionId, TaskExecutionId, TaskCallError, TaskCallResults } from "./TaskMessaging.js";
+import { TaskImplMap } from "./TaskImpl.js";
 import { TaskCtx } from "./TaskCtx.js";
-import { isTaskPoolYield, executeTaskTree, TaskPoolYield } from "./TaskPool.js";
 import { z } from "zod";
 import { WorkflowError } from "./ErrorHandling.js";
 import { combineGenerators } from "./combineGenerators.js";
@@ -74,9 +73,14 @@ export function compileWorkflow(
   }
 }
 
+export interface TaskPoolYield<T> {
+  type: 'yield',
+  value: T
+}
+
 async function* runWorkflowTasks(wctx: WorkflowRuntimeContext, tctxs: TaskCtx<any, any>[]): AsyncGenerator<TaskPoolYield<WorkflowLogEvent>, Array<TaskCallResult | TaskCallError>, void> {
 
-  const generators = Array.from(tctxs.entries()).map(async function* ([id, tctx]) {
+  const generators = Array.from(tctxs.entries()).map(async function* ([_id, tctx]) {
     const taskImpl = wctx.taskImpls[tctx.nodePath];
 
     const startEvent: TaskPoolYield<WorkflowLogEvent> = {
@@ -84,7 +88,6 @@ async function* runWorkflowTasks(wctx: WorkflowRuntimeContext, tctxs: TaskCtx<an
       value: getTaskStartEvent(tctx)
     }
     yield startEvent;
-
 
     const taskGenerator = taskImpl.execute(tctx);
 

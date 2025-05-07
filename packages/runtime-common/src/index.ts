@@ -1,5 +1,3 @@
-import { WorkflowError } from './lib/execution/ErrorHandling.js';
-
 // Re-export constructs
 export { Workflow } from './lib/constructs/Workflow.js';
 export type { WorkflowOptions } from './lib/constructs/Workflow.js';

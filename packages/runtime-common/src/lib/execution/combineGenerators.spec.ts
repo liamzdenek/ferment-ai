@@ -53,7 +53,7 @@ describe('combineGenerators', () => {
       if ((error as Error).message === 'Collection timed out') {
         // If we timeout, try to get the return value
         try {
-          const finalResult = await generator.return!(undefined as unknown as R);
+          const finalResult = await generator.return(undefined as unknown as R);
           result = finalResult.value as R;
         } catch {
           result = undefined as unknown as R;

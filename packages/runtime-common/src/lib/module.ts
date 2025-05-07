@@ -1,5 +1,5 @@
 import { Construct } from 'constructs';
-import { TaskImpl } from './execution/TaskExecution.js';
+import { TaskImpl } from './execution/TaskImpl.js';
 
 /**
  * A module is a function that takes a construct and returns a task implementation
