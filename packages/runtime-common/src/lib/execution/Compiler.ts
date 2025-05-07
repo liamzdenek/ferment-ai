@@ -3,7 +3,7 @@ import { WorkflowDefinition, WorkflowDefinitionSchema } from "../definitions/Wor
 import { WorkflowExecutionOptions, WorkflowLogEvent, TaskCallResult, generateTaskExecutionId, TaskExecutionId, TaskCallError, TaskCallRequest, TaskCallResults } from "./TaskMessaging.js";
 import { TaskImpl, TaskImplMap } from "./TaskImpl.js";
 import { TaskCtx } from "./TaskCtx.js";
-import { isTaskPoolYield, TaskPool, TaskPoolYield } from "./TaskPool.js";
+import { isTaskPoolYield, executeTaskTree, TaskPoolYield } from "./TaskPool.js";
 import { z } from "zod";
 import { WorkflowError } from "./ErrorHandling.js";
 
@@ -123,15 +123,9 @@ async function* runWorkflowTasks(wctx: WorkflowRuntimeContext, tctxs: TaskCtx<an
   }
 
 
-  // Create a task pool with the callback
-  const taskPool = new TaskPool<
-    TaskCallRequest,
-    TaskCallResult | TaskCallError,
-    TaskCallResults,
-    TaskPoolYield<WorkflowLogEvent>
-  >(processYieldedValue, onResultCallback);
-
-  // Add all task generators to the pool
+  // Create generators for all tasks
+  const generators: Array<AsyncGenerator<TaskCallRequest, TaskCallResult | TaskCallError, TaskCallResults>> = [];
+  
   for(const [id, tctx] of tctxs.entries()) {
     const taskImpl = wctx.taskImpls[tctx.nodePath];
 
@@ -139,25 +133,38 @@ async function* runWorkflowTasks(wctx: WorkflowRuntimeContext, tctxs: TaskCtx<an
       type: "yield",
       value: getTaskStartEvent(tctx)
     }
+    
     const generator = taskImpl.execute(tctx);
-    taskPool.push(id, generator);
+    generators.push(generator);
   }
   
-  // Yield all events from the task pool and collect results
-  const iter = taskPool.getIter();
-
-  let r: Awaited<ReturnType<typeof iter.next>>;
-  while((r = (await iter.next())).done === false) {
-    const event = r.value;
-    if (isTaskPoolYield(event)) {
-      // If the event is a TaskPoolYield, yield it directly
-      yield event;
+  // Execute all tasks using the executeTaskTree function
+  // We need to filter the results to only return TaskPoolYield<WorkflowLogEvent> values
+  const results = executeTaskTree<
+    TaskCallRequest,
+    TaskCallResult | TaskCallError,
+    TaskCallResults,
+    TaskPoolYield<WorkflowLogEvent>
+  >(
+    generators,
+    processYieldedValue,
+    onResultCallback
+  );
+  
+  // Process the results and only yield TaskPoolYield values
+  for await (const result of results) {
+    if (isTaskPoolYield(result)) {
+      yield result;
     }
   }
-
-  if(!r.done) { throw new Error("Invariant: expected last value to be done=true"); }
   
-  return r.value;
+  // Get the final value from the results
+  const finalResults = await results.next();
+  if (!finalResults.done) {
+    throw new Error("Invariant: expected last value to be done=true");
+  }
+  
+  return finalResults.value;
 }
 
 function getTaskStartEvent(tctx: TaskCtx<any, any>): WorkflowLogEvent {

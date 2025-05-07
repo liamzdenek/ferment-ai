@@ -1,11 +1,11 @@
-import { TaskPool, TaskPoolYield, isTaskPoolYield } from './TaskPool.js';
+import { TaskPoolYield, isTaskPoolYield, executeTaskTree } from './TaskPool.js';
 
 // Define test types that match the provided example
 type TaskCallResult = { type: 'result', value: any };
 type TaskCallError = { type: 'error', message: string, error?: Error };
 type WorkflowLogEvent = { type: string, taskId: string, [key: string]: any };
 
-describe('TaskPool', () => {
+describe('Task Execution', () => {
   // Helper for delaying execution to test parallelism
   const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
   
@@ -37,7 +37,7 @@ describe('TaskPool', () => {
     return returnValue;
   }
 
-  test('should handle an empty pool', async () => {
+  test('should handle empty generators list', async () => {
     const nextValueCallback = jest.fn(async function* (id, value) {
       return `processed-${value}`;
     });
@@ -46,8 +46,7 @@ describe('TaskPool', () => {
       return value;
     });
     
-    const pool = new TaskPool(nextValueCallback, onResultCallback);
-    const iterator = pool.getIter();
+    const iterator = executeTaskTree([], nextValueCallback, onResultCallback);
     const result = await iterator.next();
     
     expect(result.done).toBe(true);
@@ -66,16 +65,13 @@ describe('TaskPool', () => {
       return value;
     });
     
-    const pool = new TaskPool(nextValueCallback, onResultCallback);
     const generator = createTestGenerator(
       ['value1', 'value2'],
       { type: 'result', value: 'success' }
     );
     
-    pool.push(1, generator);
-    
     const values = [];
-    for await (const value of pool.getIter()) {
+    for await (const value of executeTaskTree([generator], nextValueCallback, onResultCallback)) {
       values.push(value);
     }
     
@@ -98,8 +94,6 @@ describe('TaskPool', () => {
       return value;
     });
     
-    const pool = new TaskPool(nextValueCallback, onResultCallback);
-    
     // Create generators with different delays to ensure proper parallelism
     const generator1 = createTestGenerator(
       ['g1-value1', 'g1-value2'],
@@ -113,11 +107,8 @@ describe('TaskPool', () => {
       10 // Faster generator
     );
     
-    pool.push(1, generator1);
-    pool.push(2, generator2);
-    
     const values = [];
-    for await (const value of pool.getIter()) {
+    for await (const value of executeTaskTree([generator1, generator2], nextValueCallback, onResultCallback)) {
       values.push(value);
     }
     
@@ -140,7 +131,6 @@ describe('TaskPool', () => {
       return value;
     });
     
-    const pool = new TaskPool(nextValueCallback, onResultCallback);
     const generator = createTestGenerator(
       ['value1', 'value2'],
       { type: 'result', value: 'success' },
@@ -148,10 +138,8 @@ describe('TaskPool', () => {
       1  // Throw at index 1
     );
     
-    pool.push(1, generator);
-    
     await expect(async () => {
-      for await (const value of pool.getIter()) {
+      for await (const value of executeTaskTree([generator], nextValueCallback, onResultCallback)) {
         // Should throw before completing
       }
     }).rejects.toThrow('Generator error');
@@ -169,15 +157,13 @@ describe('TaskPool', () => {
     
     const onResultCallback = jest.fn(async function* (id, value: TaskCallResult | TaskCallError) {
       if(value.type === 'error') {
-        yield { 
-          type: 'yield', 
-          value: mockGetTaskErrorEvent({ taskId: id }, value as TaskCallError) 
+        yield {
+          type: 'yield',
+          value: mockGetTaskErrorEvent({ taskId: id }, value as TaskCallError)
         };
       }
       return value;
     });
-    
-    const pool = new TaskPool(nextValueCallback, onResultCallback);
     
     // Create a generator that will handle the error
     async function* errorHandlingGenerator(): AsyncGenerator<string, TaskCallResult | TaskCallError, string> {
@@ -185,8 +171,8 @@ describe('TaskPool', () => {
         yield 'normal-value';
         yield 'trigger-error'; // Will cause callback to throw
       } catch (error) {
-        return { 
-          type: 'error', 
+        return {
+          type: 'error',
           message: (error as any).message,
           error: (error as any)
         };
@@ -194,10 +180,8 @@ describe('TaskPool', () => {
       throw new Error("This is not the throw we expected to happen, expected to throw on trigger-error");
     }
     
-    pool.push(1, errorHandlingGenerator());
-    
     const values = [];
-    for await (const value of pool.getIter()) {
+    for await (const value of executeTaskTree([errorHandlingGenerator()], nextValueCallback, onResultCallback)) {
       values.push(value);
     }
     
@@ -225,8 +209,6 @@ describe('TaskPool', () => {
       return value;
     });
     
-    const pool = new TaskPool(nextValueCallback, onResultCallback);
-    
     // Create a generator that yields a direct TaskPoolYield
     async function* directYieldGenerator(): AsyncGenerator<string | TaskPoolYield<string>, TaskCallResult, string> {
       yield 'normal-value';
@@ -234,10 +216,8 @@ describe('TaskPool', () => {
       return { type: 'result', value: 'success' };
     }
     
-    pool.push(1, directYieldGenerator() as any);
-    
     const values = [];
-    for await (const value of pool.getIter()) {
+    for await (const value of executeTaskTree([directYieldGenerator() as any], nextValueCallback, onResultCallback)) {
       values.push(value);
     }
     
@@ -260,16 +240,13 @@ describe('TaskPool', () => {
       return value;
     });
     
-    const pool = new TaskPool(nextValueCallback, onResultCallback);
     const generator = createTestGenerator(
       ['test-value'],
       { type: 'result', value: 'success' }
     );
     
-    pool.push(1, generator);
-    
     const values = [];
-    for await (const value of pool.getIter()) {
+    for await (const value of executeTaskTree([generator], nextValueCallback, onResultCallback)) {
       values.push(value);
     }
     
@@ -308,18 +285,14 @@ describe('TaskPool', () => {
       return v;
     });
     
-    const pool = new TaskPool(nextValueCallback, onResultCallback);
-    
     // Test successful result
     const successGenerator = createTestGenerator(
       ['success-value'],
       { type: 'result', value: 'completed' }
     );
     
-    pool.push(1, successGenerator);
-    
     const values = [];
-    for await (const value of pool.getIter()) {
+    for await (const value of executeTaskTree([successGenerator], nextValueCallback, onResultCallback)) {
       values.push(value);
     }
     

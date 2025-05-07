@@ -1,6 +1,6 @@
-import { TaskPool, TaskPoolYield, isTaskPoolYield } from './TaskPool.js';
+import { TaskPoolYield, isTaskPoolYield, executeTaskTree } from './TaskPool.js';
 
-describe('TaskPool error propagation', () => {
+describe('Task execution error propagation', () => {
   test('generator can catch errors propagated through recursive callbacks', async () => {
     // Track events for verification
     const events: string[] = [];
@@ -20,23 +20,21 @@ describe('TaskPool error propagation', () => {
       if (request.tasks && request.tasks.length > 0) {
         events.push(`Starting subtasks: ${request.tasks.join(', ')}`);
         
-        // Create a new TaskPool for the subtasks
-        const subtaskPool = new TaskPool<TaskRequest, TaskResult, TaskResult, TaskPoolYield<string>>(
-          processYieldedValue, onResultCallback
-        );
+        // Create generators for subtasks
+        const subtaskGenerators: Array<AsyncGenerator<TaskRequest, TaskResult, TaskResult>> = [];
         
-        // Create and add generators for each subtask
+        // Add generators for each subtask
         for (const task of request.tasks) {
           if (task === 'B') {
-            subtaskPool.push(2, createTaskB());
+            subtaskGenerators.push(createTaskB());
           } else if (task === 'C') {
-            subtaskPool.push(3, createTaskC());
+            subtaskGenerators.push(createTaskC());
           }
         }
         
         try {
-          // Process all values from the subtask pool
-          for await (const value of subtaskPool.getIter()) {
+          // Process all values from the subtasks
+          for await (const value of executeTaskTree(subtaskGenerators, processYieldedValue, onResultCallback)) {
             if (isTaskPoolYield(value)) {
               // Pass up any yielded values
               yield value;
@@ -129,18 +127,13 @@ describe('TaskPool error propagation', () => {
       return { status: 'success', message: 'A completed successfully' };
     }
     
-    // Create the task pool with a single generator A
-    const pool = new TaskPool<TaskRequest, TaskResult, TaskResult, TaskPoolYield<string>>(
-      processYieldedValue, onResultCallback
-    );
+    // Create the generator for task A
+    const generatorA = createTaskA();
     
-    // Add ONLY the top-level generator A to the pool
-    pool.push(1, createTaskA());
-    
-    // Collect all yielded values
+    // Collect all yielded values using executeTaskTree
     const yielded: string[] = [];
     
-    for await (const value of pool.getIter()) {
+    for await (const value of executeTaskTree([generatorA], processYieldedValue, onResultCallback)) {
       if (isTaskPoolYield(value)) {
         yielded.push(value.value);
       }
