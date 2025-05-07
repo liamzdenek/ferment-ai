@@ -6,6 +6,7 @@ import { TaskCtx } from "./TaskCtx.js";
 import { isTaskPoolYield, executeTaskTree, TaskPoolYield } from "./TaskPool.js";
 import { z } from "zod";
 import { WorkflowError } from "./ErrorHandling.js";
+import { combineGenerators } from "./combineGenerators.js";
 
 export type WorkflowExecutor = (options: WorkflowExecutionOptions) => AsyncIterable<WorkflowLogEvent>;
 
@@ -57,8 +58,8 @@ export function compileWorkflow(
       options.input
     );
 
-    for await(const yielded of runWorkflowTasks(wctx, [tctx])) {
-      if(yielded.type === "yield") {
+    for await (const yielded of runWorkflowTasks(wctx, [tctx])) {
+      if (yielded.type === "yield") {
         yield yielded.value;
       }
     }
@@ -74,97 +75,91 @@ export function compileWorkflow(
 }
 
 async function* runWorkflowTasks(wctx: WorkflowRuntimeContext, tctxs: TaskCtx<any, any>[]): AsyncGenerator<TaskPoolYield<WorkflowLogEvent>, Array<TaskCallResult | TaskCallError>, void> {
-  // Create a callback function that processes yielded values
-  const processYieldedValue = async function*(
-    generatorId: number,
-    taskCallRequest: TaskCallRequest
-  ): AsyncGenerator<TaskPoolYield<WorkflowLogEvent>, TaskCallResults, void> {
-    //console.log("Got yielded value", taskCallRequest);
-    
-    // Create task contexts for each call
-    const taskContexts = taskCallRequest.calls.map((call) => {
-      return createTaskContext(
-        wctx,
-        generateTaskExecutionId(),
-        call.nodePath,
-        call.input
-      );
-    });
-    
-    //console.log("Running subtasks", taskContexts.map(c => c.nodePath));
-    // Run the tasks and collect the results
-    const finalResult = yield* runWorkflowTasks(wctx, taskContexts);
-    //console.log("Got final result from subtasks", finalResult);
-    
-    
-    // Return the results
-    return {
-      type: 'results',
-      taskExecutionId: taskCallRequest.taskExecutionId,
-      results: finalResult
-    };
-  };
 
-  const onResultCallback = async function* (id: number, v: TaskCallResult | TaskCallError): AsyncGenerator<TaskPoolYield<WorkflowLogEvent>, TaskCallResult | TaskCallError, void> {
-    if(v.type === 'result') {
-      yield {
-        type: "yield",
-        value: getTaskCompleteEvent(tctxs[id], v)
-      };
-    } else if(v.type === 'error') {
-      yield {
-        type: "yield",
-        value: getTaskErrorEvent(tctxs[id], v)
-      };
-    } else {
-      throw new Error("Unknown how to handle result type: "+(v as unknown as any).type);
-    }
-    return v;
-  }
-
-
-  // Create generators for all tasks
-  const generators: Array<AsyncGenerator<TaskCallRequest, TaskCallResult | TaskCallError, TaskCallResults>> = [];
-  
-  for(const [id, tctx] of tctxs.entries()) {
+  const generators = Array.from(tctxs.entries()).map(async function* ([id, tctx]) {
     const taskImpl = wctx.taskImpls[tctx.nodePath];
 
-    yield {
+    const startEvent: TaskPoolYield<WorkflowLogEvent> = {
       type: "yield",
       value: getTaskStartEvent(tctx)
     }
-    
-    const generator = taskImpl.execute(tctx);
-    generators.push(generator);
-  }
-  
-  // Execute all tasks using the executeTaskTree function
-  // We need to filter the results to only return TaskPoolYield<WorkflowLogEvent> values
-  const results = executeTaskTree<
-    TaskCallRequest,
-    TaskCallResult | TaskCallError,
-    TaskCallResults,
-    TaskPoolYield<WorkflowLogEvent>
-  >(
-    generators,
-    processYieldedValue,
-    onResultCallback
-  );
-  
-  // Process the results and only yield TaskPoolYield values
-  for await (const result of results) {
-    if (isTaskPoolYield(result)) {
-      yield result;
+    yield startEvent;
+
+
+    const taskGenerator = taskImpl.execute(tctx);
+
+    let nextIn: Parameters<typeof taskGenerator.next> = [];
+    let v: Awaited<ReturnType<typeof taskGenerator.next>>;
+    while ((v = await taskGenerator.next(...nextIn)).done === false) {
+      if (!v.value || v.value?.type !== "call") {
+        throw new Error("Unknown next value type: "+v.value?.type);
+      }
+
+      const taskExecutionId = v.value.taskExecutionId;
+
+      const res = yield* runWorkflowTasks(wctx, v.value.calls.map(call => createTaskContext(
+        wctx,
+        taskExecutionId,
+        call.nodePath,
+        call.input
+      )));
+
+      const r: TaskCallResults = {
+        type: "results",
+        results: res,
+        taskExecutionId
+      }
+
+      nextIn = [r];
+    }
+
+    if(v.value.type === "call") {
+      throw new Error("Invariant violation: final return result from a generator cannot be a call");
+    }
+
+    console.log("Got returned result from generator", v.value);
+
+    const endEvent: TaskPoolYield<WorkflowLogEvent> = {
+      type: "yield",
+      value: v.value.type === "result" ? getTaskCompleteEvent(tctx, v.value) : getTaskErrorEvent(tctx, v.value)
+    }
+    yield endEvent;
+
+    return v.value;
+  })
+
+  const results = combineGenerators(generators);
+  let v: Awaited<ReturnType<typeof results.next>>;
+  while ((v = await results.next()).done === false) {
+    if(v.value) {
+      yield v.value;
     }
   }
-  
-  // Get the final value from the results
-  const finalResults = await results.next();
-  if (!finalResults.done) {
-    throw new Error("Invariant: expected last value to be done=true");
+
+  const rawFinalRes = v.value;
+
+  if(!rawFinalRes || !Array.isArray(rawFinalRes)) {
+    throw new Error("Failed to get a valid return result from combineGenerators, got: "+rawFinalRes);
   }
-  
-  return finalResults.value;
+
+  const finalRes = rawFinalRes.map((v, i) => {
+    if(v instanceof Error) {
+      const wrapped: TaskCallError = {
+        type: "error",
+        taskDefId: tctxs[i].taskDefId,
+        nodePath: tctxs[i].nodePath,
+        input: "TODO-unimplemented", // this will need to come from monitoring all the calls in the generator
+        error: {
+          message: v.message,
+          details: v
+        }
+      }
+      return wrapped;
+    }
+    return v;
+  })
+
+  return finalRes;
 }
 
 function getTaskStartEvent(tctx: TaskCtx<any, any>): WorkflowLogEvent {
@@ -217,8 +212,8 @@ function createTaskContext<I extends z.ZodTypeAny, O extends z.ZodTypeAny>(
   const taskDef = wctx.workflowDef.tasks[nodePath];
   //console.log("taskDef", taskDef);
 
-  if(!taskDef) {
-    throw new Error("InvariantViolation: Expected a taskDef to exist for all tasks, tried to call destNodePath="+nodePath);
+  if (!taskDef) {
+    throw new Error("InvariantViolation: Expected a taskDef to exist for all tasks, tried to call destNodePath=" + nodePath);
   }
 
   const taskImpl = wctx.taskImpls[nodePath];

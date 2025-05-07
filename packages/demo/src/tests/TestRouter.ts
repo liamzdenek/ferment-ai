@@ -75,8 +75,7 @@ Here are the available routes:
 - {{=route.name}}: {{=route.description}}
 {{~}}
 
-Based on the following input, select the most appropriate route:
-{{=it.input}}
+Based on the above conversation, select the most appropriate route.
 
 Return ONLY a JSON object with a "route" field containing the name of the selected route.
 Example: { "route": "greeting" }

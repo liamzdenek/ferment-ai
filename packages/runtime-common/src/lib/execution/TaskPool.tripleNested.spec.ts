@@ -33,18 +33,21 @@ describe('Task execution error propagation', () => {
         }
         
         try {
+          const messages: string[] = [];
           // Process all values from the subtasks
           // Pass the current generatorId as the parentId
           for await (const value of executeTaskTree(subtaskGenerators, processYieldedValue, onResultCallback, generatorId)) {
             if (isTaskPoolYield(value)) {
               // Pass up any yielded values
               yield value;
+            } else {
+              messages.push(value.message);
             }
           }
           
           // Successfully ran all subtasks
           events.push(`All subtasks of generator ${generatorId} completed successfully`);
-          return { status: 'success', message: 'All subtasks completed' };
+          return { status: 'success', message: 'Combined messages from subtasks: '+JSON.stringify(messages)};
         } catch (error) {
           // An error occurred in a subtask
           events.push(`Error in subtasks of generator ${generatorId}: ${(error as Error).message}`);

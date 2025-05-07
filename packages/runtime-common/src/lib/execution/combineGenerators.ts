@@ -48,12 +48,13 @@
  * @param generators An array of async generators to combine
  * @returns A new async generator that yields values from all input generators and returns a tuple of their final results or errors
  */
+
 export async function* combineGenerators<
-  Generators extends AsyncGenerator<any, any, any>[]
+  Generators extends readonly AsyncGenerator<any, any, any>[]
 >(generators: [...Generators]): AsyncGenerator<
-  Awaited<ReturnType<Generators[number]['next']>>['value'],
+  Generators[number] extends AsyncGenerator<infer YieldType, any, any> ? YieldType : never,
   { [K in keyof Generators]: Generators[K] extends AsyncGenerator<any, infer R, any> ? R | Error : never },
-  any
+  void
 > {
   // Special case: If there are no generators, return an empty array immediately
   if (generators.length === 0) {
@@ -145,5 +146,4 @@ export async function* combineGenerators<
   }
   
   // Return all results as a tuple
-  return results as { [K in keyof Generators]: Generators[K] extends AsyncGenerator<any, infer R, any> ? R : never };
-}
+  return results as { [K in keyof Generators]: Generators[K] extends AsyncGenerator<any, infer R, any> ? R | Error : never };}
