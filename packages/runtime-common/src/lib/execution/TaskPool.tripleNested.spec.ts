@@ -34,7 +34,8 @@ describe('Task execution error propagation', () => {
         
         try {
           // Process all values from the subtasks
-          for await (const value of executeTaskTree(subtaskGenerators, processYieldedValue, onResultCallback)) {
+          // Pass the current generatorId as the parentId
+          for await (const value of executeTaskTree(subtaskGenerators, processYieldedValue, onResultCallback, generatorId)) {
             if (isTaskPoolYield(value)) {
               // Pass up any yielded values
               yield value;
@@ -149,24 +150,23 @@ describe('Task execution error propagation', () => {
     expect(events).toContain('Generator C started');
     expect(events).toContain('Generator C throwing error');
     expect(events).toContain('Generator B caught error: Intentional error from Task C');
-    expect(events).toContain('onResultCallback: Generator 2 completed with status success');
-    expect(events).toContain('onResultCallback: Generator 1 completed with status success');
+    expect(events).toContain('onResultCallback: Generator 0 completed with status success');
     
     // Verify that the yielded values include completion messages
-    expect(yielded).toContain('Generator 2 completed: B completed successfully despite C error');
-    expect(yielded).toContain('Generator 1 completed: A completed successfully');
+    expect(yielded).toContain('Generator 0 completed: B completed successfully despite C error');
+    expect(yielded).toContain('Generator 0 completed: A completed successfully');
     
     // Get index of all key events
     const aStartIndex = events.indexOf('Generator A started');
     const bStartIndex = events.indexOf('Generator B started');
     const cStartIndex = events.indexOf('Generator C started');
     const throwIndex = events.indexOf('Generator C throwing error');
-    const errorPropagateIndex = events.indexOf('Error in subtasks of generator 2: Intentional error from Task C');
+    const errorPropagateIndex = events.indexOf('Error in subtasks of generator 0: Intentional error from Task C');
     const catchIndex = events.indexOf('Generator B caught error: Intentional error from Task C');
-    const bRecoveringIndex = events.indexOf('processYieldedValue: Generator 2 requested "B recovering from error"');
-    const bCompleteIndex = events.indexOf('onResultCallback: Generator 2 completed with status success');
+    const bRecoveringIndex = events.indexOf('processYieldedValue: Generator 0 requested "B recovering from error"');
+    const bCompleteIndex = events.indexOf('onResultCallback: Generator 0 completed with status success');
     const aReceivedResultIndex = events.indexOf('A received result from B: All subtasks completed');
-    const aCompleteIndex = events.indexOf('onResultCallback: Generator 1 completed with status success');
+    const aCompleteIndex = events.indexOf('onResultCallback: Generator 0 completed with status success');
     
     // Verify the complete execution order
     // 1. Tasks should start in order A -> B -> C

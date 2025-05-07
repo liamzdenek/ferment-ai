@@ -34,6 +34,7 @@ interface TaskNode<YieldT, ReturnT, NextT> {
   state: 'pending' | 'running' | 'completed' | 'error';
   result?: ReturnT;
   error?: Error;
+  waitingForChildren?: boolean;
 }
 
 /**
@@ -47,7 +48,8 @@ interface TaskNode<YieldT, ReturnT, NextT> {
 export async function* executeTaskTree<YieldT, ReturnT = void, NextT = any, YieldOutT = TaskPoolYield<any>>(
   generators: Array<AsyncGenerator<YieldT, ReturnT, NextT>>,
   nextValueCallback: NextValueCallback<YieldT, NextT, YieldOutT>,
-  onResultCallback: OnResultCallback<ReturnT, YieldOutT>
+  onResultCallback: OnResultCallback<ReturnT, YieldOutT>,
+  parentId?: number // Track parent-child relationships
 ): AsyncGenerator<YieldOutT | ReturnT, ReturnT[], void> {
   // Map to track all tasks in the execution tree
   const tasks = new Map<number, TaskNode<YieldT, ReturnT, NextT>>();
@@ -60,7 +62,7 @@ export async function* executeTaskTree<YieldT, ReturnT = void, NextT = any, Yiel
   
   // Initialize the task tree with the root generators
   for (let i = 0; i < generators.length; i++) {
-    const id = i;
+    const id = i; // Use 0-based indexing
     const generator = generators[i];
     
     const task: TaskNode<YieldT, ReturnT, NextT> = {
@@ -68,6 +70,7 @@ export async function* executeTaskTree<YieldT, ReturnT = void, NextT = any, Yiel
       generator,
       childIds: [],
       state: 'pending',
+      parentId
     };
     
     tasks.set(id, task);
@@ -104,16 +107,30 @@ export async function* executeTaskTree<YieldT, ReturnT = void, NextT = any, Yiel
       task.state = 'completed';
       task.result = result.value;
       
-      // Process the result with the callback
+      // Process the result with the callback for all tasks
+      // This ensures that all task results are properly yielded
       const finalRes = yield* onResultCallback(taskId, result.value);
       
-      // If this is a root task (no parent), add its result to the final results
+      // Only add root task results to the final results
       if (task.parentId === undefined) {
         results.push(finalRes);
+        
+        // Also yield the result so it can be processed immediately
+        yield finalRes;
+      } else {
+        // If this task has a parent, check if the parent is waiting for children
+        const parentTask = tasks.get(task.parentId);
+        if (parentTask && parentTask.waitingForChildren) {
+          // The parent is waiting for this child to complete
+          // Remove the waiting flag and continue the parent's generator
+          parentTask.waitingForChildren = false;
+          
+          // Continue the parent's generator with the result
+          // Use type assertion to fix the type error
+          pendingResults.set(parentTask.id, parentTask.generator.next(finalRes as unknown as NextT));
+        }
       }
       
-      // Also yield the result so it can be processed immediately
-      yield finalRes;
       continue;
     }
     
@@ -143,23 +160,30 @@ export async function* executeTaskTree<YieldT, ReturnT = void, NextT = any, Yiel
         // If the callback yields a TaskPoolYield, yield it directly
         yield callbackResult.value;
         
-        // Check if this is a subtask creation
-        // This is where we would normally recurse in the original implementation
-        // Instead, we'll add the subtask to our task tree and process it in the same loop
-        
         callbackResult = await callbackGenerator.next();
       }
       
       // Get the final value from the callback
       callbackReturnValue = callbackResult.value;
+      
+      // Check if this is a subtask creation
+      // If the callback returns a value that indicates subtasks were created,
+      // mark this task as waiting for children
+      if (callbackReturnValue && typeof callbackReturnValue === 'object' && 
+          'taskExecutionId' in callbackReturnValue && 'results' in callbackReturnValue) {
+        task.waitingForChildren = true;
+      }
     } catch (error) {
       // Continue the generator with the error
       pendingResults.set(taskId, task.generator.throw(error));
       continue;
     }
     
-    // Continue the generator with the next value
-    pendingResults.set(taskId, task.generator.next(callbackReturnValue));
+    // If the task is waiting for children, don't continue it yet
+    if (!task.waitingForChildren) {
+      // Continue the generator with the next value
+      pendingResults.set(taskId, task.generator.next(callbackReturnValue));
+    }
   }
   
   // Return all the results

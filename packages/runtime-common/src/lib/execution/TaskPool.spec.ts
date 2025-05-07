@@ -76,8 +76,8 @@ describe('Task Execution', () => {
     }
     
     expect(nextValueCallback).toHaveBeenCalledTimes(2);
-    expect(nextValueCallback).toHaveBeenCalledWith(1, 'value1');
-    expect(nextValueCallback).toHaveBeenCalledWith(1, 'value2');
+    expect(nextValueCallback).toHaveBeenCalledWith(0, 'value1');
+    expect(nextValueCallback).toHaveBeenCalledWith(0, 'value2');
     expect(onResultCallback).toHaveBeenCalledTimes(1);
     expect(values.length).toBe(2); // One yield from onResultCallback, one final return
   });
@@ -113,10 +113,10 @@ describe('Task Execution', () => {
     }
     
     // Fast generator should process first due to shorter delays
-    expect(processed[0]).toEqual({ id: 2, value: 'g2-value1' });
-    expect(processed[1]).toEqual({ id: 2, value: 'g2-value2' });
-    expect(processed[2]).toEqual({ id: 1, value: 'g1-value1' });
-    expect(processed[3]).toEqual({ id: 1, value: 'g1-value2' });
+    expect(processed[0]).toEqual({ id: 1, value: 'g2-value1' });
+    expect(processed[1]).toEqual({ id: 1, value: 'g2-value2' });
+    expect(processed[2]).toEqual({ id: 0, value: 'g1-value1' });
+    expect(processed[3]).toEqual({ id: 0, value: 'g1-value2' });
     
     expect(nextValueCallback).toHaveBeenCalledTimes(4);
     expect(onResultCallback).toHaveBeenCalledTimes(2);
@@ -187,7 +187,7 @@ describe('Task Execution', () => {
     
     expect(nextValueCallback).toHaveBeenCalledTimes(2);
     expect(onResultCallback).toHaveBeenCalledTimes(1);
-    expect(onResultCallback).toHaveBeenCalledWith(1, { 
+    expect(onResultCallback).toHaveBeenCalledWith(0, {
       type: 'error', 
       message: 'Callback error',
       error: expect.any(Error)
@@ -226,7 +226,7 @@ describe('Task Execution', () => {
     
     // nextValueCallback should only be called for normal values
     expect(nextValueCallback).toHaveBeenCalledTimes(1);
-    expect(nextValueCallback).toHaveBeenCalledWith(1, 'normal-value');
+    expect(nextValueCallback).toHaveBeenCalledWith(0, 'normal-value');
   });
 
   test('should process values from callback generators', async () => {
@@ -261,7 +261,7 @@ describe('Task Execution', () => {
     // Setup with the sample onResultCallback pattern
     // Create a taskContext map to simulate the tctxs object from the example
     const tctxs = {
-      1: { taskId: 'task-1' }
+      0: { taskId: 'task-0' }
     };
     
     const nextValueCallback = jest.fn(async function* (id, value) {
@@ -300,7 +300,7 @@ describe('Task Execution', () => {
     expect(values.some(v => 
       v.type === 'yield' && 
       v.value.type === 'taskComplete' &&
-      v.value.taskId === 'task-1' &&
+      v.value.taskId === 'task-0' &&
       v.value.result === 'completed'
     )).toBe(true);
   });
