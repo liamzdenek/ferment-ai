@@ -11,7 +11,7 @@ export class TestStructuredOutputCapabilityParser extends TestConstruct {
       {
         role: 'system',
         content: "You must try to use a tool, resource, or prompt to answer the user's inquiry, if one is a match. " +
-          "You must rely on the tool's output to answer the user's inquiry."
+          "You must rely on the tool's output to answer the user's inquiry. The user cannot see the tool result, so you should repeat it back to them. You must not write an original joke, you must rely on the MCP result."
       },
       {
         role: "user",
@@ -45,7 +45,7 @@ export class TestStructuredOutputCapabilityParser extends TestConstruct {
       capabilityParser: singleToolParser
     });
 
-    const singleToolWorkflow = new Workflow(this, 'SingleToolWorkflow', {
+    const _singleToolWorkflow = new Workflow(this, 'SingleToolWorkflow', {
       definition: singleToolModel
     });
 

@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "license": "Apache-2.0",
   "scripts": {
-    "cloc": "cloc --exclude-dir=node_modules,.nx,dist,.vscode,.editorconfig,package-lock.json,jest.config.ts,tsconfig.lib.json --exclude-ext=defaultPrompt.ts,strings.ts ."
+    "cloc": "cloc --exclude-dir=node_modules,.nx,dist,.vscode,.editorconfig,package-lock.json,jest.config.ts,tsconfig.lib.json --exclude-ext=defaultPrompt.ts,strings.ts,spec.ts ."
   },
   "private": true,
   "dependencies": {

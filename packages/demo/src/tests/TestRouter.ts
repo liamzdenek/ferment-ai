@@ -106,7 +106,7 @@ Example: { "route": "greeting" }
     });
 
     // Create a workflow with the router
-    const workflow = new Workflow(this, 'Workflow', {
+    const _workflow = new Workflow(this, 'Workflow', {
       definition: router
     });
   }

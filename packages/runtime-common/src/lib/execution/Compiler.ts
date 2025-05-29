@@ -120,7 +120,7 @@ async function* runWorkflowTasks(wctx: WorkflowRuntimeContext, tctxs: TaskCtx<an
       throw new Error("Invariant violation: final return result from a generator cannot be a call");
     }
 
-    console.log("Got returned result from generator", v.value);
+    //console.log("Got returned result from generator", v.value);
 
     const endEvent: TaskPoolYield<WorkflowLogEvent> = {
       type: "yield",

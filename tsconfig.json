@@ -23,6 +23,9 @@
     },
     {
       "path": "./packages/dad-joke-mcp"
+    },
+    {
+      "path": "./packages/preservative"
     }
   ]
 }
